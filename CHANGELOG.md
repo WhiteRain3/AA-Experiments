@@ -20,6 +20,10 @@ instrumented or physical-device acceptance yet.
   are ignored, a restart request is never replayed at process start, and every path fails open.
   Events: `CONTROL_RESTART`, `CONTROL_HEAD_UNIT_STARTED`, `CONTROL_*_FAILED`.
 - Optional "Restart automatically after a change" after a normal override is saved and published.
+- `scripts/dhu-watch.ps1` (Windows, untested by the author of the change): keeps the Desktop Head
+  Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
+  starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
+  profile.
 - versionName `1.0.0-wr1`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

@@ -1,0 +1,82 @@
+name: Fork release
+
+# Publishes an installable build of this fork whenever the version name in app/build.gradle
+# changes on the fork's working branch. The app's own "Check for updates" reads these releases.
+on:
+  push:
+    branches: ['claude/companion-features']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1
+
+jobs:
+  release:
+    if: github.repository == 'WhiteRain3/AA-Experiments'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version and skip if already published
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          VER=$(sed -n "s/^ *versionName '\(.*\)'$/\1/p" app/build.gradle | head -1)
+          [[ "$VER" =~ -wr[0-9]+$ ]] || { echo "::error::versionName '$VER' is not a fork build (…-wrN)"; exit 1; }
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          if gh release view "$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $VER already exists; nothing to do."
+            echo "publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-java@v4
+        if: steps.version.outputs.publish == 'true'
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v4
+        if: steps.version.outputs.publish == 'true'
+      - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
+        if: steps.version.outputs.publish == 'true'
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.version.outputs.publish == 'true'
+        with:
+          gradle-version: '8.9'
+
+      - name: Test and build with the fork's signing key
+        if: steps.version.outputs.publish == 'true'
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          AAXP_DEBUG_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          AAXP_DEBUG_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          AAXP_DEBUG_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          # Every release must carry the same signature, or phones cannot update over the last one.
+          [ -n "$KS_B64" ] || { echo "::error::secret ANDROID_KEYSTORE_B64 is not set on this repository"; exit 1; }
+          echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/fork.p12"
+          export AAXP_DEBUG_STORE_FILE="$RUNNER_TEMP/fork.p12"
+          # A failing test stops the release before anything is published.
+          gradle --no-daemon --max-workers=1 :app:testDebugUnitTest :app:assembleDebug
+          rm -f "$RUNNER_TEMP/fork.p12"
+          mkdir -p out
+          cp app/build/outputs/apk/debug/app-debug.apk "out/AA-Experiments-${{ steps.version.outputs.ver }}.apk"
+
+      - name: Publish GitHub release
+        if: steps.version.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VER: ${{ steps.version.outputs.ver }}
+        run: |
+          set -euo pipefail
+          git log -1 --pretty=%B | sed '/^Co-Authored-By:/d;/^Claude-Session:/d' > "$RUNNER_TEMP/notes.txt"
+          gh release create "$VER" out/*.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "$VER" --notes-file "$RUNNER_TEMP/notes.txt" --latest

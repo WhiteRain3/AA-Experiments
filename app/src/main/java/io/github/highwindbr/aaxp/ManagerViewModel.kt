@@ -1154,6 +1154,44 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Theme not saved: ${it.message}" }))
     }
 
+    // ---- Updates from this fork's GitHub releases ----
+
+    private val uiPreferences = application.getSharedPreferences("manager_ui", Context.MODE_PRIVATE)
+
+    fun installedVersionName(): String = runCatching {
+        getApplication<Application>().packageManager.getPackageInfo(getApplication<Application>().packageName, 0).versionName
+    }.getOrNull().orEmpty()
+
+    fun checkUpdatesOnOpen(): Boolean = uiPreferences.getBoolean("check_updates_on_open", false)
+    fun setCheckUpdatesOnOpen(enabled: Boolean) { uiPreferences.edit().putBoolean("check_updates_on_open", enabled).apply() }
+
+    /** Asks GitHub for the latest build. [onDone] gets it when it is newer than this one, else null. */
+    fun checkForUpdate(quiet: Boolean = false, onDone: (io.github.highwindbr.aaxp.core.AvailableUpdate?) -> Unit) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching { Updater.latest() } }
+        val update = result.getOrNull()?.takeIf { io.github.highwindbr.aaxp.core.UpdateCheck.isNewer(it, installedVersionName()) }
+        if (!quiet || update != null) mutable.value = mutable.value.copy(message = when {
+            result.isFailure -> "Update check failed: ${result.exceptionOrNull()?.message}"
+            update != null -> "Build ${update.versionName} is available."
+            result.getOrNull() == null -> "No published build found yet."
+            else -> "You have the latest build."
+        })
+        onDone(update)
+    }
+
+    /** Downloads [update], checks it can install over this app, and opens the system installer. */
+    fun installUpdate(update: io.github.highwindbr.aaxp.core.AvailableUpdate, progress: (Int) -> Unit, onDone: () -> Unit) = viewModelScope.launch {
+        val context = getApplication<Application>()
+        val result = withContext(Dispatchers.IO) { runCatching {
+            val apk = Updater.download(context, update) { percent -> viewModelScope.launch { progress(percent) } }
+            Updater.problemWith(context, apk)?.let { error(it) }
+            Updater.install(context, apk)
+        } }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { "Downloaded ${update.versionName}. Confirm the install when Android asks." },
+            { "Update not installed: ${it.message}" }))
+        onDone()
+    }
+
     // ---- Look files: a style pack to share, or a backup of the whole look ----
 
     /** The current look as one file. The wallpaper is included when one is set and small enough. */

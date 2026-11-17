@@ -101,6 +101,36 @@ private val STATUS_BAR_PARTS = listOf(
     } }
 }
 
+/** Check this fork's GitHub releases for a newer build and install it. */
+@Composable internal fun UpdateCard(model: ManagerViewModel) {
+    val installed = remember { model.installedVersionName() }
+    var available by remember { mutableStateOf<io.github.highwindbr.aaxp.core.AvailableUpdate?>(null) }
+    var busy by remember { mutableStateOf(false) }
+    var percent by remember { mutableStateOf<Int?>(null) }
+    var onOpen by remember { mutableStateOf(model.checkUpdatesOnOpen()) }
+    LaunchedEffect(Unit) { if (onOpen) model.checkForUpdate(quiet = true) { available = it } }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Updates", fontWeight = FontWeight.Bold)
+        Text("Installed: $installed. Checking contacts github.com to read this fork's releases; nothing about you or the phone is sent.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        available?.let { update ->
+            Text("${update.versionName} is available (${update.sizeBytes / (1024 * 1024)} MB)", fontWeight = FontWeight.SemiBold)
+            if (update.notes.isNotBlank()) Text(update.notes.trim(), style = MaterialTheme.typography.bodySmall)
+            Button({ busy = true; percent = 0
+                model.installUpdate(update, { percent = it }) { busy = false; percent = null } },
+                Modifier.fillMaxWidth(), enabled = !busy) { Text(percent?.let { "Downloading… $it%" } ?: "Download and install") }
+        }
+        OutlinedButton({ busy = true; model.checkForUpdate { available = it; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy) {
+            Text("Check for updates")
+        }
+        Row(Modifier.fillMaxWidth().toggleable(value = onOpen, role = Role.Switch, onValueChange = { onOpen = it; model.setCheckUpdatesOnOpen(it) }),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text("Check each time the app opens", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = onOpen, onCheckedChange = null)
+        }
+    } }
+}
+
 /** Save the whole look to one file, or load one: a style pack to share and a backup in one. */
 @Composable internal fun LookFileCard(model: ManagerViewModel, connected: Boolean) {
     val context = LocalContext.current

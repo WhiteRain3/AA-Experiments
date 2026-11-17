@@ -225,12 +225,44 @@ public final class AndroidAutoModule extends XposedModule {
         if (!(icon instanceof android.graphics.drawable.AdaptiveIconDrawable adaptive)) return icon;
         android.graphics.drawable.Drawable monochrome = adaptive.getMonochrome();
         int[] colors = GlyphIcons.parseColors(setting);
-        if (monochrome == null || colors == null) return icon;
-        android.graphics.drawable.Drawable glyph = monochrome.getConstantState() != null
-                ? monochrome.getConstantState().newDrawable().mutate() : monochrome.mutate();
-        glyph.setTint(colors[0]);
+        if (colors == null) return icon;
+        android.graphics.drawable.Drawable glyph;
+        if (monochrome != null) {
+            glyph = monochrome.getConstantState() != null
+                    ? monochrome.getConstantState().newDrawable().mutate() : monochrome.mutate();
+            glyph.setTint(colors[0]);
+        } else {
+            // No themed layer: derive a glyph from the icon's own foreground.
+            glyph = generatedGlyph(adaptive.getForeground(), colors[0]);
+            if (glyph == null) return icon;
+        }
         return new android.graphics.drawable.AdaptiveIconDrawable(
                 new android.graphics.drawable.ColorDrawable(colors[1]), glyph);
+    }
+
+    private static final int GENERATED_GLYPH_SIZE = 216;
+
+    private static android.graphics.drawable.Drawable generatedGlyph(
+            android.graphics.drawable.Drawable foreground, int color) {
+        if (foreground == null) return null;
+        android.graphics.drawable.Drawable copy = foreground.getConstantState() != null
+                ? foreground.getConstantState().newDrawable().mutate() : foreground;
+        int size = GENERATED_GLYPH_SIZE;
+        android.graphics.Bitmap rendered = android.graphics.Bitmap.createBitmap(
+                size, size, android.graphics.Bitmap.Config.ARGB_8888);
+        android.graphics.Rect previous = copy.copyBounds();
+        copy.setBounds(0, 0, size, size);
+        copy.draw(new android.graphics.Canvas(rendered));
+        copy.setBounds(previous);
+        int[] pixels = new int[size * size];
+        rendered.getPixels(pixels, 0, size, 0, 0, size, size);
+        int[] mask = GlyphIcons.glyphAlpha(pixels, size);
+        if (mask == null) return null;
+        int rgb = color & 0x00FFFFFF;
+        for (int i = 0; i < mask.length; i++) pixels[i] = (mask[i] << 24) | rgb;
+        rendered.setPixels(pixels, 0, size, 0, 0, size, size);
+        return new android.graphics.drawable.BitmapDrawable(
+                android.content.res.Resources.getSystem(), rendered);
     }
 
     private volatile String carWallpaperVersion;

@@ -88,8 +88,20 @@ function Start-HeadUnitServer {
     adb shell "su -c 'am start-foreground-service -n $($script:service) || am startservice -n $($script:service)'" | Out-Null
 }
 
+function Confirm-Forward {
+    # DHU reaches the phone through this port forward. It is lost whenever the adb server or
+    # the USB connection restarts, so check it instead of assuming it is still there.
+    $list = (adb forward --list 2>$null | Out-String)
+    if ($list -notmatch 'tcp:5277\s+tcp:5277') {
+        adb wait-for-device | Out-Null
+        adb forward tcp:5277 tcp:5277 | Out-Null
+        return $true    # it had to be (re)created
+    }
+    return $false
+}
+
 function Start-Dhu {
-    adb forward tcp:5277 tcp:5277 | Out-Null
+    Confirm-Forward | Out-Null
     $arguments = @()
     if (-not $Touch) { $arguments = @('-c', "`"$Config`"") }
     if ($arguments.Count -gt 0) {
@@ -124,6 +136,10 @@ Write-Host 'Watching the phone. Press Ctrl+C to stop.'
 try {
     while ($true) {
         Start-Sleep -Milliseconds 1000
+
+        if (Confirm-Forward) {
+            Write-Host "$(Get-Date -Format HH:mm:ss) Port forward was missing; restored tcp:5277."
+        }
 
         $restarted = Test-AutoRestarted $script:known
         if (-not $restarted -and $script:dhu.HasExited) {

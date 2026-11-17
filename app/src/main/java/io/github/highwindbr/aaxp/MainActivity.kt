@@ -278,6 +278,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     item { GlyphIconsCard(model, state.framework.connected) }
     item { ThemeColorsCard(model, state.framework.connected) }
     item { StatusBarCard(model, state.framework.connected) }
+    item { LookFileCard(model, state.framework.connected) }
     item { ScreenLayoutCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -463,20 +464,29 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
 @Composable private fun GlyphIconsCard(model: ManagerViewModel, connected: Boolean) {
     val stored = remember(connected) { if (connected) model.glyphIconColors() else null }
     var enabled by remember(connected) { mutableStateOf(stored != null) }
-    val parts = (stored ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS).split(",")
-    var glyph by remember(connected) { mutableStateOf(parts.getOrElse(0) { "FFFFFF" }) }
-    var background by remember(connected) { mutableStateOf(parts.getOrElse(1) { "000000" }) }
-    val colors = "${glyph.trim().removePrefix("#")},${background.trim().removePrefix("#")}"
+    val start = remember(connected) {
+        io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(stored ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS)
+            ?: intArrayOf(-1, 0)
+    }
+    var glyph by remember(connected) { mutableStateOf(start[0]) }
+    var background by remember(connected) { mutableStateOf(start[1]) }
+    var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
+    picking?.let { (title, apply) ->
+        ColorPickerDialog(title, if (title.startsWith("Glyph")) glyph else background, onDismiss = { picking = null }) { apply(it); picking = null }
+    }
+    val colors = "${io.github.highwindbr.aaxp.core.ColorMath.toHex(glyph)},${io.github.highwindbr.aaxp.core.ColorMath.toHex(background)}"
     val valid = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Glyph app icons (experimental)", fontWeight = FontWeight.Bold)
         Text("Shows apps on the car screen as single-colour glyphs, using each app's own themed-icon layer. Apps without one keep their normal icon. Restart Android Auto after changing it.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(glyph, { glyph = it.take(9) }, Modifier.weight(1f), label = { Text("Glyph colour") }, singleLine = true, isError = !valid)
-            OutlinedTextField(background, { background = it.take(9) }, Modifier.weight(1f), label = { Text("Background colour") }, singleLine = true, isError = !valid)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ColorSwatch(glyph, onClick = { picking = "Glyph colour" to { picked -> glyph = picked } })
+            Text("Glyph", Modifier.weight(1f))
+            ColorSwatch(background, onClick = { picking = "Background colour" to { picked -> background = picked } })
+            Text("Background", Modifier.weight(1f))
         }
-        Text("RRGGBB, or AARRGGBB for transparency: AA runs from 00 (invisible) to FF (solid). 00000000 as background shows the glyph alone.",
+        Text("Tap a colour to change it. Opacity 0% on the background shows the glyph alone.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ model.setGlyphIcons(colors) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }

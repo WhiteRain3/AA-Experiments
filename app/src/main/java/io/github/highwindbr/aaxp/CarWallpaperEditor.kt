@@ -91,6 +91,39 @@ internal object CarWallpaperStudio {
                      val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF",
                      val dim: Int = 0, val blur: Int = 0)
 
+    fun settingsJson(saved: Saved): org.json.JSONObject = org.json.JSONObject()
+        .put("width", saved.screen.width).put("height", saved.screen.height)
+        .put("rail", saved.screen.rail.name).put("railSize", saved.screen.railSize)
+        .put("coverage", saved.coverage.name)
+        .put("zoom", saved.placement.zoom.toDouble()).put("offsetX", saved.placement.offsetX.toDouble())
+        .put("offsetY", saved.placement.offsetY.toDouble()).put("turns", saved.placement.quarterTurns)
+        .put("separatorThickness", saved.separatorThickness).put("separatorColor", saved.separatorColor)
+        .put("dim", saved.dim).put("blur", saved.blur)
+
+    /** Editor settings from a look file; anything missing or out of range falls back to a default. */
+    fun settingsFrom(json: org.json.JSONObject?): Saved {
+        val j = json ?: org.json.JSONObject()
+        return Saved(
+            CarScreen(j.optInt("width", 800).coerceIn(200, 8000), j.optInt("height", 480).coerceIn(200, 8000),
+                runCatching { RailSide.valueOf(j.optString("rail", "LEFT")) }.getOrDefault(RailSide.LEFT),
+                j.optInt("railSize", 72).coerceIn(0, 2000)),
+            runCatching { WallpaperCoverage.valueOf(j.optString("coverage", "WHOLE_SCREEN")) }.getOrDefault(WallpaperCoverage.WHOLE_SCREEN),
+            WallpaperPlacement(j.optDouble("zoom", 1.0).toFloat().coerceIn(0.1f, 8f), j.optDouble("offsetX", 0.0).toFloat(),
+                j.optDouble("offsetY", 0.0).toFloat(), j.optInt("turns", 0).mod(4)),
+            j.optInt("separatorThickness", 0).coerceIn(0, 24), j.optString("separatorColor", "#FFFFFF"),
+            j.optInt("dim", 0).coerceIn(0, 80), j.optInt("blur", 0).coerceIn(0, 10))
+    }
+
+    /** The image Android Auto receives for the stored source and settings; null without a source. */
+    fun renderSaved(context: Context): Bitmap? {
+        val source = loadSource(context) ?: return null
+        val saved = load(context)
+        val color = WallpaperGeometry.parseColor(saved.separatorColor)
+        return render(softened(source, saved.blur), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
+            if (color != null) WallpaperGeometry.separator(saved.screen, saved.coverage, saved.separatorThickness) else null,
+            color ?: 0, saved.dim)
+    }
+
     /** [source] softened by [blur] steps (0 = unchanged), at the same size. */
     fun softened(source: Bitmap, blur: Int): Bitmap {
         if (blur <= 0) return source
@@ -297,6 +330,11 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                         FilterChip(separatorColorText.equals(hex, true), { separatorColorText = hex }, { Text(name) })
                     }
                 }
+                var pickingLine by remember { mutableStateOf(false) }
+                if (pickingLine) ColorPickerDialog("Line colour", separatorColor ?: -1, onDismiss = { pickingLine = false }) {
+                    separatorColorText = "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it); pickingLine = false
+                }
+                OutlinedButton({ pickingLine = true }, Modifier.fillMaxWidth()) { Text("Pick a line colour…") }
                 OutlinedTextField(separatorColorText, { separatorColorText = it.take(9) }, Modifier.fillMaxWidth(),
                     label = { Text("Line colour (#RRGGBB or #AARRGGBB)") }, singleLine = true,
                     isError = separatorColor == null,

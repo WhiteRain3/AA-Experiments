@@ -13,7 +13,7 @@ android {
         minSdk 27
         targetSdk 35
         versionCode 180
-        versionName '1.0.0-wr15'
+        versionName '1.0.0-wr16'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 

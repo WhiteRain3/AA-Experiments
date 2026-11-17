@@ -1154,6 +1154,75 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Theme not saved: ${it.message}" }))
     }
 
+    // ---- Look files: a style pack to share, or a backup of the whole look ----
+
+    /** The current look as one file. The wallpaper is included when one is set and small enough. */
+    fun exportLook(): String {
+        val context = getApplication<Application>()
+        val prefs = ServiceBridge.dynamicPreferencesOrNull()
+        val image = if (carWallpaperEnabled()) CarWallpaperStudio.sourceFile(context)
+            .takeIf { it.isFile && it.length() in 1..io.github.highwindbr.aaxp.core.LookBundles.MAX_IMAGE_BYTES }?.readBytes() else null
+        return io.github.highwindbr.aaxp.core.LookBundles.encode(io.github.highwindbr.aaxp.core.LookBundle(
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null),
+            carThemes().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Themes.encode(it) },
+            presets().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Presets.encode(it) },
+            if (image != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(context)) else null, image))
+    }
+
+    /**
+     * Applies a look file. Colours, glyph icons and status bar changes are replaced by the
+     * file's (a part the file lacks is switched off); themes and flag presets are added to the
+     * saved ones, and presets are not applied; the wallpaper is replaced only when the file has one.
+     */
+    fun importLook(text: String, onDone: () -> Unit = {}) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching {
+            val bundle = io.github.highwindbr.aaxp.core.LookBundles.decode(text)
+            val context = getApplication<Application>()
+            val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
+            val editor = prefs.edit()
+            fun put(key: String, value: String?) { if (value == null) editor.remove(key) else editor.putString(key, value) }
+            put(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, bundle.themeColors)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, bundle.glyphColors)
+            put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, bundle.statusBar)
+            val parts = mutableListOf("colours, glyph icons and status bar")
+            bundle.wallpaperImage?.let { image ->
+                CarWallpaperStudio.sourceFile(context).writeBytes(image)
+                CarWallpaperStudio.save(context, CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings))
+                val rendered = checkNotNull(CarWallpaperStudio.renderSaved(context)) { "The wallpaper in this file is not an image" }
+                val bytes = java.io.ByteArrayOutputStream().use { out ->
+                    check(rendered.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
+                    out.toByteArray()
+                }
+                ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.FILE_NAME, bytes)
+                editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, System.currentTimeMillis().toString())
+                parts += "wallpaper"
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            bundle.themesJson?.let { json ->
+                val imported = io.github.highwindbr.aaxp.core.Themes.decode(json)
+                val names = imported.map { it.name.lowercase() }.toSet()
+                storeCarThemes((carThemes().filterNot { it.name.lowercase() in names } + imported)
+                    .take(io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS))
+                parts += "${imported.size} theme(s)"
+            }
+            bundle.presetsJson?.let { json ->
+                val imported = io.github.highwindbr.aaxp.core.Presets.decode(json)
+                val names = imported.map { it.name.lowercase() }.toSet()
+                storePresets((presets().filterNot { it.name.lowercase() in names } + imported)
+                    .take(io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS))
+                parts += "${imported.size} flag preset(s), not applied"
+            }
+            val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            parts.joinToString(", ") to restarted
+        } }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { (parts, restarted) -> "Look loaded: $parts." + if (restarted) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Look not loaded, nothing was changed: ${it.message}" }))
+        onDone()
+    }
+
     // ---- Status bar, crash safe mode and screen layout captures ----
 
     fun statusBarConfig(): String? = runCatching {

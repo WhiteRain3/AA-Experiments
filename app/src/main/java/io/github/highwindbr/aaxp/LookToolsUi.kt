@@ -101,6 +101,45 @@ private val STATUS_BAR_PARTS = listOf(
     } }
 }
 
+/** Save the whole look to one file, or load one: a style pack to share and a backup in one. */
+@Composable internal fun LookFileCard(model: ManagerViewModel, connected: Boolean) {
+    val context = LocalContext.current
+    var pending by remember { mutableStateOf<String?>(null) }
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri).use { out ->
+                checkNotNull(out) { "Cannot write the file" }.write(model.exportLook().toByteArray(Charsets.UTF_8))
+            }
+        }.fold({ model.reportMessage("Look saved to file.") }, { model.reportMessage("Look not saved: ${it.message}") })
+    }
+    val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openInputStream(uri).use { input ->
+                val bytes = checkNotNull(input) { "Cannot read the file" }.readBytes()
+                require(bytes.size <= 24 * 1024 * 1024) { "File is too large to be a look file" }
+                String(bytes, Charsets.UTF_8)
+            }
+        }.fold({ pending = it }, { model.reportMessage("Look not loaded: ${it.message}") })
+    }
+    pending?.let { text ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { pending = null },
+            title = { Text("Load this look?") },
+            text = { Text("This replaces the colours, glyph icon colours and status bar changes in use now, and the car wallpaper if the file has one. " +
+                "Themes and flag presets from the file are added to yours; flag presets are not applied. Save your current look to a file first if you want to come back to it.") },
+            confirmButton = { TextButton({ model.importLook(text); pending = null }) { Text("Load") } },
+            dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Style packs and backup", fontWeight = FontWeight.Bold)
+        Text("One file with the whole look: colours, glyph icons, status bar changes, the car wallpaper with its placement, your themes and your flag presets. Use it as a backup or to pass a style on.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ saver.launch("aa-look.json") }, Modifier.weight(1f), enabled = connected) { Text("Save look to file") }
+            OutlinedButton({ opener.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f), enabled = connected) { Text("Load a look") }
+        }
+    } }
+}
+
 /**
  * Asks Android Auto to describe what it is showing (which views, where, what colours; never any
  * text) and lets the user save that description to a file to send along with a screenshot.

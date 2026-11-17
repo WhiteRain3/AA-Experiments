@@ -38,6 +38,12 @@ instrumented or physical-device acceptance yet.
   flat plates and busy artwork keep their original icon. Android Auto's own `ic_applauncher_*`
   entries and other apps' legacy `mipmap` launcher icons are handled the same way. Events: `GLYPH_ICON_HOOKS`,
   `GLYPH_ICON_SERVED`, `GLYPH_ICON_FAILED`.
+- Car colours (experimental): Android Auto resolves interface colours through one enum of palette
+  roles. The Manager finds that enum in the installed APK by its Material role names (never by its
+  obfuscated name; an ambiguous match counts as not found) and stores the class name. The module
+  re-checks that the class is an enum carrying those role names, then hooks its colour methods and
+  returns the configured colour for a role when one is set, otherwise the original. Events:
+  `THEME_ROLE_HOOKS`, `THEME_COLOR_SERVED`, `THEME_ROLES_REJECTED`.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
   Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
   while a version is configured; otherwise, and on any failure, the original call proceeds. The
@@ -53,7 +59,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr11`, versionCode unchanged.
+- versionName `1.0.0-wr12`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

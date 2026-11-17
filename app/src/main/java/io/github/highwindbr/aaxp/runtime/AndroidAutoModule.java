@@ -106,6 +106,7 @@ public final class AndroidAutoModule extends XposedModule {
         if (!AA_PACKAGE.equals(param.getPackageName()) || !param.isFirstPackage()) return;
         installCarWallpaperHooks();
         installGlyphIconHooks();
+        installThemeColorHooks(param.getClassLoader());
         try {
             JSONObject profile = readProfile();
             if (profile.optInt("schemaVersion") != 3) {
@@ -170,6 +171,73 @@ public final class AndroidAutoModule extends XposedModule {
         } catch (Throwable t) {
             event(Log.ERROR, "PROFILE_FAILED", null, "error", t.getClass().getSimpleName());
             log(Log.ERROR, TAG, "Dynamic profile failed; no further hooks installed", t);
+        }
+    }
+
+    private volatile String themeColorsRaw;
+    private volatile Map<String, Integer> themeColorsParsed = Map.of();
+
+    /** Parsed colour overrides, re-parsed only when the stored text changes. */
+    private Map<String, Integer> themeColors() {
+        String raw = overrideSnapshot.get(ThemeColors.COLORS_KEY);
+        if (raw == null) return Map.of();
+        if (!raw.equals(themeColorsRaw)) {
+            Map<String, Integer> parsed = ThemeColors.parse(raw);
+            themeColorsParsed = parsed == null ? Map.of() : parsed;
+            themeColorsRaw = raw;
+        }
+        return themeColorsParsed;
+    }
+
+    /**
+     * Palette colour overrides. The Manager stores the name of Android Auto's palette-role enum
+     * for the installed build; here it is checked to really be that enum (an enum with the
+     * marker role names) before its colour methods are hooked. A hooked method returns the
+     * configured colour for its role when there is one, otherwise the original result.
+     */
+    private void installThemeColorHooks(ClassLoader loader) {
+        String className = overrideSnapshot.get(ThemeColors.CLASS_KEY);
+        if (className == null || className.isEmpty()) return;
+        try {
+            final Class<?> roles = Class.forName(className, false, loader);
+            Object[] constants = roles.isEnum() ? roles.getEnumConstants() : null;
+            java.util.Set<String> names = new java.util.HashSet<>();
+            if (constants != null) for (Object constant : constants) names.add(((Enum<?>) constant).name());
+            if (!ThemeColors.looksLikeRoleEnum(names)) {
+                event(Log.WARN, "THEME_ROLES_REJECTED", null, "reason", "not_the_role_enum");
+                return;
+            }
+            int installed = 0;
+            for (Method method : roles.getDeclaredMethods()) {
+                if (method.getReturnType() != int.class || method.isSynthetic()) continue;
+                final boolean isStatic = java.lang.reflect.Modifier.isStatic(method.getModifiers());
+                // Static helpers take the role as their first argument.
+                if (isStatic && (method.getParameterCount() == 0 || method.getParameterTypes()[0] != roles)) continue;
+                if (!isStatic && method.getParameterCount() == 0) continue; // ordinal(), hashCode()
+                try {
+                    hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                        Map<String, Integer> colors = themeColors();
+                        if (!colors.isEmpty()) {
+                            Object role = isStatic ? chain.getArg(0) : chain.getThisObject();
+                            if (role instanceof Enum<?> constant) {
+                                Integer color = colors.get(constant.name());
+                                if (color != null) {
+                                    eventOnce(Log.INFO, "THEME_COLOR_SERVED", constant.name(), String.valueOf(color));
+                                    return color;
+                                }
+                            }
+                        }
+                        return chain.proceed();
+                    });
+                    installed++;
+                } catch (Throwable t) {
+                    event(Log.WARN, "THEME_ROLE_HOOK_FAILED", method.getName(), "error", t.getClass().getSimpleName());
+                }
+            }
+            event(Log.INFO, "THEME_ROLE_HOOKS", null, "installed", String.valueOf(installed),
+                    "roles", String.valueOf(names.size()));
+        } catch (Throwable t) {
+            event(Log.WARN, "THEME_ROLES_REJECTED", null, "error", t.getClass().getSimpleName());
         }
     }
 

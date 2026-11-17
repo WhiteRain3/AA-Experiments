@@ -275,6 +275,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     item { PresetsCard(model, state.dynamicOverrides, state.framework.connected) }
     item { CarWallpaperCard(model, state.framework.connected) }
     item { GlyphIconsCard(model, state.framework.connected) }
+    item { ThemeColorsCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -422,6 +423,37 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("DHU mode", "After every restart from this app, also start the head unit server so the Desktop Head Unit can reconnect. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
+    } }
+}
+
+/** Overrides for Android Auto's internal colour roles, e.g. the plate behind rail icons. */
+@Composable private fun ThemeColorsCard(model: ManagerViewModel, connected: Boolean) {
+    var roleClass by remember(connected) { mutableStateOf(if (connected) model.themeRoleClass() else null) }
+    var text by remember(connected) { mutableStateOf(if (connected) model.themeColorsText() else "") }
+    var searching by remember { mutableStateOf(false) }
+    val valid = io.github.highwindbr.aaxp.runtime.ThemeColors.parse(text) != null
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Car colours (experimental)", fontWeight = FontWeight.Bold)
+        Text("Android Auto picks its interface colours from a set of named roles. Give a role your own colour, one per line, as Role=RRGGBB or Role=AARRGGBB (AA is opacity, 00 invisible to FF solid). Restart Android Auto after changing them.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (roleClass == null) {
+            Text("First the app has to find the colour roles in your Android Auto version. This reads the installed app and takes a little while.",
+                style = MaterialTheme.typography.bodyMedium)
+            Button({ searching = true; model.locateThemeRoles { found -> roleClass = found; searching = false } },
+                Modifier.fillMaxWidth(), enabled = connected && !searching) { Text(if (searching) "Searching…" else "Find colour roles") }
+        } else {
+            OutlinedTextField(text, { text = it }, Modifier.fillMaxWidth(), label = { Text("Role=colour, one per line") },
+                minLines = 3, maxLines = 10, isError = !valid,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace))
+            Text("Known so far: OutlineVariant is the plate behind the rail's app icons (OutlineVariant=00000000 removes it). Other roles: Primary, OnPrimary, PrimaryContainer, Secondary, Tertiary, Outline, Background, Surface, SurfaceDim, SurfaceHigh, SurfaceVariant, SurfaceContainer, SurfaceContainerLow, SurfaceContainerHigh, OnSurface, OnSurfaceVariant, TextPrimary, TextSecondary, Red, Green, Blue, Yellow.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button({ model.setThemeColors(text) }, Modifier.weight(1f), enabled = connected && valid) { Text("Save") }
+                OutlinedButton({ text = ""; model.setThemeColors("") }, Modifier.weight(1f), enabled = connected) { Text("Clear") }
+                OutlinedButton({ searching = true; model.locateThemeRoles { found -> roleClass = found; searching = false } },
+                    Modifier.weight(1f), enabled = connected && !searching) { Text(if (searching) "…" else "Re-scan") }
+            }
+        }
     } }
 }
 

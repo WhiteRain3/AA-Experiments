@@ -1053,6 +1053,51 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }.onFailure { mutable.value = mutable.value.copy(saveState = SaveState.FAILED, message = "Preset not applied: ${it.message}") }
     }
 
+    // ---- Palette colour overrides ----
+
+    fun themeRoleClass(): String? = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.ThemeColors.CLASS_KEY, null)
+    }.getOrNull()
+
+    fun themeColorsText(): String = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, null)
+    }.getOrNull().orEmpty().replace(';', '\n')
+
+    /** Finds the palette-role enum in the installed Android Auto and stores its name for the module. */
+    fun locateThemeRoles(onDone: (String?) -> Unit = {}) = viewModelScope.launch {
+        val found = withContext(Dispatchers.IO) { runCatching {
+            val apk = java.io.File(getApplication<Application>().packageManager
+                .getApplicationInfo(InstalledAaScanner.AA_PACKAGE, 0).sourceDir)
+            val name = io.github.highwindbr.aaxp.discovery.ThemeRoleLocator.locate(apk)
+            if (name != null) check(checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+                .putString(io.github.highwindbr.aaxp.runtime.ThemeColors.CLASS_KEY, name).commit()) { "Framework rejected the preference update" }
+            name
+        } }
+        mutable.value = mutable.value.copy(message = found.fold(
+            { if (it != null) "Colour roles found. Restart Android Auto once so the module can use them." else "Colour roles not found in this Android Auto build." },
+            { "Colour roles not found: ${it.message}" }))
+        onDone(found.getOrNull())
+    }
+
+    /** Stores "Role=colour" overrides (one per line); blank text removes them all. */
+    fun setThemeColors(text: String, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val parsed = io.github.highwindbr.aaxp.runtime.ThemeColors.parse(text)
+        val saved = parsed != null && withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
+            val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(parsed)
+            if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, encoded)
+            editor.commit()
+        }.getOrDefault(false) }
+        mutable.value = mutable.value.copy(message = when {
+            parsed == null -> "Colours not saved: each line must be Role=RRGGBB or Role=AARRGGBB."
+            !saved -> "Colours not saved: LSPosed remote preferences unavailable."
+            parsed.isEmpty() -> "Colour overrides removed. Restart Android Auto."
+            else -> "${parsed.size} colour override(s) saved. Restart Android Auto to see them."
+        })
+        onDone(saved)
+    }
+
     // ---- Glyph-style app icons ----
 
     /** The stored "glyph,background" colours, or null when the mode is off. */

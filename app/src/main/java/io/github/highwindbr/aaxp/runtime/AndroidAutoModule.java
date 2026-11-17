@@ -105,6 +105,7 @@ public final class AndroidAutoModule extends XposedModule {
     @Override public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (!AA_PACKAGE.equals(param.getPackageName()) || !param.isFirstPackage()) return;
         installCarWallpaperHooks();
+        installGlyphIconHooks();
         try {
             JSONObject profile = readProfile();
             if (profile.optInt("schemaVersion") != 3) {
@@ -170,6 +171,64 @@ public final class AndroidAutoModule extends XposedModule {
             event(Log.ERROR, "PROFILE_FAILED", null, "error", t.getClass().getSimpleName());
             log(Log.ERROR, TAG, "Dynamic profile failed; no further hooks installed", t);
         }
+    }
+
+    /**
+     * Glyph-style icons: wraps the icon a platform loader returns when it is an adaptive icon with
+     * a monochrome layer. The original loader always runs first; with the mode off, for icons
+     * without such a layer, or on any failure, its result is returned unchanged.
+     */
+    private void installGlyphIconHooks() {
+        if (android.os.Build.VERSION.SDK_INT < 33) return; // monochrome layers exist from Android 13
+        int installed = 0;
+        String[] owners = {
+                "android.content.pm.PackageItemInfo",
+                "android.content.pm.LauncherActivityInfo",
+                "android.app.ApplicationPackageManager"
+        };
+        for (String owner : owners) {
+            try {
+                for (Method method : Class.forName(owner).getDeclaredMethods()) {
+                    if (java.lang.reflect.Modifier.isAbstract(method.getModifiers())
+                            || !GlyphIcons.isIconLoader(method.getName(), method.getReturnType().getName())) continue;
+                    final String name = owner.substring(owner.lastIndexOf('.') + 1) + "." + method.getName();
+                    try {
+                        hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                            Object original = chain.proceed();
+                            String setting = overrideSnapshot.get(GlyphIcons.KEY);
+                            if (setting == null) return original;
+                            try {
+                                Object glyph = toGlyph(original, setting);
+                                if (glyph != original) eventOnce(Log.INFO, "GLYPH_ICON_SERVED", name, setting);
+                                return glyph;
+                            } catch (Throwable t) {
+                                eventOnce(Log.WARN, "GLYPH_ICON_FAILED", name, setting, "error", t.getClass().getSimpleName());
+                                return original;
+                            }
+                        });
+                        installed++;
+                    } catch (Throwable t) {
+                        event(Log.WARN, "GLYPH_ICON_HOOK_FAILED", name, "error", t.getClass().getSimpleName());
+                    }
+                }
+            } catch (Throwable t) {
+                event(Log.WARN, "GLYPH_ICON_HOOK_FAILED", owner, "error", t.getClass().getSimpleName());
+            }
+        }
+        event(Log.INFO, "GLYPH_ICON_HOOKS", null, "installed", String.valueOf(installed));
+    }
+
+    /** Returns a one-colour adaptive icon built from the monochrome layer, or the input unchanged. */
+    private static Object toGlyph(Object icon, String setting) {
+        if (!(icon instanceof android.graphics.drawable.AdaptiveIconDrawable adaptive)) return icon;
+        android.graphics.drawable.Drawable monochrome = adaptive.getMonochrome();
+        int[] colors = GlyphIcons.parseColors(setting);
+        if (monochrome == null || colors == null) return icon;
+        android.graphics.drawable.Drawable glyph = monochrome.getConstantState() != null
+                ? monochrome.getConstantState().newDrawable().mutate() : monochrome.mutate();
+        glyph.setTint(colors[0]);
+        return new android.graphics.drawable.AdaptiveIconDrawable(
+                new android.graphics.drawable.ColorDrawable(colors[1]), glyph);
     }
 
     private volatile String carWallpaperVersion;

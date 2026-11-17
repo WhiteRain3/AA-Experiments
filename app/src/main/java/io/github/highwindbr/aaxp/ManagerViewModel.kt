@@ -1053,6 +1053,30 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }.onFailure { mutable.value = mutable.value.copy(saveState = SaveState.FAILED, message = "Preset not applied: ${it.message}") }
     }
 
+    // ---- Glyph-style app icons ----
+
+    /** The stored "glyph,background" colours, or null when the mode is off. */
+    fun glyphIconColors(): String? = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, null)
+    }.getOrNull()
+
+    fun setGlyphIcons(colors: String?, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val valid = colors == null || io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
+        val saved = valid && withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
+            if (colors == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, colors)
+            editor.commit()
+        }.getOrDefault(false) }
+        mutable.value = mutable.value.copy(message = when {
+            !valid -> "Glyph icons not changed: colours must be RRGGBB."
+            !saved -> "Glyph icons not changed: LSPosed remote preferences unavailable."
+            colors == null -> "Glyph icons off. Restart Android Auto to see normal icons again."
+            else -> "Glyph icons on. Restart Android Auto; icons Android Auto has already cached may take a while to refresh."
+        })
+        onDone(saved)
+    }
+
     // ---- Car wallpaper ----
 
     fun carWallpaperEnabled(): Boolean = runCatching {

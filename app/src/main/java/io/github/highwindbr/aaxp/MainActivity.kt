@@ -274,6 +274,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     item { AndroidAutoControlsCard(model, state.framework.connected) }
     item { PresetsCard(model, state.dynamicOverrides, state.framework.connected) }
     item { CarWallpaperCard(model, state.framework.connected) }
+    item { GlyphIconsCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -421,6 +422,30 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("DHU mode", "After every restart from this app, also start the head unit server so the Desktop Head Unit can reconnect. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
+    } }
+}
+
+/** One-colour app icons on the car screen, built from each app's own monochrome icon layer. */
+@Composable private fun GlyphIconsCard(model: ManagerViewModel, connected: Boolean) {
+    val stored = remember(connected) { if (connected) model.glyphIconColors() else null }
+    var enabled by remember(connected) { mutableStateOf(stored != null) }
+    val parts = (stored ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS).split(",")
+    var glyph by remember(connected) { mutableStateOf(parts.getOrElse(0) { "FFFFFF" }) }
+    var background by remember(connected) { mutableStateOf(parts.getOrElse(1) { "000000" }) }
+    val colors = "${glyph.trim().removePrefix("#")},${background.trim().removePrefix("#")}"
+    val valid = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Glyph app icons (experimental)", fontWeight = FontWeight.Bold)
+        Text("Shows apps on the car screen as single-colour glyphs, using each app's own themed-icon layer. Apps without one keep their normal icon. Restart Android Auto after changing it.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedTextField(glyph, { glyph = it.take(7) }, Modifier.weight(1f), label = { Text("Glyph RRGGBB") }, singleLine = true, isError = !valid)
+            OutlinedTextField(background, { background = it.take(7) }, Modifier.weight(1f), label = { Text("Background RRGGBB") }, singleLine = true, isError = !valid)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ model.setGlyphIcons(colors) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }
+            OutlinedButton({ model.setGlyphIcons(null) { saved -> if (saved) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Turn off") }
+        }
     } }
 }
 

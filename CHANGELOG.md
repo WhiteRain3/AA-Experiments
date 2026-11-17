@@ -27,6 +27,11 @@ instrumented or physical-device acceptance yet.
   set; every value is validated against the installed build like a manual edit, unavailable ones
   are skipped), delete, and export/import as JSON. Applying shows the exact list of changes first
   and marks elevated-risk experiments.
+- Glyph app icons (experimental): inside Android Auto the module wraps the result of the platform
+  icon loaders (`PackageItemInfo`, `LauncherActivityInfo`, `ApplicationPackageManager`). An
+  adaptive icon with a monochrome layer becomes a one-colour glyph on a plain background; anything
+  else, and any failure, returns the original icon. Events: `GLYPH_ICON_HOOKS`,
+  `GLYPH_ICON_SERVED`, `GLYPH_ICON_FAILED`.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
   Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
   while a version is configured; otherwise, and on any failure, the original call proceeds. The
@@ -42,7 +47,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr6`, versionCode unchanged.
+- versionName `1.0.0-wr7`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

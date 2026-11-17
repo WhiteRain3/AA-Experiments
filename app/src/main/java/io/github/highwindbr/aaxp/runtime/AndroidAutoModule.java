@@ -671,6 +671,11 @@ public final class AndroidAutoModule extends XposedModule {
                     || request.equals(handledRestartRequest)) return;
             handledRestartRequest = request;
             event(Log.INFO, "CONTROL_RESTART", null, "process", String.valueOf(moduleProcessName));
+            // Tell the Manager the request was heard, so it does not fall back to other means.
+            try {
+                android.content.Context context = currentApplication();
+                if (context != null) context.getContentResolver().call(REPORTS, "restart_ack", request, null);
+            } catch (Throwable ignored) { }
             new Handler(Looper.getMainLooper()).postDelayed(
                     () -> android.os.Process.killProcess(android.os.Process.myPid()), 250L);
         } catch (Throwable t) {

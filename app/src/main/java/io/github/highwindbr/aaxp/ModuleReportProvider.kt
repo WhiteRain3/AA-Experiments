@@ -31,6 +31,7 @@ class ModuleReportProvider : ContentProvider() {
                 .putString(KEY_SAFE_PROCESS, arg.orEmpty().take(120))
                 .putLong(KEY_SAFE_TIME, System.currentTimeMillis()).apply()
         }
+        if (method == "restart_ack") preferences(context).edit().putString(KEY_RESTART_ACK, arg.orEmpty().take(120)).apply()
         return null
     }
 
@@ -55,6 +56,7 @@ class ModuleReportProvider : ContentProvider() {
         private const val AA_PACKAGE = "com.google.android.projection.gearhead"
         const val KEY_SAFE_PROCESS = "safe_mode_process"
         const val KEY_SAFE_TIME = "safe_mode_time"
+        const val KEY_RESTART_ACK = "restart_ack"
         /** Dumps larger than this are not a layout description. */
         const val MAX_DUMP_BYTES = 4L * 1024 * 1024
 

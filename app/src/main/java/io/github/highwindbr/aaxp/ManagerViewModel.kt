@@ -1423,15 +1423,41 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         // The head unit request is written with the restart so the restarted process still sees it.
         if (headUnit) editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.HEAD_UNIT_KEY, request)
         if (restart) editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.RESTART_KEY, request)
+        if (restart) lastRestartRequest = request
         return editor.commit()
     }
 
+    @Volatile private var lastRestartRequest: String? = null
+
+    /** Ends Android Auto's processes with root, for when the module inside it does not answer. */
+    private fun stopAndroidAutoWithRoot(): Boolean = runCatching {
+        val process = ProcessBuilder("su", "-c", "pkill -f com.google.android.projection.gearhead")
+            .redirectErrorStream(true).start()
+        // Drain the output so a chatty su cannot block, then wait a bounded time.
+        Thread { runCatching { process.inputStream.readBytes() } }.start()
+        if (!process.waitFor(10, java.util.concurrent.TimeUnit.SECONDS)) { process.destroy(); return false }
+        process.exitValue() == 0
+    }.getOrDefault(false)
+
     fun requestAndroidAutoControl(restart: Boolean, headUnit: Boolean) = viewModelScope.launch {
         val sent = withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart, headUnit) }.getOrDefault(false) }
+        if (sent && restart) {
+            mutable.value = mutable.value.copy(message = "Asked Android Auto to restart…")
+            kotlinx.coroutines.delay(2_500)
+            val heard = reportPreferences.getString(ModuleReportProvider.KEY_RESTART_ACK, null) == lastRestartRequest
+            if (!heard) {
+                val stopped = withContext(Dispatchers.IO) { stopAndroidAutoWithRoot() }
+                mutable.value = mutable.value.copy(message = if (stopped)
+                    "Android Auto did not answer, so the module is not loaded in it yet. It was stopped with root instead; the module loads when it starts again."
+                else "Android Auto did not answer and root was not available. Either it is not running, or the module is not loaded in it: " +
+                    "check that AA Experiments is enabled for Android Auto in LSPosed, then force stop Android Auto once in the phone's settings.")
+                return@launch
+            }
+        }
         mutable.value = mutable.value.copy(message = when {
             !sent -> "Request failed: LSPosed remote preferences unavailable."
             restart && headUnit -> "Asked Android Auto to restart; the head unit server starts a few seconds after it is back up."
-            restart -> "Asked Android Auto to restart. It only reacts while it is running."
+            restart -> "Android Auto is restarting."
             else -> "Asked Android Auto to start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_HEAD_UNIT_*)."
         })
     }

@@ -65,6 +65,9 @@ instrumented or physical-device acceptance yet.
   app start if switched on), sends nothing about the user, takes APKs only from this
   repository's release downloads, and refuses a build signed with a different key. A workflow
   publishes a release when the version name changes on the fork's branch.
+- Wallpaper behind the rail: on a real car the rail is a separate window that Android Auto never
+  paints the wallpaper into. With "Whole screen" coverage the Manager now also stores the
+  slice that belongs behind the rail, and the module shows it there.
 - Update check reads the release page's redirect instead of GitHub's API, whose hourly limit is
   shared across a mobile network address; a failed check is now shown as a failure in the card.
 - Restart button: the module acknowledges the request; when no acknowledgement arrives the
@@ -94,7 +97,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr21`, versionCode unchanged.
+- versionName `1.0.0-wr22`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

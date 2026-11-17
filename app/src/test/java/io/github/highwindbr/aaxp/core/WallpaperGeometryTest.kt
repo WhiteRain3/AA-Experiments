@@ -67,4 +67,17 @@ class WallpaperGeometryTest {
         assertEquals(800 to 480, WallpaperGeometry.rotatedSize(800, 480, 2))
         assertEquals(2048f / 872f, WallpaperGeometry.outputScale(WallpaperCanvas(872, 480, 0, 0, 800, 480), 2048), 0.0001f)
     }
+
+    @Test fun railRectIsTheStripBesideTheMainAreaInCanvasPixels() {
+        val screen = CarScreen(1200, 723, RailSide.LEFT, 107)
+        val rect = WallpaperGeometry.railRect(screen, WallpaperCoverage.WHOLE_SCREEN)!!
+        val spec = WallpaperGeometry.canvas(screen, WallpaperCoverage.WHOLE_SCREEN)
+        assertEquals(spec.frameLeft, rect.left)
+        assertEquals(spec.frameLeft + 107, rect.right)
+        assertEquals(723, rect.bottom - rect.top)
+        assertEquals(null, WallpaperGeometry.railRect(screen, WallpaperCoverage.MAIN_AREA))
+        assertEquals(null, WallpaperGeometry.railRect(CarScreen(1200, 723, RailSide.NONE, 0), WallpaperCoverage.WHOLE_SCREEN))
+        val right = WallpaperGeometry.railRect(CarScreen(1200, 723, RailSide.RIGHT, 107), WallpaperCoverage.WHOLE_SCREEN)!!
+        assertEquals(107, right.right - right.left)
+    }
 }

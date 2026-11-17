@@ -1228,13 +1228,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             bundle.wallpaperImage?.let { image ->
                 CarWallpaperStudio.sourceFile(context).writeBytes(image)
                 CarWallpaperStudio.save(context, CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings))
-                val rendered = checkNotNull(CarWallpaperStudio.renderSaved(context)) { "The wallpaper in this file is not an image" }
-                val bytes = java.io.ByteArrayOutputStream().use { out ->
-                    check(rendered.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
-                    out.toByteArray()
-                }
-                ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.FILE_NAME, bytes)
-                editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, System.currentTimeMillis().toString())
+                val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderSaved(context)) { "The wallpaper in this file is not an image" }
+                writeCarWallpaper(editor, rendered, rail)
                 parts += "wallpaper"
             }
             check(editor.commit()) { "Framework rejected the preference update" }
@@ -1366,17 +1361,27 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrDefault(false)
 
     /** Stores [bitmap] as the car wallpaper for the module and enables it. */
-    fun storeCarWallpaper(bitmap: android.graphics.Bitmap, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+    private fun jpeg(bitmap: android.graphics.Bitmap): ByteArray = java.io.ByteArrayOutputStream().use { out ->
+        check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
+        out.toByteArray()
+    }
+
+    /** Writes the wallpaper files and returns an editor action that publishes their version. */
+    private fun writeCarWallpaper(editor: android.content.SharedPreferences.Editor, bitmap: android.graphics.Bitmap, rail: android.graphics.Bitmap?) {
+        ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.FILE_NAME, jpeg(bitmap))
+        if (rail != null) ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_FILE_NAME, jpeg(rail))
+        val version = System.currentTimeMillis().toString()
+        editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, version)
+        if (rail != null) editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY, version)
+        else editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)
+    }
+
+    fun storeCarWallpaper(bitmap: android.graphics.Bitmap, rail: android.graphics.Bitmap? = null, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { runCatching {
-            val bytes = java.io.ByteArrayOutputStream().use { out ->
-                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
-                out.toByteArray()
-            }
-            ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.FILE_NAME, bytes)
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             // The version changes last, so the module never sees a new version with an old file.
-            check(checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
-                .putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, System.currentTimeMillis().toString())
-                .commit()) { "Framework rejected the preference update" }
+            writeCarWallpaper(editor, bitmap, rail)
+            check(editor.commit()) { "Framework rejected the preference update" }
             "${bitmap.width}x${bitmap.height}"
         } }
         mutable.value = mutable.value.copy(message = result.fold(
@@ -1390,7 +1395,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun clearCarWallpaper(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val cleared = withContext(Dispatchers.IO) { runCatching {
             ServiceBridge.dynamicPreferencesOrNull()?.edit()
-                ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)?.commit() == true
+                ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)
+                ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)?.commit() == true
         }.getOrDefault(false) }
         mutable.value = mutable.value.copy(message = if (cleared)
             "Car wallpaper removed. Android Auto shows the phone's wallpaper again after a restart."

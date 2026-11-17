@@ -12,6 +12,12 @@ public final class CarWallpaper {
     public static final String VERSION_KEY = "wallpaper.custom_version";
     /** Remote file holding the image (JPEG). */
     public static final String FILE_NAME = "car_wallpaper.jpg";
+    /**
+     * Set (to the wallpaper version) when a slice for the rail is stored too. The rail is a
+     * separate window that Android Auto never paints the wallpaper into, so the module adds it.
+     */
+    public static final String RAIL_KEY = "wallpaper.rail_version";
+    public static final String RAIL_FILE_NAME = "car_wallpaper_rail.jpg";
     /** Longest edge stored, in pixels. Car screens are far smaller than this. */
     public static final int MAX_EDGE = 2048;
 

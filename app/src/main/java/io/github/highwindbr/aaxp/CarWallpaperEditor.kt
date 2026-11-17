@@ -114,14 +114,26 @@ internal object CarWallpaperStudio {
             j.optInt("dim", 0).coerceIn(0, 80), j.optInt("blur", 0).coerceIn(0, 10))
     }
 
-    /** The image Android Auto receives for the stored source and settings; null without a source. */
-    fun renderSaved(context: Context): Bitmap? {
+    /** The part of a rendered whole-screen image that belongs behind the rail; null when there is none. */
+    fun railSlice(rendered: Bitmap, screen: CarScreen, coverage: WallpaperCoverage): Bitmap? {
+        val rect = WallpaperGeometry.railRect(screen, coverage) ?: return null
+        val k = rendered.width.toFloat() / WallpaperGeometry.canvas(screen, coverage).width
+        val left = (rect.left * k).toInt().coerceIn(0, rendered.width - 1)
+        val top = (rect.top * k).toInt().coerceIn(0, rendered.height - 1)
+        val width = ((rect.right - rect.left) * k).toInt().coerceIn(1, rendered.width - left)
+        val height = ((rect.bottom - rect.top) * k).toInt().coerceIn(1, rendered.height - top)
+        return Bitmap.createBitmap(rendered, left, top, width, height)
+    }
+
+    /** The image Android Auto receives for the stored source and settings, and the rail's slice of it. */
+    fun renderSaved(context: Context): Pair<Bitmap, Bitmap?>? {
         val source = loadSource(context) ?: return null
         val saved = load(context)
         val color = WallpaperGeometry.parseColor(saved.separatorColor)
-        return render(softened(source, saved.blur), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
+        val rendered = render(softened(source, saved.blur), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
             if (color != null) WallpaperGeometry.separator(saved.screen, saved.coverage, saved.separatorThickness) else null,
             color ?: 0, saved.dim)
+        return rendered to railSlice(rendered, saved.screen, saved.coverage)
     }
 
     /** [source] softened by [blur] steps (0 = unchanged), at the same size. */
@@ -208,7 +220,7 @@ internal object CarWallpaperStudio {
  * screen; the shaded strip is the rail.
  */
 @Composable
-internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (Bitmap) -> Unit) {
+internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (Bitmap, Bitmap?) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val initial = remember { CarWallpaperStudio.load(context) }
     var widthText by remember { mutableStateOf(initial.screen.width.toString()) }
@@ -240,8 +252,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
         saving = true
         CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
             separatorThickness, separatorColorText, dim, blur))
-        onSave(CarWallpaperStudio.render(shown, spec, placement,
-            if (separatorColor != null) separator else null, separatorColor ?: 0, dim))
+        val rendered = CarWallpaperStudio.render(shown, spec, placement,
+            if (separatorColor != null) separator else null, separatorColor ?: 0, dim)
+        onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage))
     }
     Dialog(onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -314,7 +327,7 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                 Text("Cover", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FilterChip(coverage == WallpaperCoverage.WHOLE_SCREEN, { coverage = WallpaperCoverage.WHOLE_SCREEN },
-                        { Text("Whole screen, under the rail") })
+                        { Text("Whole screen, behind the rail too") })
                     FilterChip(coverage == WallpaperCoverage.MAIN_AREA, { coverage = WallpaperCoverage.MAIN_AREA },
                         { Text("Main area only") })
                 }

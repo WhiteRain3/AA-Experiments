@@ -516,8 +516,8 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
     }
     editing?.let { source ->
-        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered ->
-            model.storeCarWallpaper(rendered) { saved -> if (saved) enabled = true; editing = null }
+        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered, rail ->
+            model.storeCarWallpaper(rendered, rail) { saved -> if (saved) enabled = true; editing = null }
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

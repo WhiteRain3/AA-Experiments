@@ -84,6 +84,23 @@ object WallpaperGeometry {
         }
     }
 
+    /**
+     * The rail's rectangle inside a whole-screen canvas, in canvas pixels; null when the canvas
+     * covers only the main area or there is no rail.
+     */
+    fun railRect(screen: CarScreen, coverage: WallpaperCoverage): FrameRect? {
+        if (coverage != WallpaperCoverage.WHOLE_SCREEN || screen.rail == RailSide.NONE) return null
+        val spec = canvas(screen, coverage)
+        val rect = when (screen.rail) {
+            RailSide.LEFT -> FrameRect(0, 0, screen.mainLeft, screen.height)
+            RailSide.RIGHT -> FrameRect(screen.mainWidth, 0, screen.width, screen.height)
+            RailSide.BOTTOM -> FrameRect(0, screen.mainHeight, screen.width, screen.height)
+            RailSide.NONE -> return null
+        }
+        if (rect.right <= rect.left || rect.bottom <= rect.top) return null
+        return FrameRect(rect.left + spec.frameLeft, rect.top + spec.frameTop, rect.right + spec.frameLeft, rect.bottom + spec.frameTop)
+    }
+
     /** Parses "#RRGGBB" or "#AARRGGBB" (the # is optional) into an ARGB colour, or null. */
     fun parseColor(text: String): Int? {
         val hex = text.trim().removePrefix("#")

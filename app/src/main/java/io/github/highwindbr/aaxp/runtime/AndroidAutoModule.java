@@ -201,6 +201,7 @@ public final class AndroidAutoModule extends XposedModule {
             String signature = SafeMode.signature(
                     overrideSnapshot.get(ThemeColors.COLORS_KEY), overrideSnapshot.get(GlyphIcons.KEY),
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
+                    overrideSnapshot.get(CarWallpaper.RAIL_KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -330,13 +331,15 @@ public final class AndroidAutoModule extends XposedModule {
      */
     private void installStatusBarHooks() {
         final StatusBarTweaks.Config atStart = statusBar();
-        if (atStart == null) return;
+        final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY));
+        if (atStart == null && !railAtStart) return;
         try {
             Method inflate = android.view.LayoutInflater.class.getDeclaredMethod(
                     "inflate", int.class, android.view.ViewGroup.class, boolean.class);
             hook(inflate).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                 Object result = chain.proceed();
                 try {
+                    if (result instanceof android.view.View railRoot) applyRailWallpaper(railRoot, (Integer) chain.getArg(0));
                     StatusBarTweaks.Config config = statusBar();
                     if (config != null && result instanceof android.view.View view) {
                         Integer layout = (Integer) chain.getArg(0);
@@ -354,7 +357,7 @@ public final class AndroidAutoModule extends XposedModule {
                 }
                 return result;
             });
-            if (!atStart.hide.isEmpty()) {
+            if (atStart != null && !atStart.hide.isEmpty()) {
                 Method setVisibility = android.view.View.class.getDeclaredMethod("setVisibility", int.class);
                 hook(setVisibility).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                     if (anyHiddenViews && !Integer.valueOf(android.view.View.GONE).equals(chain.getArg(0))
@@ -364,9 +367,59 @@ public final class AndroidAutoModule extends XposedModule {
                     return chain.proceed();
                 });
             }
-            event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart.hide.size()));
+            event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart == null ? 0 : atStart.hide.size()),
+                    "rail", String.valueOf(railAtStart));
         } catch (Throwable t) {
             event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    private final Map<Integer, Boolean> railLayouts = new ConcurrentHashMap<>();
+    private volatile String railWallpaperVersion;
+    private volatile android.graphics.Bitmap railWallpaperBitmap;
+    private static final String RAIL_WALLPAPER_TAG = "aax_rail_wallpaper";
+
+    /**
+     * The rail is its own window and Android Auto never paints the wallpaper there. When a rail
+     * slice is stored, an image view showing it is added behind the rail's (transparent) content,
+     * matched to how the launcher shows the wallpaper: 80% opaque over dark grey.
+     */
+    private void applyRailWallpaper(android.view.View root, Integer layout) {
+        String version = overrideSnapshot.get(CarWallpaper.RAIL_KEY);
+        if (!CarWallpaper.isEnabled(version)) return;
+        try {
+            Boolean match = railLayouts.get(layout);
+            android.view.View container = null;
+            if (match == null || match) {
+                container = findByName(root, "rail_container");
+                if (match == null) railLayouts.put(layout, container != null);
+            }
+            if (!(container instanceof android.widget.FrameLayout frame)) return;
+            android.widget.ImageView image = frame.findViewWithTag(RAIL_WALLPAPER_TAG);
+            if (image == null) {
+                image = new android.widget.ImageView(frame.getContext());
+                image.setTag(RAIL_WALLPAPER_TAG);
+                image.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
+                image.setAlpha(0.8f);
+                image.setBackgroundColor(0);
+                frame.setBackgroundColor(0xFF252626);
+                frame.addView(image, 0, new android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
+            }
+            android.graphics.Bitmap bitmap = railWallpaperBitmap;
+            if (bitmap == null || !version.equals(railWallpaperVersion)) {
+                try (ParcelFileDescriptor descriptor = openRemoteFile(CarWallpaper.RAIL_FILE_NAME)) {
+                    bitmap = android.graphics.BitmapFactory.decodeFileDescriptor(descriptor.getFileDescriptor());
+                }
+                railWallpaperBitmap = bitmap;
+                railWallpaperVersion = version;
+            }
+            if (bitmap != null) {
+                image.setImageBitmap(bitmap);
+                eventOnce(Log.INFO, "RAIL_WALLPAPER_APPLIED", "rail", version);
+            }
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "RAIL_WALLPAPER_FAILED", "rail", t.getClass().getSimpleName());
         }
     }
 

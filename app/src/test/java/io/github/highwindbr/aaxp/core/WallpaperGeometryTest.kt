@@ -40,6 +40,26 @@ class WallpaperGeometryTest {
         }
     }
 
+    @Test fun separatorSitsOnTheMainAreaEdgeNextToTheRail() {
+        val left = CarScreen(800, 480, RailSide.LEFT, 72)
+        assertEquals(FrameRect(72, 0, 76, 480), WallpaperGeometry.separator(left, whole, 4))
+        assertEquals(FrameRect(0, 0, 4, 480), WallpaperGeometry.separator(left, WallpaperCoverage.MAIN_AREA, 4))
+        assertEquals(FrameRect(724, 0, 728, 480),
+            WallpaperGeometry.separator(CarScreen(800, 480, RailSide.RIGHT, 72), whole, 4))
+        assertEquals(FrameRect(0, 396, 800, 400),
+            WallpaperGeometry.separator(CarScreen(800, 480, RailSide.BOTTOM, 80), whole, 4))
+        assertEquals(null, WallpaperGeometry.separator(left, whole, 0))
+        assertEquals(null, WallpaperGeometry.separator(CarScreen(800, 480, RailSide.NONE, 72), whole, 4))
+    }
+
+    @Test fun coloursParseWithOrWithoutAlpha() {
+        assertEquals(0xFFFFFFFF.toInt(), WallpaperGeometry.parseColor("#FFFFFF"))
+        assertEquals(0xFF112233.toInt(), WallpaperGeometry.parseColor("112233"))
+        assertEquals(0x80000000.toInt(), WallpaperGeometry.parseColor("#80000000"))
+        assertEquals(null, WallpaperGeometry.parseColor("#12345"))
+        assertEquals(null, WallpaperGeometry.parseColor("white"))
+    }
+
     @Test fun scalesAndRotation() {
         assertEquals(0.5f, WallpaperGeometry.coverScale(1600, 1600, 800, 480), 0.0001f)
         assertEquals(0.3f, WallpaperGeometry.fitScale(1600, 1600, 800, 480), 0.0001f)

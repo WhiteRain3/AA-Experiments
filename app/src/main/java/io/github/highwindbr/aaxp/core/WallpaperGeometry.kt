@@ -31,6 +31,9 @@ data class WallpaperCanvas(
     val frameLeft: Int, val frameTop: Int, val frameWidth: Int, val frameHeight: Int
 )
 
+/** A rectangle in frame pixels: left, top, right (exclusive), bottom (exclusive). */
+data class FrameRect(val left: Int, val top: Int, val right: Int, val bottom: Int)
+
 /** How the source image is placed in the frame. Offsets are frame pixels from the centred position. */
 data class WallpaperPlacement(
     val zoom: Float = 1f, val offsetX: Float = 0f, val offsetY: Float = 0f, val quarterTurns: Int = 0
@@ -58,6 +61,35 @@ object WallpaperGeometry {
         return WallpaperCanvas(width, height,
             frameLeft = (width - centreX2) / 2, frameTop = (height - centreY2) / 2,
             frameWidth = screen.width, frameHeight = screen.height)
+    }
+
+    /**
+     * The separator line drawn where the main area meets the rail, in frame pixels, or null when
+     * there is no rail or the line has no thickness. The line lies inside the main area, along
+     * the edge that touches the rail, so it is visible whichever coverage is chosen.
+     */
+    fun separator(screen: CarScreen, coverage: WallpaperCoverage, thickness: Int): FrameRect? {
+        if (thickness <= 0 || screen.rail == RailSide.NONE) return null
+        val whole = coverage == WallpaperCoverage.WHOLE_SCREEN
+        // Main area position inside the frame: the frame is the screen, or the main area itself.
+        val left = if (whole) screen.mainLeft else 0
+        val top = if (whole) screen.mainTop else 0
+        val right = left + screen.mainWidth
+        val bottom = top + screen.mainHeight
+        return when (screen.rail) {
+            RailSide.LEFT -> FrameRect(left, top, minOf(left + thickness, right), bottom)
+            RailSide.RIGHT -> FrameRect(maxOf(right - thickness, left), top, right, bottom)
+            RailSide.BOTTOM -> FrameRect(left, maxOf(bottom - thickness, top), right, bottom)
+            RailSide.NONE -> null
+        }
+    }
+
+    /** Parses "#RRGGBB" or "#AARRGGBB" (the # is optional) into an ARGB colour, or null. */
+    fun parseColor(text: String): Int? {
+        val hex = text.trim().removePrefix("#")
+        if (hex.length != 6 && hex.length != 8) return null
+        val value = hex.toLongOrNull(16) ?: return null
+        return (if (hex.length == 6) 0xFF000000L or value else value).toInt()
     }
 
     /** Scale at which an image just covers the frame (no empty edges). */

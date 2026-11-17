@@ -82,7 +82,8 @@ internal object CarWallpaperStudio {
         return BitmapFactory.decodeFile(file.path, options)
     }
 
-    data class Saved(val screen: CarScreen, val coverage: WallpaperCoverage, val placement: WallpaperPlacement)
+    data class Saved(val screen: CarScreen, val coverage: WallpaperCoverage, val placement: WallpaperPlacement,
+                     val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF")
 
     fun load(context: Context): Saved {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -93,7 +94,8 @@ internal object CarWallpaperStudio {
             runCatching { WallpaperCoverage.valueOf(p.getString("coverage", null) ?: "WHOLE_SCREEN") }
                 .getOrDefault(WallpaperCoverage.WHOLE_SCREEN),
             WallpaperPlacement(p.getFloat("zoom", 1f), p.getFloat("offset_x", 0f), p.getFloat("offset_y", 0f),
-                p.getInt("turns", 0)))
+                p.getInt("turns", 0)),
+            p.getInt("separator_thickness", 0), p.getString("separator_color", null) ?: "#FFFFFF")
     }
 
     fun save(context: Context, saved: Saved) {
@@ -103,6 +105,7 @@ internal object CarWallpaperStudio {
             .putString("coverage", saved.coverage.name)
             .putFloat("zoom", saved.placement.zoom).putFloat("offset_x", saved.placement.offsetX)
             .putFloat("offset_y", saved.placement.offsetY).putInt("turns", saved.placement.quarterTurns)
+            .putInt("separator_thickness", saved.separatorThickness).putString("separator_color", saved.separatorColor)
             .apply()
     }
 
@@ -125,8 +128,9 @@ internal object CarWallpaperStudio {
         }
     }
 
-    /** Renders the image Android Auto will receive. */
-    fun render(source: Bitmap, canvasSpec: WallpaperCanvas, placement: WallpaperPlacement): Bitmap {
+    /** Renders the image Android Auto will receive. [separator] is in frame pixels. */
+    fun render(source: Bitmap, canvasSpec: WallpaperCanvas, placement: WallpaperPlacement,
+               separator: io.github.highwindbr.aaxp.core.FrameRect? = null, separatorColor: Int = 0): Bitmap {
         val k = WallpaperGeometry.outputScale(canvasSpec, CarWallpaper.MAX_EDGE)
         val output = Bitmap.createBitmap((canvasSpec.width * k).toInt().coerceAtLeast(1),
             (canvasSpec.height * k).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -136,6 +140,10 @@ internal object CarWallpaperStudio {
         canvas.drawBitmap(source,
             matrix(source, canvasSpec.frameWidth * k, canvasSpec.frameHeight * k, placement, k),
             Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        if (separator != null) {
+            canvas.drawRect(separator.left * k, separator.top * k, separator.right * k, separator.bottom * k,
+                Paint().apply { color = separatorColor })
+        }
         return output
     }
 }
@@ -156,12 +164,16 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     var coverage by remember { mutableStateOf(initial.coverage) }
     var placement by remember { mutableStateOf(initial.placement) }
     var saving by remember { mutableStateOf(false) }
+    var separatorThickness by remember { mutableStateOf(initial.separatorThickness) }
+    var separatorColorText by remember { mutableStateOf(initial.separatorColor) }
 
     val screen = CarScreen(
         widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 800,
         heightText.toIntOrNull()?.coerceIn(200, 8000) ?: 480,
         rail, railSizeText.toIntOrNull()?.coerceIn(0, 2000) ?: 72)
     val spec = WallpaperGeometry.canvas(screen, coverage)
+    val separator = WallpaperGeometry.separator(screen, coverage, separatorThickness)
+    val separatorColor = WallpaperGeometry.parseColor(separatorColorText)
     val (rotatedWidth, rotatedHeight) = WallpaperGeometry.rotatedSize(source.width, source.height, placement.quarterTurns)
     // Zoom at which the whole image is visible, relative to the "cover" zoom of 1.
     val fitZoom = WallpaperGeometry.fitScale(rotatedWidth, rotatedHeight, spec.frameWidth, spec.frameHeight) /
@@ -204,6 +216,10 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                         drawRect(Color.Black.copy(alpha = 0.45f), topLeft, stripSize)
                         drawRect(Color.White.copy(alpha = 0.7f), topLeft, stripSize, style = Stroke(1.dp.toPx()))
                     }
+                    if (separator != null && separatorColor != null) {
+                        drawRect(Color(separatorColor), Offset(separator.left * perPixel, separator.top * perPixel),
+                            Size((separator.right - separator.left) * perPixel, (separator.bottom - separator.top) * perPixel))
+                    }
                     drawRect(Color.White.copy(alpha = 0.8f), style = Stroke(1.dp.toPx()))
                 }
 
@@ -224,6 +240,22 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     FilterChip(coverage == WallpaperCoverage.MAIN_AREA, { coverage = WallpaperCoverage.MAIN_AREA },
                         { Text("Main area only") })
                 }
+
+                Text(if (separatorThickness == 0) "Rail separation: off" else "Rail separation: $separatorThickness px",
+                    style = MaterialTheme.typography.labelLarge)
+                Text("A line where the main area meets the rail, on whichever side the rail is.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Slider(separatorThickness.toFloat(), { separatorThickness = it.toInt() }, valueRange = 0f..24f, steps = 23,
+                    enabled = rail != RailSide.NONE)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("White" to "#FFFFFF", "Black" to "#000000", "Grey" to "#808080", "Red" to "#D7000F").forEach { (name, hex) ->
+                        FilterChip(separatorColorText.equals(hex, true), { separatorColorText = hex }, { Text(name) })
+                    }
+                }
+                OutlinedTextField(separatorColorText, { separatorColorText = it.take(9) }, Modifier.fillMaxWidth(),
+                    label = { Text("Line colour (#RRGGBB or #AARRGGBB)") }, singleLine = true,
+                    isError = separatorColor == null,
+                    supportingText = if (separatorColor == null) ({ Text("Not a colour; the line will not be drawn") }) else null)
 
                 Text("Car screen", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -250,8 +282,10 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     OutlinedButton(onCancel, Modifier.weight(1f), enabled = !saving) { Text("Cancel") }
                     Button({
                         saving = true
-                        CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement))
-                        onSave(CarWallpaperStudio.render(source, spec, placement))
+                        CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
+                            separatorThickness, separatorColorText))
+                        onSave(CarWallpaperStudio.render(source, spec, placement,
+                            if (separatorColor != null) separator else null, separatorColor ?: 0))
                     }, Modifier.weight(1f), enabled = !saving) { Text(if (saving) "Saving…" else "Save") }
                 }
             }

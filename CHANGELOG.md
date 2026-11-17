@@ -29,12 +29,13 @@ instrumented or physical-device acceptance yet.
   (under the rail) or the main area only, for a configurable screen size and rail position. The
   stored image is shaped so that Android Auto, which centres the wallpaper on the main area and
   scales it to fill that area, shows the edited frame at 1:1. The source image and placement are
-  kept privately so the wallpaper can be edited again.
+  kept privately so the wallpaper can be edited again. An optional "rail separation" line of
+  chosen thickness and colour is drawn where the main area meets the rail.
 - `scripts/dhu-watch.ps1` (Windows, untested by the author of the change): keeps the Desktop Head
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr3`, versionCode unchanged.
+- versionName `1.0.0-wr4`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

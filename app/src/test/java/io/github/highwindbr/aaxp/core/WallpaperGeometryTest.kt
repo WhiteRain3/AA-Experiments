@@ -17,9 +17,11 @@ class WallpaperGeometryTest {
         assertEquals(WallpaperCanvas(872, 480, 72, 0, 800, 480), canvas)
     }
 
-    @Test fun bottomRailExtendsDownwards() {
+    @Test fun bottomRailPadsAboveTheScreen() {
+        // Main area 800x400 centred at y=200. To stay symmetric around that centre and still reach
+        // the bottom edge (280 below it), the canvas is 560 tall and starts 80 px above the screen.
         val canvas = WallpaperGeometry.canvas(CarScreen(800, 480, RailSide.BOTTOM, 80), whole)
-        assertEquals(WallpaperCanvas(800, 560, 0, 0, 800, 480), canvas)
+        assertEquals(WallpaperCanvas(800, 560, 0, 80, 800, 480), canvas)
     }
 
     @Test fun noRailAndMainAreaOnly() {

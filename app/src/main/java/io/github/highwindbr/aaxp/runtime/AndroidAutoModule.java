@@ -201,6 +201,11 @@ public final class AndroidAutoModule extends XposedModule {
                             if (setting == null) return original;
                             try {
                                 Object glyph = toGlyph(original, setting);
+                                if (glyph == original && original instanceof android.graphics.drawable.Drawable plain
+                                        && chain.getThisObject() instanceof android.content.res.Resources resources
+                                        && chain.getArg(0) instanceof Integer resourceId) {
+                                    glyph = legacyGlyph(plain, resources, resourceId, setting);
+                                }
                                 if (glyph != original) eventOnce(Log.INFO, "GLYPH_ICON_SERVED", name, setting);
                                 return glyph;
                             } catch (Throwable t) {
@@ -238,6 +243,31 @@ public final class AndroidAutoModule extends XposedModule {
         }
         return new android.graphics.drawable.AdaptiveIconDrawable(
                 new android.graphics.drawable.ColorDrawable(colors[1]), glyph);
+    }
+
+    /**
+     * Icons that are not adaptive: Android Auto's own launcher entries (drawn as a full square
+     * with a figure) and other apps' legacy launcher icons. The glyph is inset so that it sits
+     * in the visible centre of the adaptive icon it is wrapped in.
+     */
+    private static Object legacyGlyph(android.graphics.drawable.Drawable icon,
+            android.content.res.Resources resources, int resourceId, String setting) {
+        if (icon instanceof android.graphics.drawable.AdaptiveIconDrawable) return icon;
+        int[] colors = GlyphIcons.parseColors(setting);
+        if (colors == null) return icon;
+        boolean launcherIcon;
+        try {
+            launcherIcon = "mipmap".equals(resources.getResourceTypeName(resourceId))
+                    || GlyphIcons.isOwnLauncherIcon(resources.getResourceEntryName(resourceId));
+        } catch (android.content.res.Resources.NotFoundException unknown) {
+            return icon;
+        }
+        if (!launcherIcon) return icon;
+        android.graphics.drawable.Drawable glyph = generatedGlyph(icon, colors[0]);
+        if (glyph == null) return icon;
+        return new android.graphics.drawable.AdaptiveIconDrawable(
+                new android.graphics.drawable.ColorDrawable(colors[1]),
+                new android.graphics.drawable.InsetDrawable(glyph, 1f / 6f));
     }
 
     private static final int GENERATED_GLYPH_SIZE = 216;

@@ -32,28 +32,57 @@ public class GlyphIconsTest {
         for (int y = from; y < to; y++) for (int x = from; x < to; x++) pixels[y * size + x] = color;
     }
 
-    @Test public void transparentForegroundUsesItsOwnShape() {
-        int size = 40;
+    private static void disc(int[] pixels, int size, int radius, int color) {
+        int c = size / 2;
+        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++)
+            if ((x - c) * (x - c) + (y - c) * (y - c) <= radius * radius) pixels[y * size + x] = color;
+    }
+
+    @Test public void smallShapeOnTransparentLayerIsItsOwnGlyph() {
+        int size = 60;
         int[] pixels = square(size, 0x00000000);
-        box(pixels, size, 12, 28, 0xFF3366FF);
+        box(pixels, size, 22, 38, 0xFFFFFFFF);          // small flat shape, like a logo
         int[] mask = GlyphIcons.glyphAlpha(pixels, size);
-        org.junit.Assert.assertEquals(255, mask[20 * size + 20]);
+        org.junit.Assert.assertEquals(255, mask[30 * size + 30]);
         org.junit.Assert.assertEquals(0, mask[2 * size + 2]);
     }
 
-    @Test public void opaqueArtworkKeepsWhatDiffersFromTheBackdrop() {
+    @Test public void figureInsideADiscIsExtractedInsteadOfTheDisc() {
+        // Like a player icon: dark disc on a transparent layer with a bright figure in it.
+        int size = 80;
+        int[] pixels = square(size, 0x00000000);
+        disc(pixels, size, 30, 0xFF101018);
+        box(pixels, size, 34, 46, 0xFFFFFFFF);
+        int[] mask = GlyphIcons.glyphAlpha(pixels, size);
+        org.junit.Assert.assertEquals(255, mask[40 * size + 40]);   // the figure
+        org.junit.Assert.assertEquals(0, mask[40 * size + 15]);     // the disc itself
+        org.junit.Assert.assertEquals(0, mask[2 * size + 2]);       // outside
+    }
+
+    @Test public void figureOnAFullSquareIsExtracted() {
+        // Like Android Auto's Exit entry: a filled square with a white figure.
         int size = 40;
-        int[] pixels = square(size, 0xFF101010);       // dark backdrop filling the layer
-        box(pixels, size, 12, 28, 0xFFF0F0F0);          // bright figure in the middle
+        int[] pixels = square(size, 0xFF303034);
+        box(pixels, size, 12, 28, 0xFFFFFFFF);
         int[] mask = GlyphIcons.glyphAlpha(pixels, size);
         org.junit.Assert.assertEquals(255, mask[20 * size + 20]);
         org.junit.Assert.assertEquals(0, mask[2 * size + 2]);
     }
 
-    @Test public void shapelessOrEmptyArtworkIsLeftAlone() {
-        assertNull(GlyphIcons.glyphAlpha(square(40, 0xFF808080), 40)); // flat colour, no figure
+    @Test public void largeFlatPlatesAndEmptyArtworkAreLeftAlone() {
+        int size = 80;
+        int[] flatDisc = square(size, 0x00000000);
+        disc(flatDisc, size, 34, 0xFFFFFFFF);
+        assertNull(GlyphIcons.glyphAlpha(flatDisc, size));              // would only be a blob
+        assertNull(GlyphIcons.glyphAlpha(square(40, 0xFF808080), 40)); // flat square
         assertNull(GlyphIcons.glyphAlpha(square(40, 0x00000000), 40)); // nothing drawn
         assertNull(GlyphIcons.glyphAlpha(new int[10], 40));            // wrong size
+    }
+
+    @Test public void ownLauncherEntriesAreRecognisedByName() {
+        assertTrue(GlyphIcons.isOwnLauncherIcon("ic_applauncher_exit_icon"));
+        assertFalse(GlyphIcons.isOwnLauncherIcon("ic_exit_black"));
+        assertFalse(GlyphIcons.isOwnLauncherIcon(null));
     }
 
     @Test public void coloursParseAsOpaquePairs() {

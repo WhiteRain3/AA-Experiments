@@ -272,6 +272,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     item { ScreenTitle("Status", "Environment, resolver and runtime readiness") }
     item { AndroidAutoControlsCard(model, state.framework.connected) }
+    item { CarWallpaperCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -413,6 +414,25 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                 Text("Restarts Android Auto each time an override is saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Switch(checked = autoRestart, onCheckedChange = null)
+        }
+    } }
+}
+
+/** A wallpaper for the car screen that is different from the phone's. */
+@Composable private fun CarWallpaperCard(model: ManagerViewModel, connected: Boolean) {
+    var enabled by remember(connected) { mutableStateOf(connected && model.carWallpaperEnabled()) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) model.setCarWallpaper(uri) { saved -> if (saved) enabled = true }
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Car wallpaper", fontWeight = FontWeight.Bold)
+        Text("Shows your own image on the car screen without changing the phone's wallpaper. Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image instead. Restart Android Auto after changing it.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (enabled) "Custom image is set." else "Not set: Android Auto uses the phone's wallpaper.",
+            style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ picker.launch("image/*") }, Modifier.weight(1f), enabled = connected) { Text(if (enabled) "Change image" else "Choose image") }
+            OutlinedButton({ model.clearCarWallpaper { cleared -> if (cleared) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Remove") }
         }
     } }
 }

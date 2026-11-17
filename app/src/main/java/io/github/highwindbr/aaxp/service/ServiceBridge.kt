@@ -89,5 +89,20 @@ object ServiceBridge : XposedServiceHelper.OnServiceListener {
         bytes.size
     }
 
+    /** Replaces a module-readable remote file with [content]. */
+    @Synchronized
+    fun writeRemoteFile(name: String, content: ByteArray) {
+        val bound = checkNotNull(service) { "Xposed service is not connected" }
+        bound.openRemoteFile(name).use { descriptor ->
+            ParcelFileDescriptor.AutoCloseOutputStream(descriptor).use { output ->
+                output.channel.truncate(0)
+                output.channel.position(0)
+                output.write(content)
+                output.flush()
+                output.fd.sync()
+            }
+        }
+    }
+
     const val DYNAMIC_PREF_GROUP = "dynamic_overrides_v2"
 }

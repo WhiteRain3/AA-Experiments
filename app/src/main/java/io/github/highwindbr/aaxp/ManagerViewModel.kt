@@ -953,6 +953,60 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // ---- Car wallpaper ----
+
+    fun carWallpaperEnabled(): Boolean = runCatching {
+        io.github.highwindbr.aaxp.runtime.CarWallpaper.isEnabled(ServiceBridge.dynamicPreferencesOrNull()
+            ?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, null))
+    }.getOrDefault(false)
+
+    /** Stores a downscaled JPEG copy of [uri] for the module and enables it. */
+    fun setCarWallpaper(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching {
+            val resolver = getApplication<Application>().contentResolver
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            resolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
+            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Not a readable image" }
+            val maxEdge = io.github.highwindbr.aaxp.runtime.CarWallpaper.MAX_EDGE
+            val options = android.graphics.BitmapFactory.Options().apply {
+                inSampleSize = io.github.highwindbr.aaxp.runtime.CarWallpaper.sampleSize(bounds.outWidth, bounds.outHeight, maxEdge)
+            }
+            var bitmap = checkNotNull(resolver.openInputStream(uri).use {
+                android.graphics.BitmapFactory.decodeStream(it, null, options) }) { "Image could not be decoded" }
+            val longest = maxOf(bitmap.width, bitmap.height)
+            if (longest > maxEdge) {
+                val scale = maxEdge.toFloat() / longest
+                bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap,
+                    (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true)
+            }
+            val bytes = java.io.ByteArrayOutputStream().use { out ->
+                check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
+                out.toByteArray()
+            }
+            ServiceBridge.writeRemoteFile(io.github.highwindbr.aaxp.runtime.CarWallpaper.FILE_NAME, bytes)
+            // The version changes last, so the module never sees a new version with an old file.
+            check(checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+                .putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, System.currentTimeMillis().toString())
+                .commit()) { "Framework rejected the preference update" }
+            "${bitmap.width}x${bitmap.height}"
+        } }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { "Car wallpaper saved ($it). In Android Auto's settings turn on \"Use phone's wallpaper\", then restart Android Auto." },
+            { "Car wallpaper not saved: ${it.message}" }))
+        onDone(result.isSuccess)
+    }
+
+    fun clearCarWallpaper(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+        val cleared = withContext(Dispatchers.IO) { runCatching {
+            ServiceBridge.dynamicPreferencesOrNull()?.edit()
+                ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)?.commit() == true
+        }.getOrDefault(false) }
+        mutable.value = mutable.value.copy(message = if (cleared)
+            "Car wallpaper removed. Android Auto shows the phone's wallpaper again after a restart."
+        else "Car wallpaper not removed: LSPosed remote preferences unavailable.")
+        onDone(cleared)
+    }
+
     // ---- Android Auto controls (restart / developer head unit server) ----
 
     private val controlPreferences = application.getSharedPreferences("manager_ui", Context.MODE_PRIVATE)

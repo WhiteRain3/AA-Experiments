@@ -20,11 +20,16 @@ instrumented or physical-device acceptance yet.
   are ignored, a restart request is never replayed at process start, and every path fails open.
   Events: `CONTROL_RESTART`, `CONTROL_HEAD_UNIT_STARTED`, `CONTROL_*_FAILED`.
 - Optional "Restart automatically after a change" after a normal override is saved and published.
+- Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
+  Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
+  while a version is configured; otherwise, and on any failure, the original call proceeds. The
+  phone's own wallpaper is never changed. Events: `CAR_WALLPAPER_HOOKS`, `CAR_WALLPAPER_SERVED`,
+  `CAR_WALLPAPER_FAILED`.
 - `scripts/dhu-watch.ps1` (Windows, untested by the author of the change): keeps the Desktop Head
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr1`, versionCode unchanged.
+- versionName `1.0.0-wr2`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

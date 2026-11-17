@@ -104,6 +104,7 @@ public final class AndroidAutoModule extends XposedModule {
 
     @Override public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (!AA_PACKAGE.equals(param.getPackageName()) || !param.isFirstPackage()) return;
+        installCarWallpaperHooks();
         try {
             JSONObject profile = readProfile();
             if (profile.optInt("schemaVersion") != 3) {
@@ -168,6 +169,68 @@ public final class AndroidAutoModule extends XposedModule {
         } catch (Throwable t) {
             event(Log.ERROR, "PROFILE_FAILED", null, "error", t.getClass().getSimpleName());
             log(Log.ERROR, TAG, "Dynamic profile failed; no further hooks installed", t);
+        }
+    }
+
+    private volatile String carWallpaperVersion;
+    private volatile android.graphics.Bitmap carWallpaperBitmap;
+
+    /**
+     * Answers platform wallpaper reads made inside Android Auto with the configured car
+     * wallpaper. Only public WallpaperManager read methods are hooked; with no image configured,
+     * or on any failure, the original call proceeds untouched.
+     */
+    private void installCarWallpaperHooks() {
+        int installed = 0;
+        try {
+            for (Method method : android.app.WallpaperManager.class.getDeclaredMethods()) {
+                final CarWallpaper.Kind kind = CarWallpaper.kindOf(method.getName(), method.getReturnType().getName());
+                if (kind == CarWallpaper.Kind.NONE) continue;
+                final String name = method.getName();
+                try {
+                    hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                        String version = overrideSnapshot.get(CarWallpaper.VERSION_KEY);
+                        if (!CarWallpaper.isEnabled(version)) return chain.proceed();
+                        try {
+                            if (kind == CarWallpaper.Kind.FILE) {
+                                eventOnce(Log.INFO, "CAR_WALLPAPER_SERVED", name, version, "as", "file");
+                                return openRemoteFile(CarWallpaper.FILE_NAME);
+                            }
+                            android.graphics.Bitmap bitmap = carWallpaper(version);
+                            if (bitmap == null) return chain.proceed();
+                            eventOnce(Log.INFO, "CAR_WALLPAPER_SERVED", name, version, "as", kind.name());
+                            return kind == CarWallpaper.Kind.BITMAP ? bitmap
+                                    : new android.graphics.drawable.BitmapDrawable(
+                                            android.content.res.Resources.getSystem(), bitmap);
+                        } catch (Throwable t) {
+                            eventOnce(Log.WARN, "CAR_WALLPAPER_FAILED", name, version, "error", t.getClass().getSimpleName());
+                            return chain.proceed();
+                        }
+                    });
+                    installed++;
+                } catch (Throwable t) {
+                    event(Log.WARN, "CAR_WALLPAPER_HOOK_FAILED", name, "error", t.getClass().getSimpleName());
+                }
+            }
+        } catch (Throwable t) {
+            event(Log.WARN, "CAR_WALLPAPER_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+        event(Log.INFO, "CAR_WALLPAPER_HOOKS", null, "installed", String.valueOf(installed));
+    }
+
+    /** Decodes the configured image once per version. */
+    private android.graphics.Bitmap carWallpaper(String version) throws Exception {
+        android.graphics.Bitmap cached = carWallpaperBitmap;
+        if (cached != null && version.equals(carWallpaperVersion)) return cached;
+        synchronized (this) {
+            if (carWallpaperBitmap != null && version.equals(carWallpaperVersion)) return carWallpaperBitmap;
+            try (ParcelFileDescriptor descriptor = openRemoteFile(CarWallpaper.FILE_NAME)) {
+                android.graphics.Bitmap decoded =
+                        android.graphics.BitmapFactory.decodeFileDescriptor(descriptor.getFileDescriptor());
+                carWallpaperBitmap = decoded;
+                carWallpaperVersion = version;
+                return decoded;
+            }
         }
     }
 

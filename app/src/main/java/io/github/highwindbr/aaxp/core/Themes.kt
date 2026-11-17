@@ -32,13 +32,18 @@ object Themes {
 
     val ALL_ROLES: List<String> = ROLE_GROUPS.flatMap { it.second }
 
-    /** What is known about a role on screen; empty when it has not been identified yet. */
+    /**
+     * What a role paints, where that has been seen on a real car screen (Android Auto 18.0 with
+     * the role finder look). Empty when the role has not been seen in use yet.
+     */
     fun hint(role: String): String = when (role) {
-        "OutlineVariant" -> "Plate behind the rail's app icons"
-        "Primary" -> "Main accent"
-        "Background", "Surface" -> "Main background"
-        "OnSurface", "TextPrimary" -> "Main text"
-        "OnSurfaceVariant", "TextSecondary" -> "Secondary text"
+        "OutlineVariant" -> "Ring around the rail's app icons and around the map's round button"
+        "Surface" -> "Background of dashboard cards"
+        "SurfaceVariant" -> "Round icon plates inside dashboard cards"
+        "SurfaceHigh" -> "Round floating button on the map"
+        "OnSurface" -> "Card titles, the map button's icon, the active page dot"
+        "OnSurfaceVariant" -> "Icons inside cards, media skip buttons"
+        "TextPrimary" -> "Song title and artist on the media card"
         else -> ""
     }
 

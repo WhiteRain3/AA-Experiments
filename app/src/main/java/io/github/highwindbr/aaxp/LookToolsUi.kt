@@ -122,7 +122,8 @@ private val STATUS_BAR_PARTS = listOf(
                 model.installUpdate(update, { percent = it }) { busy = false; percent = null } },
                 Modifier.fillMaxWidth(), enabled = !busy) { Text(percent?.let { "Downloading… $it%" } ?: "Download and install") }
         }
-        if (available == null && upToDate == true) Text("No newer build is published.", style = MaterialTheme.typography.bodyMedium)
+        if (available == null && upToDate == true) Text("No newer build is published (checked ${
+            java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}).", style = MaterialTheme.typography.bodyMedium)
         OutlinedButton({ busy = true; upToDate = null
             model.checkForUpdate { available = it; upToDate = it == null; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy) {
             Text(if (busy && percent == null) "Checking…" else "Check for updates")

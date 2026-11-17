@@ -65,7 +65,7 @@ instrumented or physical-device acceptance yet.
   app start if switched on), sends nothing about the user, takes APKs only from this
   repository's release downloads, and refuses a build signed with a different key. A workflow
   publishes a release when the version name changes on the fork's branch.
-- Updates card shows the result of the last check in place.
+- Updates card shows the result of the last check in place, with the time it was made.
 - Style packs and backup: the whole look (colours, glyph icons, status bar changes, wallpaper
   with placement, saved themes, flag presets) saved to and loaded from one file, with a
   confirmation before loading. Imported flag presets are stored, never applied automatically.
@@ -90,7 +90,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr18`, versionCode unchanged.
+- versionName `1.0.0-wr19`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

@@ -71,8 +71,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import io.github.highwindbr.aaxp.core.CarPreviewColors
 import io.github.highwindbr.aaxp.core.CarTheme
 import io.github.highwindbr.aaxp.core.ColorMath
 import io.github.highwindbr.aaxp.core.Presets
@@ -198,56 +200,68 @@ private fun ThemeStrip(roles: Map<String, Int>) {
 }
 
 /**
- * A small picture of the car screen painted from the seven colour slots that have been seen to
- * change something: dashboard card, rail, media card and the map's round button. Slots without
- * a colour show a neutral stand-in, so the picture is only a guide.
+ * A small drawing of the car's dashboard, recoloured live. Only the seven confirmed colour slots
+ * (and the icon colours when single-colour icons are on) change it; everything else is fixed.
  */
 @Composable
-internal fun CarScreenMock(roles: Map<String, Int>, modifier: Modifier = Modifier) {
-    fun c(role: String, fallback: Long) = Color(roles[role] ?: fallback.toInt())
-    val outline = c("OutlineVariant", 0xFF5A5A5A)
-    val surface = c("Surface", 0xFF2A2B2C)
-    val plate = c("SurfaceVariant", 0xFF3C3D3E)
-    val high = c("SurfaceHigh", 0xFF404142)
-    val onSurface = c("OnSurface", 0xFFE6E6E6)
-    val onVariant = c("OnSurfaceVariant", 0xFFB8B8B8)
-    val title = c("TextPrimary", 0xFFFFFFFF)
-    Row(modifier.fillMaxWidth().aspectRatio(1200f / 723f).clip(RoundedCornerShape(10.dp)).background(Color(0xFF121212))
-        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)).padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        // Rail with app icons ringed in OutlineVariant.
-        Column(Modifier.width(26.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
-            repeat(4) { Box(Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF242424)).border(1.5.dp, outline, CircleShape)) }
-        }
-        Column(Modifier.weight(1f).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                // Dashboard card.
-                Column(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(surface).padding(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Box(Modifier.width(34.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(onSurface))
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(16.dp).clip(CircleShape).background(plate), contentAlignment = Alignment.Center) {
-                            Box(Modifier.size(7.dp).clip(CircleShape).background(onVariant))
+internal fun CarScreenMock(roles: Map<String, Int>, glyphColors: String?, modifier: Modifier = Modifier) {
+    val k = remember(roles.toMap(), glyphColors) { CarPreviewColors.resolve(roles, glyphColors) }
+    fun col(v: Int) = Color(v)
+    val offWhite = col(CarPreviewColors.RAIL_FIXED_ICON)
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(Modifier.fillMaxWidth().aspectRatio(1200f / 723f).clip(RoundedCornerShape(10.dp)).background(col(CarPreviewColors.RAIL_BACKGROUND))
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp))) {
+            // Rail (fixed black): clock, three app icons ringed in OutlineVariant, off-white launcher dot.
+            Column(Modifier.weight(107f).fillMaxSize().padding(vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.SpaceEvenly) {
+                Box(Modifier.width(14.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(offWhite))
+                repeat(3) {
+                    Box(Modifier.size(16.dp).clip(CircleShape).background(col(k.railIconBackground))
+                        .border(1.5.dp, col(k.outlineVariant), CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(7.dp).clip(RoundedCornerShape(2.dp)).background(col(k.railIcon)))
+                    }
+                }
+                Box(Modifier.size(8.dp).clip(CircleShape).background(offWhite))
+            }
+            // Map (fixed) with the round floating button at its top left.
+            Box(Modifier.weight(560f).fillMaxSize().padding(vertical = 5.dp).clip(RoundedCornerShape(8.dp)).background(col(CarPreviewColors.MAP_BACKGROUND))) {
+                Box(Modifier.align(Alignment.TopStart).padding(6.dp).size(20.dp).clip(CircleShape).background(col(k.surfaceHigh))
+                    .border(1.5.dp, col(k.outlineVariant), CircleShape), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(7.dp).clip(CircleShape).background(col(k.onSurface)))
+                }
+            }
+            // Right: a card with two rows, then the media card.
+            Column(Modifier.weight(533f).fillMaxSize().padding(5.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Column(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(col(k.surface)).padding(6.dp),
+                    verticalArrangement = Arrangement.SpaceEvenly) {
+                    listOf("Home", "Work").forEach { label ->
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            Box(Modifier.size(15.dp).clip(CircleShape).background(col(k.surfaceVariant)), contentAlignment = Alignment.Center) {
+                                Box(Modifier.size(6.dp).clip(CircleShape).background(col(k.onSurfaceVariant)))
+                            }
+                            Text(label, color = col(k.onSurface), fontSize = 9.sp, fontWeight = FontWeight.SemiBold)
                         }
-                        Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(onVariant))
+                    }
+                    Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Box(Modifier.size(4.dp).clip(CircleShape).background(col(k.onSurface)))
+                        Box(Modifier.size(4.dp).clip(CircleShape).background(col(k.onSurfaceVariant)))
                     }
                 }
-                // Map area with the round button.
-                Box(Modifier.weight(1.4f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B2A33))) {
-                    Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(20.dp).clip(CircleShape).background(high)
-                        .border(1.5.dp, outline, CircleShape), contentAlignment = Alignment.Center) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(onSurface))
+                Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(8.dp)).background(col(CarPreviewColors.MEDIA_BACKGROUND)).padding(horizontal = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Song title", color = col(k.textPrimary), fontSize = 8.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text("Artist", color = col(k.textPrimary), fontSize = 7.sp, maxLines = 1)
                     }
+                    Box(Modifier.size(5.dp).background(col(k.onSurfaceVariant)))
+                    Box(Modifier.size(12.dp).clip(CircleShape).background(col(CarPreviewColors.PLAY_BUTTON)))
+                    Box(Modifier.size(5.dp).background(col(k.onSurfaceVariant)))
                 }
-            }
-            // Media card.
-            Column(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(8.dp)).background(surface).padding(horizontal = 8.dp),
-                verticalArrangement = Arrangement.Center) {
-                Box(Modifier.width(60.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(title))
-                Spacer(Modifier.height(3.dp))
-                Box(Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(onVariant))
             }
         }
+        Text("Shows the seven colour slots confirmed so far. Other slots have not been seen in use yet." +
+            if (k.usesApproximation) " Slots you have not set are approximate." else "",
+            style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -337,7 +351,7 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                 }
             }
             // Live mock, pinned above the steps.
-            Box(Modifier.padding(horizontal = 16.dp)) { CarScreenMock(roles, Modifier.fillMaxWidth(0.7f).align(Alignment.Center)) }
+            Box(Modifier.padding(horizontal = 16.dp)) { CarScreenMock(roles, glyphText, Modifier.fillMaxWidth()) }
             TabRow(tab, Modifier.padding(top = 8.dp)) {
                 listOf("Start", "Colours", "Keep and share").forEachIndexed { index, label ->
                     Tab(tab == index, { tab = index }, text = { Text(label) })

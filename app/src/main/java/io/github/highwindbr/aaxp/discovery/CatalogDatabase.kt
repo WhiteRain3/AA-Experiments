@@ -51,7 +51,9 @@ data class CatalogQuery(
     val text: String = "", val editableOnly: Boolean = false, val includeUnknown: Boolean = false,
     val kind: IdentifierKind? = null, val type: DiscoveredType? = null, val resolution: MappingResolution? = null,
     val runtimeStatus: RuntimeConsumerStatus? = null, val reviewedOnly: Boolean = false, val killSwitchOnly: Boolean = false,
-    val overrideKeys: Set<String>? = null, val limit: Int = 500, val offset: Int = 0
+    val overrideKeys: Set<String>? = null, val limit: Int = 500, val offset: Int = 0,
+    // Keys that also match the text through their bundled plain-language description.
+    val descriptionKeys: Set<String> = emptySet()
 )
 data class CatalogQueryResult(val items: List<DiscoveredIdentifier>, val total: Int)
 
@@ -371,7 +373,13 @@ class CatalogDatabase(context: Context) : SQLiteOpenHelper(context, "catalog-v1.
         val where = mutableListOf("base_sha=?"); val args = mutableListOf(baseSha256)
         if (query.editableOnly) where += "editable=1"
         if (!query.includeUnknown) where += "value_type<>'UNKNOWN'"
-        if (query.text.isNotBlank()) { where += "(key LIKE ? ESCAPE '\\' OR kind LIKE ? OR value_type LIKE ? OR resolution LIKE ?)"; val q="%${escapeLike(query.text.trim())}%"; repeat(4) { args += q } }
+        if (query.text.isNotBlank()) {
+            val described = query.descriptionKeys.take(200)
+            val byDescription = if (described.isEmpty()) "" else " OR key IN (${described.joinToString(",") { "?" }})"
+            where += "(key LIKE ? ESCAPE '\\' OR kind LIKE ? OR value_type LIKE ? OR resolution LIKE ?$byDescription)"
+            val q="%${escapeLike(query.text.trim())}%"; repeat(4) { args += q }
+            args += described
+        }
         query.kind?.let { where += "kind=?"; args += it.name }; query.type?.let { where += "value_type=?"; args += it.name }
         query.resolution?.let { where += "resolution=?"; args += it.name }; query.runtimeStatus?.let { where += "runtime_status=?"; args += it.name }
         if (query.reviewedOnly) where += "semantics_reviewed=1"

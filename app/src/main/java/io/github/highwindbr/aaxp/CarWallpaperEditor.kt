@@ -298,7 +298,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                 Text("Defaults match the 800x480 DHU profile with the rail on the left (72 px). Set your car's values if they differ.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                Spacer(Modifier.height(32.dp))
+                // Generous clearance: some devices do not report bar and keyboard insets to dialogs,
+                // and without it the last controls stay under the navigation bar or keyboard.
+                Spacer(Modifier.height(320.dp))
             }
           }
         }

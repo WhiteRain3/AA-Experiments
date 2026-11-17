@@ -398,24 +398,29 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
 /** Restart Android Auto and start its developer head unit server through the module, without root. */
 @Composable private fun AndroidAutoControlsCard(model: ManagerViewModel, connected: Boolean) {
     var autoRestart by remember { mutableStateOf(model.autoRestartAfterChange()) }
+    var dhuMode by remember { mutableStateOf(model.headUnitAfterRestart()) }
+    @Composable fun switchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+        Row(Modifier.fillMaxWidth().toggleable(value = checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.bodyMedium)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = checked, onCheckedChange = null)
+        }
+    }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Android Auto controls", fontWeight = FontWeight.Bold)
         Text("Android Auto reads experiments when it starts. Restarting closes it on the car screen, so use this while parked. It only reacts while Android Auto is running.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Button({ model.requestAndroidAutoControl(restart = true, headUnit = true) }, Modifier.fillMaxWidth(), enabled = connected) {
-            Text("Restart + start head unit server") }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ model.requestAndroidAutoControl(restart = true, headUnit = false) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
+            Button({ model.requestAndroidAutoControl(restart = true, headUnit = dhuMode) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
             OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
         }
-        Row(Modifier.fillMaxWidth().toggleable(value = autoRestart, role = androidx.compose.ui.semantics.Role.Switch) {
-            autoRestart = it; model.setAutoRestartAfterChange(it) }, verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text("Restart automatically after a change", style = MaterialTheme.typography.bodyMedium)
-                Text("Restarts Android Auto each time an override is saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = autoRestart, onCheckedChange = null)
-        }
+        switchRow("Restart automatically after a change", "Restarts Android Auto each time an override or preset is applied", autoRestart) {
+            autoRestart = it; model.setAutoRestartAfterChange(it) }
+        switchRow("DHU mode", "After every restart from this app, also start the head unit server so the Desktop Head Unit can reconnect. Leave off for the car.", dhuMode) {
+            dhuMode = it; model.setHeadUnitAfterRestart(it) }
     } }
 }
 

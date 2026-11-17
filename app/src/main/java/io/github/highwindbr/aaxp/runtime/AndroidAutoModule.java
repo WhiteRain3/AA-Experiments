@@ -81,7 +81,7 @@ public final class AndroidAutoModule extends XposedModule {
                 if (MediaStartupLaunchGate.REQUEST_KEY.equals(key) ||
                         MediaStartupLabGate.REQUEST_KEY.equals(key)) requestMediaLaunchCheck();
                 if (ControlRequests.RESTART_KEY.equals(key)) handleRestartRequest(preferences);
-                if (ControlRequests.HEAD_UNIT_KEY.equals(key)) handleHeadUnitRequest(preferences, 0L);
+                if (ControlRequests.HEAD_UNIT_KEY.equals(key)) handleHeadUnitRequest(preferences, false);
             };
     private volatile String handledRestartRequest;
     private volatile String handledHeadUnitRequest;
@@ -95,7 +95,7 @@ public final class AndroidAutoModule extends XposedModule {
             remotePreferences.registerOnSharedPreferenceChangeListener(preferenceListener);
             // A head unit request issued together with a restart is picked up by the new process.
             // A restart request is deliberately NOT replayed here: that would restart in a loop.
-            handleHeadUnitRequest(remotePreferences, 1500L);
+            handleHeadUnitRequest(remotePreferences, true);
         } catch (Throwable t) {
             event(Log.WARN, "REMOTE_PREFERENCES_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
             log(Log.WARN, TAG, "Remote preferences unavailable; all hooks fail open", t);
@@ -253,14 +253,29 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
-    /** Manager-requested start of Android Auto's own developer head unit server. Fails open. */
-    private void handleHeadUnitRequest(SharedPreferences preferences, long delayMs) {
+    /**
+     * Manager-requested start of Android Auto's own developer head unit server. Fails open.
+     *
+     * When the same request also asks for a restart, the process that receives it live is about
+     * to end, so it leaves the start to the restarted process. A freshly started process waits
+     * for Android Auto to finish coming up and tries more than once, because an early start is
+     * lost; starting an already running service is harmless.
+     */
+    private void handleHeadUnitRequest(SharedPreferences preferences, boolean atProcessStart) {
         try {
             String request = preferences.getString(ControlRequests.HEAD_UNIT_KEY, null);
             if (!ControlRequests.isFresh(request, System.currentTimeMillis())
                     || request.equals(handledHeadUnitRequest)) return;
+            boolean restartPending = request.equals(preferences.getString(ControlRequests.RESTART_KEY, null));
+            if (!atProcessStart && restartPending) return;
             handledHeadUnitRequest = request;
-            new Handler(Looper.getMainLooper()).postDelayed(this::startHeadUnitServer, delayMs);
+            Handler handler = new Handler(Looper.getMainLooper());
+            if (atProcessStart) {
+                for (long delay : ControlRequests.HEAD_UNIT_START_DELAYS_MS)
+                    handler.postDelayed(this::startHeadUnitServer, delay);
+            } else {
+                handler.post(this::startHeadUnitServer);
+            }
         } catch (Throwable t) {
             event(Log.WARN, "CONTROL_HEAD_UNIT_FAILED", null, "error", t.getClass().getSimpleName());
         }

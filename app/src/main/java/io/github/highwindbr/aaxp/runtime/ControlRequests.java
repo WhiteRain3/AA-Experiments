@@ -11,6 +11,8 @@ public final class ControlRequests {
     public static final String RESTART_KEY = "control.restart_request";
     public static final String HEAD_UNIT_KEY = "control.head_unit_request";
     public static final long MAX_AGE_MS = 30_000L;
+    /** When a restarted process tries to start the head unit server, counted from module load. */
+    public static final long[] HEAD_UNIT_START_DELAYS_MS = {3_000L, 7_000L, 12_000L};
 
     private ControlRequests() { }
 

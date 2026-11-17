@@ -83,6 +83,7 @@ private data class OverrideRefreshOutcome(val active: Map<String, TypedOverride>
     val mediaLabRouteAAvailable: Boolean, val mediaLabRouteBAvailable: Boolean)
 
 private const val AUTO_RESTART_PREF = "auto_restart_after_change"
+private const val HEAD_UNIT_AFTER_RESTART_PREF = "head_unit_after_restart"
 
 class ManagerViewModel(application: Application) : AndroidViewModel(application) {
     private val mutable = MutableStateFlow(ManagerUiState())
@@ -943,7 +944,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             result.isFailure -> mutable.value = mutable.value.copy(saveState = SaveState.FAILED,
                 message = "Override rejected: ${result.exceptionOrNull()?.message}")
             result.getOrThrow() == ProfileMutationCoordinator.Outcome.PUBLISHED -> {
-                val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = false)
+                val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
                 mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = if (restarted)
                     "Override saved and runtime profile published. Android Auto was asked to restart."
                 else "Override saved and runtime profile published. Restart Android Auto to apply.")
@@ -1040,7 +1041,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             val (accepted, rejected) = counts
             val published = publication == ProfileMutationCoordinator.Outcome.PUBLISHED
             val restarted = published && autoRestartAfterChange() &&
-                withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart = true, headUnit = false) }.getOrDefault(false) }
+                withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart = true, headUnit = headUnitAfterRestart()) }.getOrDefault(false) }
             val skipped = if (rejected == 0) "" else " $rejected not available on this Android Auto build were skipped."
             mutable.value = mutable.value.copy(
                 saveState = if (published) SaveState.SAVED else SaveState.FAILED,
@@ -1102,6 +1103,13 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         controlPreferences.edit().putBoolean(AUTO_RESTART_PREF, enabled).apply()
     }
 
+    /** DHU mode: every restart requested from the Manager also brings the head unit server back up. */
+    fun headUnitAfterRestart(): Boolean = controlPreferences.getBoolean(HEAD_UNIT_AFTER_RESTART_PREF, false)
+
+    fun setHeadUnitAfterRestart(enabled: Boolean) {
+        controlPreferences.edit().putBoolean(HEAD_UNIT_AFTER_RESTART_PREF, enabled).apply()
+    }
+
     /** Writes one-shot requests the module acts on. Blocking remote-preference I/O: call off Main. */
     private fun sendControlRequests(restart: Boolean, headUnit: Boolean): Boolean {
         val editor = ServiceBridge.dynamicPreferencesOrNull()?.edit() ?: return false
@@ -1117,7 +1125,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         val sent = withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart, headUnit) }.getOrDefault(false) }
         mutable.value = mutable.value.copy(message = when {
             !sent -> "Request failed: LSPosed remote preferences unavailable."
-            restart && headUnit -> "Asked Android Auto to restart and start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_*)."
+            restart && headUnit -> "Asked Android Auto to restart; the head unit server starts a few seconds after it is back up."
             restart -> "Asked Android Auto to restart. It only reacts while it is running."
             else -> "Asked Android Auto to start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_HEAD_UNIT_*)."
         })

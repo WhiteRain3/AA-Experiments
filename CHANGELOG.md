@@ -20,6 +20,9 @@ instrumented or physical-device acceptance yet.
   are ignored, a restart request is never replayed at process start, and every path fails open.
   Events: `CONTROL_RESTART`, `CONTROL_HEAD_UNIT_STARTED`, `CONTROL_*_FAILED`.
 - Optional "Restart automatically after a change" after a normal override is saved and published.
+- "DHU mode": restarts requested from the Manager also start the head unit server. The process
+  that receives a combined request live leaves the start to the restarted process, which tries at
+  3, 7 and 12 seconds after loading, because an earlier single attempt was lost on a real device.
 - Presets: save the current normal overrides under a name, apply a preset (it replaces the current
   set; every value is validated against the installed build like a manual edit, unavailable ones
   are skipped), delete, and export/import as JSON. Applying shows the exact list of changes first
@@ -39,7 +42,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr5`, versionCode unchanged.
+- versionName `1.0.0-wr6`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

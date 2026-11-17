@@ -199,6 +199,7 @@ private fun ThemeStrip(roles: Map<String, Int>) {
 @Composable
 internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
+    val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     val roles = remember { mutableStateMapOf<String, Int>().apply { putAll(model.themeColorsMap()) } }
     val initialGlyph = remember { model.glyphIconColors() }
     var glyphEnabled by remember { mutableStateOf(initialGlyph != null) }
@@ -282,6 +283,17 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                     FilterChip(!seedDark, { seedDark = false }, { Text("Light") })
                     Button({ roles.clear(); roles.putAll(Themes.generate(seed, seedDark)) }) { Text("Generate") }
                 }
+                OutlinedButton({
+                    val picked = runCatching {
+                        CarWallpaperStudio.loadSource(context)?.let { image ->
+                            val small = android.graphics.Bitmap.createScaledBitmap(image, 64, 64, true)
+                            val pixels = IntArray(64 * 64).also { small.getPixels(it, 0, 64, 0, 0, 64, 64) }
+                            ColorMath.dominantColor(pixels)
+                        }
+                    }.getOrNull()
+                    if (picked != null) { seed = picked; roles.clear(); roles.putAll(Themes.generate(picked, seedDark)) }
+                    else model.reportMessage("No seed colour found: set a car wallpaper with some colour in it first.")
+                }, Modifier.fillMaxWidth()) { Text("Use my car wallpaper's main colour") }
 
                 HorizontalDivider()
                 Text("Glyph app icons", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -338,6 +350,18 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton({ exporter.launch("aa-experiments-themes.json") }, Modifier.weight(1f), enabled = savedThemes.isNotEmpty()) { Text("Export mine") }
                     OutlinedButton({ importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f)) { Text("Import") }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton({
+                        val name = Presets.cleanName(themeName) ?: "Shared theme"
+                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(
+                            Themes.encode(listOf(CarTheme(name, "", roles.toMap(), if (glyphEnabled) glyphText() else null)))))
+                        model.reportMessage("Theme copied as text.")
+                    }, Modifier.weight(1f), enabled = roles.isNotEmpty()) { Text("Copy as text") }
+                    OutlinedButton({
+                        runCatching { Themes.decode(clipboard.getText()?.text.orEmpty()).first() }
+                            .fold({ load(it) }, { model.reportMessage("The clipboard does not hold a theme.") })
+                    }, Modifier.weight(1f)) { Text("Paste theme") }
                 }
                 Spacer(Modifier.height(320.dp))
             }

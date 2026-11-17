@@ -8,6 +8,15 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemesTest {
+    @Test fun dominantColourIgnoresGreyAndPicksTheLargestVividGroup() {
+        val red = 0xFFE01010.toInt(); val blue = 0xFF1010E0.toInt(); val grey = 0xFF808080.toInt()
+        val pixels = IntArray(100) { if (it < 50) grey else if (it < 85) red else blue }
+        val picked = ColorMath.dominantColor(pixels)!!
+        assertTrue(ColorMath.red(picked) > 200 && ColorMath.blue(picked) < 40)
+        assertEquals(null, ColorMath.dominantColor(IntArray(100) { grey }))
+        assertEquals(null, ColorMath.dominantColor(IntArray(0)))
+    }
+
     @Test fun roleFinderGivesEveryRoleItsOwnOpaqueColour() {
         val finder = Themes.roleFinder()
         assertEquals(Themes.ALL_ROLES.toSet(), finder.keys)

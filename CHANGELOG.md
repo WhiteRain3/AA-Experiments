@@ -60,6 +60,10 @@ instrumented or physical-device acceptance yet.
 - Screen layout capture: on request the module describes the views Android Auto is showing
   (class, id, position, size, colours, display size and density; never any text) and hands the
   description to the Manager, where it can be saved to a file. Stays on the phone.
+- Car wallpaper editor: darken and blur sliders.
+- Theme editor: seed colour taken from the car wallpaper's main colour; copy a theme as text
+  and paste one from the clipboard.
+- Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
   Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
@@ -76,7 +80,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr14`, versionCode unchanged.
+- versionName `1.0.0-wr15`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

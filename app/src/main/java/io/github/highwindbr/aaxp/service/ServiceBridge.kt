@@ -38,6 +38,14 @@ object ServiceBridge : XposedServiceHelper.OnServiceListener {
         null
     }
 
+    /** Writes a fresh restart request for the module; false when the service is not connected. */
+    fun sendRestartRequest(): Boolean {
+        val editor = dynamicPreferencesOrNull()?.edit() ?: return false
+        return editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.RESTART_KEY,
+            io.github.highwindbr.aaxp.runtime.ControlRequests.make(System.currentTimeMillis(), java.util.UUID.randomUUID().toString()))
+            .commit()
+    }
+
     fun preferenceSnapshot(): Map<String, String> = dynamicPreferencesOrNull()?.all.orEmpty().mapNotNull { (key, value) ->
         if (key.startsWith(io.github.highwindbr.aaxp.core.DynamicOverrideCodec.PREFIX) && value is String) key to value else null
     }.toMap()

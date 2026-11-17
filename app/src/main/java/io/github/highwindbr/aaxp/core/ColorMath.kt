@@ -64,6 +64,29 @@ object ColorMath {
     }
 
     /** "RRGGBB" for opaque colours, otherwise "AARRGGBB". */
+    /**
+     * The most common vivid colour among [pixels], for seeding a theme from an image. Pixels are
+     * grouped by hue and weighted by how saturated and bright they are; null when the image is
+     * close to greyscale.
+     */
+    fun dominantColor(pixels: IntArray): Int? {
+        val bins = 24
+        val weight = FloatArray(bins); val r = FloatArray(bins); val g = FloatArray(bins); val b = FloatArray(bins)
+        var vivid = 0
+        for (pixel in pixels) {
+            val hsv = colorToHsv(pixel)
+            if (hsv[1] < 0.25f || hsv[2] < 0.25f) continue
+            vivid++
+            val w = hsv[1] * hsv[2]
+            val bin = ((hsv[0] / 360f * bins).toInt()).coerceIn(0, bins - 1)
+            weight[bin] += w; r[bin] += red(pixel) * w; g[bin] += green(pixel) * w; b[bin] += blue(pixel) * w
+        }
+        if (pixels.isEmpty() || vivid * 50 < pixels.size) return null
+        val best = weight.indices.maxByOrNull { weight[it] } ?: return null
+        if (weight[best] <= 0f) return null
+        return argb(255, (r[best] / weight[best]).toInt(), (g[best] / weight[best]).toInt(), (b[best] / weight[best]).toInt())
+    }
+
     fun toHex(color: Int): String =
         if (alpha(color) == 255) "%06X".format(color and 0xFFFFFF) else "%08X".format(color)
 

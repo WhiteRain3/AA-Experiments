@@ -88,7 +88,19 @@ internal object CarWallpaperStudio {
     }
 
     data class Saved(val screen: CarScreen, val coverage: WallpaperCoverage, val placement: WallpaperPlacement,
-                     val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF")
+                     val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF",
+                     val dim: Int = 0, val blur: Int = 0)
+
+    /** [source] softened by [blur] steps (0 = unchanged), at the same size. */
+    fun softened(source: Bitmap, blur: Int): Bitmap {
+        if (blur <= 0) return source
+        val factor = 1 + blur * 2
+        val small = Bitmap.createScaledBitmap(source, (source.width / factor).coerceAtLeast(1),
+            (source.height / factor).coerceAtLeast(1), true)
+        // Two steps up smooths the blocks a single large upscale would leave.
+        val middle = Bitmap.createScaledBitmap(small, (source.width / 2).coerceAtLeast(1), (source.height / 2).coerceAtLeast(1), true)
+        return Bitmap.createScaledBitmap(middle, source.width, source.height, true)
+    }
 
     fun load(context: Context): Saved {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -100,7 +112,8 @@ internal object CarWallpaperStudio {
                 .getOrDefault(WallpaperCoverage.WHOLE_SCREEN),
             WallpaperPlacement(p.getFloat("zoom", 1f), p.getFloat("offset_x", 0f), p.getFloat("offset_y", 0f),
                 p.getInt("turns", 0)),
-            p.getInt("separator_thickness", 0), p.getString("separator_color", null) ?: "#FFFFFF")
+            p.getInt("separator_thickness", 0), p.getString("separator_color", null) ?: "#FFFFFF",
+            p.getInt("dim", 0).coerceIn(0, 80), p.getInt("blur", 0).coerceIn(0, 10))
     }
 
     fun save(context: Context, saved: Saved) {
@@ -111,6 +124,7 @@ internal object CarWallpaperStudio {
             .putFloat("zoom", saved.placement.zoom).putFloat("offset_x", saved.placement.offsetX)
             .putFloat("offset_y", saved.placement.offsetY).putInt("turns", saved.placement.quarterTurns)
             .putInt("separator_thickness", saved.separatorThickness).putString("separator_color", saved.separatorColor)
+            .putInt("dim", saved.dim).putInt("blur", saved.blur)
             .apply()
     }
 
@@ -135,7 +149,8 @@ internal object CarWallpaperStudio {
 
     /** Renders the image Android Auto will receive. [separator] is in frame pixels. */
     fun render(source: Bitmap, canvasSpec: WallpaperCanvas, placement: WallpaperPlacement,
-               separator: io.github.highwindbr.aaxp.core.FrameRect? = null, separatorColor: Int = 0): Bitmap {
+               separator: io.github.highwindbr.aaxp.core.FrameRect? = null, separatorColor: Int = 0,
+               dim: Int = 0): Bitmap {
         val k = WallpaperGeometry.outputScale(canvasSpec, CarWallpaper.MAX_EDGE)
         val output = Bitmap.createBitmap((canvasSpec.width * k).toInt().coerceAtLeast(1),
             (canvasSpec.height * k).toInt().coerceAtLeast(1), Bitmap.Config.ARGB_8888)
@@ -145,6 +160,7 @@ internal object CarWallpaperStudio {
         canvas.drawBitmap(source,
             matrix(source, canvasSpec.frameWidth * k, canvasSpec.frameHeight * k, placement, k),
             Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG))
+        if (dim > 0) canvas.drawColor(android.graphics.Color.argb(dim.coerceIn(0, 100) * 255 / 100, 0, 0, 0))
         if (separator != null) {
             canvas.drawRect(separator.left * k, separator.top * k, separator.right * k, separator.bottom * k,
                 Paint().apply { color = separatorColor })
@@ -171,6 +187,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     var saving by remember { mutableStateOf(false) }
     var separatorThickness by remember { mutableStateOf(initial.separatorThickness) }
     var separatorColorText by remember { mutableStateOf(initial.separatorColor) }
+    var dim by remember { mutableStateOf(initial.dim) }
+    var blur by remember { mutableStateOf(initial.blur) }
+    val shown = remember(source, blur) { CarWallpaperStudio.softened(source, blur) }
 
     val screen = CarScreen(
         widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 800,
@@ -187,9 +206,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     val saveNow = {
         saving = true
         CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
-            separatorThickness, separatorColorText))
-        onSave(CarWallpaperStudio.render(source, spec, placement,
-            if (separatorColor != null) separator else null, separatorColor ?: 0))
+            separatorThickness, separatorColorText, dim, blur))
+        onSave(CarWallpaperStudio.render(shown, spec, placement,
+            if (separatorColor != null) separator else null, separatorColor ?: 0, dim))
     }
     Dialog(onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -223,9 +242,10 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     val perPixel = size.width / spec.frameWidth
                     drawRect(Color.Black)
                     drawIntoCanvas {
-                        it.nativeCanvas.drawBitmap(source,
-                            CarWallpaperStudio.matrix(source, size.width, size.height, placement, perPixel), paint)
+                        it.nativeCanvas.drawBitmap(shown,
+                            CarWallpaperStudio.matrix(shown, size.width, size.height, placement, perPixel), paint)
                     }
+                    if (dim > 0) drawRect(Color.Black.copy(alpha = dim / 100f))
                     if (coverage == WallpaperCoverage.WHOLE_SCREEN && rail != RailSide.NONE) {
                         val strip = screen.railSize * perPixel
                         val (topLeft, stripSize) = when (rail) {
@@ -252,6 +272,11 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     OutlinedButton({ placement = placement.copy(offsetX = 0f, offsetY = 0f) }, Modifier.weight(1f)) { Text("Centre") }
                     OutlinedButton({ placement = placement.copy(quarterTurns = (placement.quarterTurns + 1) % 4) }, Modifier.weight(1f)) { Text("Rotate") }
                 }
+
+                Text(if (dim == 0) "Darken: off" else "Darken: $dim%", style = MaterialTheme.typography.labelLarge)
+                Slider(dim.toFloat(), { dim = it.toInt() }, valueRange = 0f..80f)
+                Text(if (blur == 0) "Blur: off" else "Blur: $blur", style = MaterialTheme.typography.labelLarge)
+                Slider(blur.toFloat(), { blur = it.toInt() }, valueRange = 0f..10f, steps = 9)
 
                 Text("Cover", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

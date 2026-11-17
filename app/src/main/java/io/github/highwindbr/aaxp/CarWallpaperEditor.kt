@@ -89,7 +89,7 @@ internal object CarWallpaperStudio {
 
     data class Saved(val screen: CarScreen, val coverage: WallpaperCoverage, val placement: WallpaperPlacement,
                      val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF",
-                     val dim: Int = 0, val blur: Int = 0)
+                     val dim: Int = 0, val blur: Int = 0, val railShiftX: Int = 0, val railShiftY: Int = 0)
 
     fun settingsJson(saved: Saved): org.json.JSONObject = org.json.JSONObject()
         .put("width", saved.screen.width).put("height", saved.screen.height)
@@ -99,6 +99,7 @@ internal object CarWallpaperStudio {
         .put("offsetY", saved.placement.offsetY.toDouble()).put("turns", saved.placement.quarterTurns)
         .put("separatorThickness", saved.separatorThickness).put("separatorColor", saved.separatorColor)
         .put("dim", saved.dim).put("blur", saved.blur)
+        .put("railShiftX", saved.railShiftX).put("railShiftY", saved.railShiftY)
 
     /** Editor settings from a look file; anything missing or out of range falls back to a default. */
     fun settingsFrom(json: org.json.JSONObject?): Saved {
@@ -111,18 +112,27 @@ internal object CarWallpaperStudio {
             WallpaperPlacement(j.optDouble("zoom", 1.0).toFloat().coerceIn(0.1f, 8f), j.optDouble("offsetX", 0.0).toFloat(),
                 j.optDouble("offsetY", 0.0).toFloat(), j.optInt("turns", 0).mod(4)),
             j.optInt("separatorThickness", 0).coerceIn(0, 24), j.optString("separatorColor", "#FFFFFF"),
-            j.optInt("dim", 0).coerceIn(0, 80), j.optInt("blur", 0).coerceIn(0, 10))
+            j.optInt("dim", 0).coerceIn(0, 80), j.optInt("blur", 0).coerceIn(0, 10),
+            j.optInt("railShiftX", 0).coerceIn(-20, 20), j.optInt("railShiftY", 0).coerceIn(-20, 20))
     }
 
     /** The part of a rendered whole-screen image that belongs behind the rail; null when there is none. */
-    fun railSlice(rendered: Bitmap, screen: CarScreen, coverage: WallpaperCoverage): Bitmap? {
+    /**
+     * [shiftX]/[shiftY] (screen pixels) move the window the slice is cut from, to line the rail up
+     * with the main area on head units that place the two a few pixels apart.
+     */
+    fun railSlice(rendered: Bitmap, screen: CarScreen, coverage: WallpaperCoverage, shiftX: Int = 0, shiftY: Int = 0): Bitmap? {
         val rect = WallpaperGeometry.railRect(screen, coverage) ?: return null
         val k = rendered.width.toFloat() / WallpaperGeometry.canvas(screen, coverage).width
-        val left = (rect.left * k).toInt().coerceIn(0, rendered.width - 1)
-        val top = (rect.top * k).toInt().coerceIn(0, rendered.height - 1)
-        val width = ((rect.right - rect.left) * k).toInt().coerceIn(1, rendered.width - left)
-        val height = ((rect.bottom - rect.top) * k).toInt().coerceIn(1, rendered.height - top)
-        return Bitmap.createBitmap(rendered, left, top, width, height)
+        val width = ((rect.right - rect.left) * k).toInt().coerceAtLeast(1)
+        val height = ((rect.bottom - rect.top) * k).toInt().coerceAtLeast(1)
+        // Drawn rather than cropped, so a shift past the image's edge leaves black instead of failing.
+        val slice = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        android.graphics.Canvas(slice).apply {
+            drawColor(android.graphics.Color.BLACK)
+            drawBitmap(rendered, -(rect.left + shiftX) * k, -(rect.top + shiftY) * k, null)
+        }
+        return slice
     }
 
     /** The image Android Auto receives for the stored source and settings, and the rail's slice of it. */
@@ -133,7 +143,7 @@ internal object CarWallpaperStudio {
         val rendered = render(softened(source, saved.blur), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
             if (color != null) WallpaperGeometry.separator(saved.screen, saved.coverage, saved.separatorThickness) else null,
             color ?: 0, saved.dim)
-        return rendered to railSlice(rendered, saved.screen, saved.coverage)
+        return rendered to railSlice(rendered, saved.screen, saved.coverage, saved.railShiftX, saved.railShiftY)
     }
 
     /** [source] softened by [blur] steps (0 = unchanged), at the same size. */
@@ -158,7 +168,8 @@ internal object CarWallpaperStudio {
             WallpaperPlacement(p.getFloat("zoom", 1f), p.getFloat("offset_x", 0f), p.getFloat("offset_y", 0f),
                 p.getInt("turns", 0)),
             p.getInt("separator_thickness", 0), p.getString("separator_color", null) ?: "#FFFFFF",
-            p.getInt("dim", 0).coerceIn(0, 80), p.getInt("blur", 0).coerceIn(0, 10))
+            p.getInt("dim", 0).coerceIn(0, 80), p.getInt("blur", 0).coerceIn(0, 10),
+            p.getInt("rail_shift_x", 0).coerceIn(-20, 20), p.getInt("rail_shift_y", 0).coerceIn(-20, 20))
     }
 
     fun save(context: Context, saved: Saved) {
@@ -170,6 +181,7 @@ internal object CarWallpaperStudio {
             .putFloat("offset_y", saved.placement.offsetY).putInt("turns", saved.placement.quarterTurns)
             .putInt("separator_thickness", saved.separatorThickness).putString("separator_color", saved.separatorColor)
             .putInt("dim", saved.dim).putInt("blur", saved.blur)
+            .putInt("rail_shift_x", saved.railShiftX).putInt("rail_shift_y", saved.railShiftY)
             .apply()
     }
 
@@ -234,6 +246,8 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     var separatorColorText by remember { mutableStateOf(initial.separatorColor) }
     var dim by remember { mutableStateOf(initial.dim) }
     var blur by remember { mutableStateOf(initial.blur) }
+    var railShiftX by remember { mutableStateOf(initial.railShiftX) }
+    var railShiftY by remember { mutableStateOf(initial.railShiftY) }
     val shown = remember(source, blur) { CarWallpaperStudio.softened(source, blur) }
 
     val screen = CarScreen(
@@ -251,10 +265,10 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     val saveNow = {
         saving = true
         CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
-            separatorThickness, separatorColorText, dim, blur))
+            separatorThickness, separatorColorText, dim, blur, railShiftX, railShiftY))
         val rendered = CarWallpaperStudio.render(shown, spec, placement,
             if (separatorColor != null) separator else null, separatorColor ?: 0, dim)
-        onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage))
+        onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage, railShiftX, railShiftY))
     }
     Dialog(onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
@@ -317,6 +331,14 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     OutlinedButton({ placement = placement.copy(zoom = fitZoom.coerceIn(0.1f, 8f), offsetX = 0f, offsetY = 0f) }, Modifier.weight(1f)) { Text("Fit") }
                     OutlinedButton({ placement = placement.copy(offsetX = 0f, offsetY = 0f) }, Modifier.weight(1f)) { Text("Centre") }
                     OutlinedButton({ placement = placement.copy(quarterTurns = (placement.quarterTurns + 1) % 4) }, Modifier.weight(1f)) { Text("Rotate") }
+                }
+
+                if (coverage == WallpaperCoverage.WHOLE_SCREEN && rail != RailSide.NONE) {
+                    Text("Rail alignment: $railShiftX px across, $railShiftY px down", style = MaterialTheme.typography.labelLarge)
+                    Text("If the picture behind the rail does not line up with the rest, nudge it here. It is not shown in the preview.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Slider(railShiftX.toFloat(), { railShiftX = it.toInt() }, valueRange = -20f..20f, steps = 39)
+                    Slider(railShiftY.toFloat(), { railShiftY = it.toInt() }, valueRange = -20f..20f, steps = 39)
                 }
 
                 Text(if (dim == 0) "Darken: off" else "Darken: $dim%", style = MaterialTheme.typography.labelLarge)

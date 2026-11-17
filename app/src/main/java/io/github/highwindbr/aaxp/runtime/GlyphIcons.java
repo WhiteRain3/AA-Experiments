@@ -121,8 +121,8 @@ public final class GlyphIcons {
             if (hex.startsWith("#")) hex = hex.substring(1);
             if (hex.length() != 6 && hex.length() != 8) return null;
             try {
-                long value = Long.parseLong(hex, 16);
-                out[i] = (int) (hex.length() == 6 ? 0xFF000000L | value : value);
+                long parsed = Long.parseLong(hex, 16);
+                out[i] = (int) (hex.length() == 6 ? 0xFF000000L | parsed : parsed);
             } catch (NumberFormatException invalid) {
                 return null;
             }

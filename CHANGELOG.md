@@ -44,6 +44,11 @@ instrumented or physical-device acceptance yet.
   re-checks that the class is an enum carrying those role names, then hooks its colour methods and
   returns the configured colour for a role when one is set, otherwise the original. Events:
   `THEME_ROLE_HOOKS`, `THEME_COLOR_SERVED`, `THEME_ROLES_REJECTED`.
+- Theme editor: a full-screen editor on top of the palette colour overrides, with a colour picker
+  (saturation/brightness field, hue bar, opacity, hex entry, quick colours), a swatch per role
+  grouped by purpose, a generator that derives every role from one seed colour (dark or light),
+  glyph icon colours, six built-in themes (original palettes, no third-party artwork), and user
+  themes that can be kept, exported and imported as JSON. Nothing reaches Android Auto until Save.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
   Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
   while a version is configured; otherwise, and on any failure, the original call proceeds. The
@@ -59,7 +64,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr12`, versionCode unchanged.
+- versionName `1.0.0-wr13`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

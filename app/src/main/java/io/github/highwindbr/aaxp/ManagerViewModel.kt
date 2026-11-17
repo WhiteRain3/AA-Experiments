@@ -1098,6 +1098,62 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         onDone(saved)
     }
 
+    // ---- Themes: palette colours plus glyph colours, applied together ----
+
+    private val themePreferences = application.getSharedPreferences("car_themes", Context.MODE_PRIVATE)
+
+    fun themeColorsMap(): Map<String, Int> = runCatching {
+        io.github.highwindbr.aaxp.runtime.ThemeColors.parse(ServiceBridge.dynamicPreferencesOrNull()
+            ?.getString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, null))
+    }.getOrNull().orEmpty()
+
+    fun carThemes(): List<io.github.highwindbr.aaxp.core.CarTheme> = runCatching {
+        themePreferences.getString("themes", null)?.let { io.github.highwindbr.aaxp.core.Themes.decode(it) }
+    }.getOrNull().orEmpty().sortedBy { it.name.lowercase() }
+
+    private fun storeCarThemes(list: List<io.github.highwindbr.aaxp.core.CarTheme>): Boolean =
+        themePreferences.edit().putString("themes", io.github.highwindbr.aaxp.core.Themes.encode(list)).commit()
+
+    fun saveCarTheme(theme: io.github.highwindbr.aaxp.core.CarTheme): Boolean {
+        val name = io.github.highwindbr.aaxp.core.Presets.cleanName(theme.name) ?: return false
+        val saved = storeCarThemes(carThemes().filterNot { it.name.equals(name, true) } + theme.copy(name = name, builtIn = false))
+        mutable.value = mutable.value.copy(message = if (saved) "Theme \"$name\" kept." else "Theme not kept.")
+        return saved
+    }
+
+    fun deleteCarTheme(name: String) {
+        storeCarThemes(carThemes().filterNot { it.name == name })
+        mutable.value = mutable.value.copy(message = "Theme \"$name\" deleted.")
+    }
+
+    fun importCarThemes(imported: List<io.github.highwindbr.aaxp.core.CarTheme>) {
+        val names = imported.map { it.name.lowercase() }.toSet()
+        val stored = storeCarThemes((carThemes().filterNot { it.name.lowercase() in names } + imported)
+            .take(io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS))
+        mutable.value = mutable.value.copy(message = if (stored) "Imported ${imported.size} theme(s)." else "Themes not imported.")
+    }
+
+    /** Writes the role colours and the glyph colours in one step; null [glyphColors] turns glyphs off. */
+    fun applyCarTheme(roles: Map<String, Int>, glyphColors: String?) = viewModelScope.launch {
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(roles)
+            if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, encoded)
+            if (glyphColors == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
+            else {
+                require(io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(glyphColors) != null) { "bad glyph colours" }
+                editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, glyphColors)
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { if (it) "Theme saved (${roles.size} colour(s)). Android Auto was asked to restart."
+              else "Theme saved (${roles.size} colour(s)). Restart Android Auto to see it." },
+            { "Theme not saved: ${it.message}" }))
+    }
+
     // ---- Glyph-style app icons ----
 
     /** The stored "glyph,background" colours, or null when the mode is off. */

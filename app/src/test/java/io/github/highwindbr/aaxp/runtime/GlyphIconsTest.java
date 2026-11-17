@@ -88,6 +88,10 @@ public class GlyphIconsTest {
     @Test public void coloursParseAsOpaquePairs() {
         assertArrayEquals(new int[] {0xFFFFFFFF, 0xFF000000}, GlyphIcons.parseColors(GlyphIcons.DEFAULT_COLORS));
         assertArrayEquals(new int[] {0xFFD7000F, 0xFF101010}, GlyphIcons.parseColors("#D7000F, #101010"));
+        // AARRGGBB: half-transparent white glyph on a fully transparent background.
+        assertArrayEquals(new int[] {0x80FFFFFF, 0x00000000}, GlyphIcons.parseColors("80FFFFFF,00000000"));
+        assertArrayEquals(new int[] {0xFFFFFFFF, 0x66101010}, GlyphIcons.parseColors("#FFFFFF,#66101010"));
+        assertNull(GlyphIcons.parseColors("FFFFFFF,000000"));
         assertNull(GlyphIcons.parseColors(null));
         assertNull(GlyphIcons.parseColors("FFFFFF"));
         assertNull(GlyphIcons.parseColors("FFFFFF,xyz123"));

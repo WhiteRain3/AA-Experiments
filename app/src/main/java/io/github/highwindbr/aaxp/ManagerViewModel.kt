@@ -1069,7 +1069,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             editor.commit()
         }.getOrDefault(false) }
         mutable.value = mutable.value.copy(message = when {
-            !valid -> "Glyph icons not changed: colours must be RRGGBB."
+            !valid -> "Glyph icons not changed: colours must be RRGGBB or AARRGGBB."
             !saved -> "Glyph icons not changed: LSPosed remote preferences unavailable."
             colors == null -> "Glyph icons off. Restart Android Auto to see normal icons again."
             else -> "Glyph icons on. Restart Android Auto; icons Android Auto has already cached may take a while to refresh."

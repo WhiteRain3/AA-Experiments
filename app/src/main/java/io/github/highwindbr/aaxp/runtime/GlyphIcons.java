@@ -8,7 +8,10 @@ package io.github.highwindbr.aaxp.runtime;
  * in one colour on a plain background. Apps without such a layer keep their normal icon.
  */
 public final class GlyphIcons {
-    /** Remote preference: "RRGGBB,RRGGBB" as glyph colour and background colour; absent = off. */
+    /**
+     * Remote preference: glyph colour and background colour, comma separated; absent = off.
+     * Each is RRGGBB (opaque) or AARRGGBB, where AA is the opacity from 00 (invisible) to FF.
+     */
     public static final String KEY = "icons.glyph_colors";
     public static final String DEFAULT_COLORS = "FFFFFF,000000";
 
@@ -107,7 +110,7 @@ public final class GlyphIcons {
         return (299 * ((pixel >> 16) & 0xff) + 587 * ((pixel >> 8) & 0xff) + 114 * (pixel & 0xff)) / 1000;
     }
 
-    /** Parses "RRGGBB,RRGGBB" into opaque ARGB {glyph, background}; null when malformed. */
+    /** Parses "colour,colour" into ARGB {glyph, background}; null when malformed. */
     public static int[] parseColors(String value) {
         if (value == null) return null;
         String[] parts = value.split(",");
@@ -116,9 +119,10 @@ public final class GlyphIcons {
         for (int i = 0; i < 2; i++) {
             String hex = parts[i].trim();
             if (hex.startsWith("#")) hex = hex.substring(1);
-            if (hex.length() != 6) return null;
+            if (hex.length() != 6 && hex.length() != 8) return null;
             try {
-                out[i] = 0xFF000000 | Integer.parseInt(hex, 16);
+                long value = Long.parseLong(hex, 16);
+                out[i] = (int) (hex.length() == 6 ? 0xFF000000L | value : value);
             } catch (NumberFormatException invalid) {
                 return null;
             }

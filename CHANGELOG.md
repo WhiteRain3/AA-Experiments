@@ -31,7 +31,8 @@ instrumented or physical-device acceptance yet.
   icon loaders (`PackageItemInfo`, `LauncherActivityInfo`, `ResolveInfo`, `ApplicationPackageManager`,
   and `Resources.getDrawableForDensity`, which is the call Android Auto 18.0 uses for app icons). An
   adaptive icon with a monochrome layer becomes a one-colour glyph on a plain background; anything
-  else, and any failure, returns the original icon. An adaptive icon without a monochrome layer
+  else, and any failure, returns the original icon. Glyph and background colours may be RRGGBB or
+  AARRGGBB, so either can be translucent or the background fully transparent. An adaptive icon without a monochrome layer
   gets a glyph derived from its foreground: for a solid plate (disc, rounded square, full square)
   the figure that differs from the plate's dominant brightness, otherwise the shape itself. Large
   flat plates and busy artwork keep their original icon. Android Auto's own `ic_applauncher_*`
@@ -52,7 +53,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr10`, versionCode unchanged.
+- versionName `1.0.0-wr11`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

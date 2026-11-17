@@ -439,9 +439,11 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         Text("Shows apps on the car screen as single-colour glyphs, using each app's own themed-icon layer. Apps without one keep their normal icon. Restart Android Auto after changing it.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(glyph, { glyph = it.take(7) }, Modifier.weight(1f), label = { Text("Glyph RRGGBB") }, singleLine = true, isError = !valid)
-            OutlinedTextField(background, { background = it.take(7) }, Modifier.weight(1f), label = { Text("Background RRGGBB") }, singleLine = true, isError = !valid)
+            OutlinedTextField(glyph, { glyph = it.take(9) }, Modifier.weight(1f), label = { Text("Glyph colour") }, singleLine = true, isError = !valid)
+            OutlinedTextField(background, { background = it.take(9) }, Modifier.weight(1f), label = { Text("Background colour") }, singleLine = true, isError = !valid)
         }
+        Text("RRGGBB, or AARRGGBB for transparency: AA runs from 00 (invisible) to FF (solid). 00000000 as background shows the glyph alone.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ model.setGlyphIcons(colors) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }
             OutlinedButton({ model.setGlyphIcons(null) { saved -> if (saved) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Turn off") }

@@ -289,7 +289,8 @@ public final class AndroidAutoModule extends XposedModule {
         int[] mask = GlyphIcons.glyphAlpha(pixels, size);
         if (mask == null) return null;
         int rgb = color & 0x00FFFFFF;
-        for (int i = 0; i < mask.length; i++) pixels[i] = (mask[i] << 24) | rgb;
+        int opacity = color >>> 24; // a translucent glyph colour scales the whole mask
+        for (int i = 0; i < mask.length; i++) pixels[i] = ((mask[i] * opacity / 255) << 24) | rgb;
         rendered.setPixels(pixels, 0, size, 0, 0, size, size);
         return new android.graphics.drawable.BitmapDrawable(
                 android.content.res.Resources.getSystem(), rendered);

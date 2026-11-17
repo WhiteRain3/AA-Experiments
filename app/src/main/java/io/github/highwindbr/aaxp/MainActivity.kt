@@ -272,6 +272,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     item { ScreenTitle("Status", "Environment, resolver and runtime readiness") }
     item { AndroidAutoControlsCard(model, state.framework.connected) }
+    item { PresetsCard(model, state.dynamicOverrides, state.framework.connected) }
     item { CarWallpaperCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {

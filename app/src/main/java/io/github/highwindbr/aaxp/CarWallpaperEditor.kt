@@ -11,6 +11,11 @@ import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -179,11 +184,26 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     val fitZoom = WallpaperGeometry.fitScale(rotatedWidth, rotatedHeight, spec.frameWidth, spec.frameHeight) /
         WallpaperGeometry.coverScale(rotatedWidth, rotatedHeight, spec.frameWidth, spec.frameHeight)
 
-    Dialog(onDismissRequest = onCancel, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    val saveNow = {
+        saving = true
+        CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
+            separatorThickness, separatorColorText))
+        onSave(CarWallpaperStudio.render(source, spec, placement,
+            if (separatorColor != null) separator else null, separatorColor ?: 0))
+    }
+    Dialog(onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize()) {
-            Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
+          // Keep clear of the status bar, navigation bar and keyboard, and keep Save always in reach.
+          Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Text("Car wallpaper", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                OutlinedButton(onCancel, enabled = !saving) { Text("Cancel") }
+                Button(saveNow, enabled = !saving) { Text(if (saving) "Saving…" else "Save") }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Car wallpaper editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                 Text("Drag to move, pinch to zoom. The preview is the car screen; the shaded strip is the rail.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -278,17 +298,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                 Text("Defaults match the 800x480 DHU profile with the rail on the left (72 px). Set your car's values if they differ.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onCancel, Modifier.weight(1f), enabled = !saving) { Text("Cancel") }
-                    Button({
-                        saving = true
-                        CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
-                            separatorThickness, separatorColorText))
-                        onSave(CarWallpaperStudio.render(source, spec, placement,
-                            if (separatorColor != null) separator else null, separatorColor ?: 0))
-                    }, Modifier.weight(1f), enabled = !saving) { Text(if (saving) "Saving…" else "Save") }
-                }
+                Spacer(Modifier.height(32.dp))
             }
+          }
         }
     }
 }

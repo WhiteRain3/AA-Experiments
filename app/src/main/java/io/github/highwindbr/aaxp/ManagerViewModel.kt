@@ -953,6 +953,105 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // ---- Presets: named sets of normal overrides ----
+
+    private val presetPreferences = application.getSharedPreferences("override_presets", Context.MODE_PRIVATE)
+
+    fun presets(): List<io.github.highwindbr.aaxp.core.Preset> = runCatching {
+        presetPreferences.getString("presets", null)?.let { io.github.highwindbr.aaxp.core.Presets.decode(it) }
+    }.getOrNull().orEmpty().sortedBy { it.name.lowercase() }
+
+    private fun storePresets(list: List<io.github.highwindbr.aaxp.core.Preset>): Boolean =
+        presetPreferences.edit().putString("presets", io.github.highwindbr.aaxp.core.Presets.encode(list)).commit()
+
+    private fun currentOverridesSerialized(): Map<String, String> =
+        mutable.value.dynamicOverrides.mapValues { DynamicOverrideCodec.serialize(it.value) }
+
+    fun presetDiff(preset: io.github.highwindbr.aaxp.core.Preset) =
+        io.github.highwindbr.aaxp.core.Presets.diff(currentOverridesSerialized(), preset.overrides)
+
+    /** Saves the current normal overrides under [rawName], replacing a preset of the same name. */
+    fun savePreset(rawName: String): Boolean {
+        val name = io.github.highwindbr.aaxp.core.Presets.cleanName(rawName) ?: return false
+        val others = presets().filterNot { it.name.equals(name, true) }
+        if (others.size >= io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS) {
+            mutable.value = mutable.value.copy(message = "Preset not saved: the limit of ${io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS} presets is reached.")
+            return false
+        }
+        val saved = storePresets(others + io.github.highwindbr.aaxp.core.Preset(name, currentOverridesSerialized(),
+            mutable.value.aa.versionName.orEmpty()))
+        mutable.value = mutable.value.copy(message = if (saved) "Preset \"$name\" saved." else "Preset not saved.")
+        return saved
+    }
+
+    fun deletePreset(name: String) {
+        val removed = storePresets(presets().filterNot { it.name == name })
+        mutable.value = mutable.value.copy(message = if (removed) "Preset \"$name\" deleted." else "Preset not deleted.")
+    }
+
+    fun exportPresetsJson(): String = io.github.highwindbr.aaxp.core.Presets.encode(presets())
+
+    /** Adds presets from a file; an imported preset replaces an existing one with the same name. */
+    fun importPresetsJson(text: String) {
+        val result = runCatching {
+            val imported = io.github.highwindbr.aaxp.core.Presets.decode(text)
+            val names = imported.map { it.name.lowercase() }.toSet()
+            val merged = (presets().filterNot { it.name.lowercase() in names } + imported)
+                .take(io.github.highwindbr.aaxp.core.Presets.MAX_PRESETS)
+            check(storePresets(merged)) { "could not be stored" }
+            imported.size
+        }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { "Imported $it preset(s). Nothing is applied until you tap Apply." }, { "Presets not imported: ${it.message}" }))
+    }
+
+    /**
+     * Makes the normal overrides equal to [preset]: its values are validated against the installed
+     * build exactly like a manual edit, the rest go back to default, and the profile is republished.
+     */
+    fun applyPreset(preset: io.github.highwindbr.aaxp.core.Preset) = viewModelScope.launch {
+        if (!mutable.value.aa.runtimeTarget) { mutable.value = mutable.value.copy(message = "Imported archives are read-only."); return@launch }
+        mutable.value = mutable.value.copy(saveState = SaveState.SAVING)
+        val result = writePreferencesAndPublishWithResult { withContext(Dispatchers.IO) {
+            val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
+            require(prefs.getString(ExperimentalBooleanPolicy.RECORD_KEY, null) == null &&
+                prefs.all.keys.none { it.startsWith(AdvancedOverridePolicy.PREFIX) }) {
+                "Restore experimental and advanced baselines before applying a preset."
+            }
+            val byKey = database.identifiersByKeys(checkNotNull(mutable.value.aa.buildFingerprintSha256), preset.overrides.keys)
+            val accepted = mutableMapOf<String, TypedOverride>(); val rejected = mutableSetOf<String>()
+            preset.overrides.forEach { (key, raw) ->
+                val value = DynamicOverrideCodec.deserialize(raw)
+                if (suspendedOverrideReason(byKey[key], value) == null) accepted[key] = checkNotNull(value) else rejected += key
+            }
+            val editor = prefs.edit()
+            mutable.value.dynamicOverrides.keys.filterNot { it in accepted }.forEach { key ->
+                editor.remove(DynamicOverrideCodec.preferenceKey(key))
+                editor.remove(DynamicOverrideCodec.namePreferenceKey(key))
+            }
+            accepted.forEach { (key, value) ->
+                editor.putString(DynamicOverrideCodec.preferenceKey(key), DynamicOverrideCodec.serialize(value))
+                editor.putString(DynamicOverrideCodec.namePreferenceKey(key), key)
+            }
+            require(editor.commit()) { "Framework rejected the preference update" }
+            accepted.size to rejected.size
+        } }
+        result.onSuccess { (counts, publication) ->
+            val (accepted, rejected) = counts
+            val published = publication == ProfileMutationCoordinator.Outcome.PUBLISHED
+            val restarted = published && autoRestartAfterChange() &&
+                withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart = true, headUnit = false) }.getOrDefault(false) }
+            val skipped = if (rejected == 0) "" else " $rejected not available on this Android Auto build were skipped."
+            mutable.value = mutable.value.copy(
+                saveState = if (published) SaveState.SAVED else SaveState.FAILED,
+                message = when {
+                    !published -> "Preset \"${preset.name}\" saved, but the runtime profile was NOT published. Check LSPosed.$skipped"
+                    restarted -> "Preset \"${preset.name}\" applied ($accepted override(s)). Android Auto was asked to restart.$skipped"
+                    else -> "Preset \"${preset.name}\" applied ($accepted override(s)). Restart Android Auto to apply.$skipped"
+                })
+        }.onFailure { mutable.value = mutable.value.copy(saveState = SaveState.FAILED, message = "Preset not applied: ${it.message}") }
+    }
+
     // ---- Car wallpaper ----
 
     fun carWallpaperEnabled(): Boolean = runCatching {

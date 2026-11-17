@@ -26,6 +26,12 @@
             </intent-filter>
         </activity>
 
+        <!-- Local reports from the module inside Android Auto; callers are checked by uid. -->
+        <provider
+            android:name=".ModuleReportProvider"
+            android:authorities="io.github.highwindbr.aaxp.reports"
+            android:exported="true" />
+
         <service
             android:name=".AnalysisKeepAliveService"
             android:exported="false"

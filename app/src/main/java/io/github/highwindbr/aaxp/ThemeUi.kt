@@ -268,6 +268,12 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                     }
                 }
 
+                OutlinedButton({ roles.clear(); roles.putAll(Themes.roleFinder()); themeName = "" }, Modifier.fillMaxWidth()) {
+                    Text("Load role finder (for screenshots)")
+                }
+                Text("The role finder gives every colour role its own loud colour. Save it, take a screenshot of the car screen, and the colours show which role paints what. It is meant to look bad.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+
                 HorizontalDivider()
                 Text("Start from one colour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

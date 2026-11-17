@@ -120,6 +120,20 @@ object Themes {
             glyphColors = "A8F0C2,00000000", builtIn = true)
     )
 
+    /**
+     * A debugging look: every role gets its own loud, unmistakable colour, so a screenshot of
+     * the car screen shows which role paints which part. Not meant to be pretty or readable.
+     */
+    fun roleFinder(): Map<String, Int> = ALL_ROLES.withIndex().associate { (index, role) ->
+        // 16 hues, each in three tiers: vivid, dark and pastel.
+        val hue = (index / 3) * 22.5f + (index % 3) * 7.5f
+        when (index % 3) {
+            0 -> ColorMath.hsvToColor(hue, 1f, 1f)
+            1 -> ColorMath.hsvToColor(hue, 1f, 0.55f)
+            else -> ColorMath.hsvToColor(hue, 0.45f, 1f)
+        }.let { role to it }
+    }
+
     fun encode(themes: Collection<CarTheme>): String = JSONObject().apply {
         put("schemaVersion", 1)
         put("themes", JSONObject().apply {

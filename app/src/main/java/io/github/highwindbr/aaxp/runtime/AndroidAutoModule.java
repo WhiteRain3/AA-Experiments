@@ -82,6 +82,7 @@ public final class AndroidAutoModule extends XposedModule {
                         MediaStartupLabGate.REQUEST_KEY.equals(key)) requestMediaLaunchCheck();
                 if (ControlRequests.RESTART_KEY.equals(key)) handleRestartRequest(preferences);
                 if (ControlRequests.HEAD_UNIT_KEY.equals(key)) handleHeadUnitRequest(preferences, false);
+                if (ControlRequests.DUMP_KEY.equals(key)) handleDumpRequest(preferences);
             };
     private volatile String handledRestartRequest;
     private volatile String handledHeadUnitRequest;
@@ -104,9 +105,12 @@ public final class AndroidAutoModule extends XposedModule {
 
     @Override public void onPackageReady(XposedModuleInterface.PackageReadyParam param) {
         if (!AA_PACKAGE.equals(param.getPackageName()) || !param.isFirstPackage()) return;
-        installCarWallpaperHooks();
-        installGlyphIconHooks();
-        installThemeColorHooks(param.getClassLoader());
+        if (lookAllowed(param.getApplicationInfo())) {
+            installCarWallpaperHooks();
+            installGlyphIconHooks();
+            installThemeColorHooks(param.getClassLoader());
+            installStatusBarHooks();
+        }
         try {
             JSONObject profile = readProfile();
             if (profile.optInt("schemaVersion") != 3) {
@@ -172,6 +176,235 @@ public final class AndroidAutoModule extends XposedModule {
             event(Log.ERROR, "PROFILE_FAILED", null, "error", t.getClass().getSimpleName());
             log(Log.ERROR, TAG, "Dynamic profile failed; no further hooks installed", t);
         }
+    }
+
+    private static final android.net.Uri REPORTS = android.net.Uri.parse("content://" + ViewDumper.AUTHORITY);
+    private volatile SafeMode.State safeState;
+    private volatile java.io.File safeFile;
+
+    private static android.content.Context currentApplication() {
+        try {
+            Object current = Class.forName("android.app.ActivityThread").getMethod("currentApplication").invoke(null);
+            return current instanceof android.content.Context context ? context : null;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * Crash safe mode. Returns false when the look hooks must be left out because Android Auto
+     * crashed repeatedly with the current look settings. With no look setting stored there is
+     * nothing to guard, so no bookkeeping happens at all. Any failure here allows the look.
+     */
+    private boolean lookAllowed(ApplicationInfo app) {
+        try {
+            String signature = SafeMode.signature(
+                    overrideSnapshot.get(ThemeColors.COLORS_KEY), overrideSnapshot.get(GlyphIcons.KEY),
+                    overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
+                    overrideSnapshot.get(SafeMode.EPOCH_KEY));
+            if (signature == null) return true;
+            java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
+            String stored = null;
+            if (file.isFile()) stored = new String(java.nio.file.Files.readAllBytes(file.toPath()),
+                    java.nio.charset.StandardCharsets.UTF_8);
+            SafeMode.State state = SafeMode.atStart(SafeMode.parse(stored), signature);
+            safeFile = file;
+            safeState = state;
+            if (state.tripped) {
+                event(Log.WARN, "SAFE_MODE_ACTIVE", null, "process", String.valueOf(moduleProcessName));
+                new Handler(Looper.getMainLooper()).postDelayed(this::announceSafeMode, 4_000L);
+                return false;
+            }
+            watchForCrashes();
+            // Android Auto may install its own handler later without chaining to ours.
+            new Handler(Looper.getMainLooper()).postDelayed(this::watchForCrashes, 15_000L);
+            return true;
+        } catch (Throwable t) {
+            event(Log.WARN, "SAFE_MODE_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
+            return true;
+        }
+    }
+
+    private volatile Thread.UncaughtExceptionHandler crashWatcher;
+
+    private void watchForCrashes() {
+        try {
+            final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
+            if (previous != null && previous == crashWatcher) return;
+            Thread.UncaughtExceptionHandler watcher = (thread, error) -> {
+                try {
+                    SafeMode.State state = safeState;
+                    java.io.File file = safeFile;
+                    if (state != null && file != null) {
+                        SafeMode.State next = SafeMode.afterCrash(state, System.currentTimeMillis());
+                        safeState = next;
+                        java.nio.file.Files.write(file.toPath(),
+                                SafeMode.encode(next).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    }
+                } catch (Throwable ignored) { }
+                if (previous != null) previous.uncaughtException(thread, error);
+            };
+            crashWatcher = watcher;
+            Thread.setDefaultUncaughtExceptionHandler(watcher);
+        } catch (Throwable t) {
+            event(Log.WARN, "SAFE_MODE_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    /** Tells the user, on the phone and in the Manager, that the look was switched off. */
+    private void announceSafeMode() {
+        android.content.Context context = currentApplication();
+        if (context == null) return;
+        try {
+            context.getContentResolver().call(REPORTS, "safe_mode", String.valueOf(moduleProcessName), null);
+        } catch (Throwable t) {
+            event(Log.WARN, "SAFE_MODE_REPORT_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+        try {
+            android.widget.Toast.makeText(context, "AA Experiments: look changes are off after repeated "
+                    + "Android Auto crashes. Open AA Experiments to turn them back on.",
+                    android.widget.Toast.LENGTH_LONG).show();
+        } catch (Throwable ignored) { }
+    }
+
+    private volatile String handledDumpRequest;
+
+    /** Manager-requested description of what this process shows on screen. Fails open. */
+    private void handleDumpRequest(SharedPreferences preferences) {
+        try {
+            final String request = preferences.getString(ControlRequests.DUMP_KEY, null);
+            if (!ControlRequests.isFresh(request, System.currentTimeMillis())
+                    || request.equals(handledDumpRequest)) return;
+            handledDumpRequest = request;
+            new Handler(Looper.getMainLooper()).post(() -> {
+                try {
+                    final String text = ViewDumper.dump(String.valueOf(moduleProcessName));
+                    if (text == null) return;
+                    final android.content.Context context = currentApplication();
+                    if (context == null) return;
+                    new Thread(() -> {
+                        try {
+                            android.net.Uri target = REPORTS.buildUpon().appendPath("dump")
+                                    .appendPath(SafeMode.fileToken(moduleProcessName)).build();
+                            try (java.io.OutputStream out = context.getContentResolver().openOutputStream(target)) {
+                                out.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            }
+                            event(Log.INFO, "VIEW_DUMP_SENT", null, "chars", String.valueOf(text.length()),
+                                    "process", String.valueOf(moduleProcessName));
+                        } catch (Throwable t) {
+                            event(Log.WARN, "VIEW_DUMP_FAILED", null, "error", t.getClass().getSimpleName());
+                        }
+                    }, "aax-view-dump").start();
+                } catch (Throwable t) {
+                    event(Log.WARN, "VIEW_DUMP_FAILED", null, "error", t.getClass().getSimpleName());
+                }
+            });
+        } catch (Throwable t) {
+            event(Log.WARN, "VIEW_DUMP_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    private volatile String statusBarRaw;
+    private volatile StatusBarTweaks.Config statusBarParsed;
+    private final java.util.Set<android.view.View> hiddenViews =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+    private volatile boolean anyHiddenViews;
+    private final Map<Integer, Boolean> statusBarLayouts = new ConcurrentHashMap<>();
+
+    /** Parsed status bar setting, re-parsed only when the stored text changes; null when off. */
+    private StatusBarTweaks.Config statusBar() {
+        String raw = overrideSnapshot.get(StatusBarTweaks.KEY);
+        if (raw == null) return null;
+        if (!raw.equals(statusBarRaw)) {
+            statusBarParsed = StatusBarTweaks.parse(raw);
+            statusBarRaw = raw;
+        }
+        return statusBarParsed;
+    }
+
+    /**
+     * Status bar changes. Android Auto builds its status bar from one of a few layouts; after
+     * such a layout is inflated the configured parts are hidden or recoloured. Hidden parts are
+     * kept hidden when Android Auto later tries to show them. Installed only when the setting
+     * exists at process start, so the first use needs a restart. Fails open.
+     */
+    private void installStatusBarHooks() {
+        final StatusBarTweaks.Config atStart = statusBar();
+        if (atStart == null) return;
+        try {
+            Method inflate = android.view.LayoutInflater.class.getDeclaredMethod(
+                    "inflate", int.class, android.view.ViewGroup.class, boolean.class);
+            hook(inflate).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                Object result = chain.proceed();
+                try {
+                    StatusBarTweaks.Config config = statusBar();
+                    if (config != null && result instanceof android.view.View view) {
+                        Integer layout = (Integer) chain.getArg(0);
+                        Boolean match = statusBarLayouts.get(layout);
+                        if (match == null) {
+                            String name = null;
+                            try { name = view.getResources().getResourceEntryName(layout); } catch (Throwable ignored) { }
+                            match = StatusBarTweaks.isStatusBarLayout(name);
+                            statusBarLayouts.put(layout, match);
+                        }
+                        if (match) applyStatusBar(view, config);
+                    }
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "STATUS_BAR_FAILED", "inflate", t.getClass().getSimpleName());
+                }
+                return result;
+            });
+            if (!atStart.hide.isEmpty()) {
+                Method setVisibility = android.view.View.class.getDeclaredMethod("setVisibility", int.class);
+                hook(setVisibility).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                    if (anyHiddenViews && !Integer.valueOf(android.view.View.GONE).equals(chain.getArg(0))
+                            && hiddenViews.contains(chain.getThisObject())) {
+                        return chain.proceed(new Object[] {android.view.View.GONE});
+                    }
+                    return chain.proceed();
+                });
+            }
+            event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart.hide.size()));
+        } catch (Throwable t) {
+            event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    private static android.view.View findByName(android.view.View root, String idName) {
+        int id = root.getResources().getIdentifier(idName, "id", AA_PACKAGE);
+        return id == 0 ? null : root.findViewById(id);
+    }
+
+    private void applyStatusBar(android.view.View root, StatusBarTweaks.Config config) {
+        for (String name : config.hide) {
+            android.view.View target = findByName(root, name);
+            if (target == null) continue;
+            hiddenViews.add(target);
+            anyHiddenViews = true;
+            target.setVisibility(android.view.View.GONE);
+        }
+        if (config.clockColor != null && findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
+            clock.setTextColor(config.clockColor);
+        }
+        if (config.iconColor != null) {
+            for (String name : StatusBarTweaks.TINTABLE_ICONS) {
+                if (findByName(root, name) instanceof android.widget.ImageView icon) {
+                    icon.setImageTintList(android.content.res.ColorStateList.valueOf(config.iconColor));
+                }
+            }
+        }
+        if (config.noPlate) {
+            android.view.View plate = findByName(root, StatusBarTweaks.PLATE);
+            if (plate != null) {
+                try {
+                    plate.getClass().getMethod("setCardBackgroundColor", int.class).invoke(plate, 0);
+                } catch (Throwable notACard) {
+                    plate.setBackgroundColor(0);
+                }
+                plate.setElevation(0f);
+            }
+        }
+        eventOnce(Log.INFO, "STATUS_BAR_APPLIED", "layout", String.valueOf(statusBarRaw));
     }
 
     private volatile String themeColorsRaw;

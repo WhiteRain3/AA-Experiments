@@ -1154,6 +1154,79 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Theme not saved: ${it.message}" }))
     }
 
+    // ---- Status bar, crash safe mode and screen layout captures ----
+
+    fun statusBarConfig(): String? = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null)
+    }.getOrNull()
+
+    fun setStatusBarConfig(config: String?) = viewModelScope.launch {
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY)
+            else {
+                require(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.parse(config) != null) { "nothing to change" }
+                editor.putString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, config)
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { (if (config == null) "Status bar changes off." else "Status bar changes saved.") +
+                if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Status bar not changed: ${it.message}" }))
+    }
+
+    private val reportPreferences = ModuleReportProvider.preferences(application)
+
+    /** When and where crash safe mode last switched the look off; null when it has not. */
+    fun safeModeReport(): String? {
+        val time = reportPreferences.getLong(ModuleReportProvider.KEY_SAFE_TIME, 0L)
+        if (time == 0L) return null
+        val whenText = java.text.DateFormat.getDateTimeInstance(java.text.DateFormat.SHORT, java.text.DateFormat.SHORT)
+            .format(java.util.Date(time))
+        return "reported $whenText"
+    }
+
+    fun resetSafeMode(onDone: () -> Unit = {}) = viewModelScope.launch {
+        val reset = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
+            editor.putString(io.github.highwindbr.aaxp.runtime.SafeMode.EPOCH_KEY, System.currentTimeMillis().toString())
+            editor.commit()
+        }.getOrDefault(false) }
+        if (reset) reportPreferences.edit().remove(ModuleReportProvider.KEY_SAFE_TIME)
+            .remove(ModuleReportProvider.KEY_SAFE_PROCESS).apply()
+        mutable.value = mutable.value.copy(message = if (reset)
+            "Look changes are back on from the next Android Auto restart. If it crashes again, change the last thing you set."
+        else "Not changed: LSPosed remote preferences unavailable.")
+        onDone()
+    }
+
+    private fun layoutFiles(): List<java.io.File> =
+        ModuleReportProvider.dumpDirectory(getApplication()).listFiles().orEmpty()
+            .filter { it.isFile && it.length() in 1..ModuleReportProvider.MAX_DUMP_BYTES }.sortedBy { it.name }
+
+    /** Captured screen layouts as (process, size in bytes). */
+    fun screenLayoutCaptures(): List<Pair<String, Long>> = layoutFiles().map {
+        it.name.removePrefix("layout_").removeSuffix(".txt").substringAfterLast("gearhead").trim('_').ifEmpty { "main" } to it.length()
+    }
+
+    fun screenLayoutText(): String = layoutFiles().joinToString("\n\n") { it.readText() }
+
+    fun clearScreenLayouts() { layoutFiles().forEach { it.delete() } }
+
+    fun requestScreenLayout() = viewModelScope.launch {
+        val sent = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
+            editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.DUMP_KEY,
+                io.github.highwindbr.aaxp.runtime.ControlRequests.make(System.currentTimeMillis(), java.util.UUID.randomUUID().toString()))
+            editor.commit()
+        }.getOrDefault(false) }
+        mutable.value = mutable.value.copy(message = if (sent)
+            "Asked Android Auto for its screen layout. It only answers while it is running and showing something."
+        else "Request failed: LSPosed remote preferences unavailable.")
+    }
+
     // ---- Glyph-style app icons ----
 
     /** The stored "glyph,background" colours, or null when the mode is off. */

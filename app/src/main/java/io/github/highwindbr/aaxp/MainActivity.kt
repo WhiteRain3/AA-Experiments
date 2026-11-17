@@ -271,11 +271,14 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         state.profilePublished)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     item { ScreenTitle("Status", "Environment, resolver and runtime readiness") }
+    item { SafeModeBanner(model, state.framework.connected) }
     item { AndroidAutoControlsCard(model, state.framework.connected) }
     item { PresetsCard(model, state.dynamicOverrides, state.framework.connected) }
     item { CarWallpaperCard(model, state.framework.connected) }
     item { GlyphIconsCard(model, state.framework.connected) }
     item { ThemeColorsCard(model, state.framework.connected) }
+    item { StatusBarCard(model, state.framework.connected) }
+    item { ScreenLayoutCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -417,11 +420,11 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({ model.requestAndroidAutoControl(restart = true, headUnit = dhuMode) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
-            OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
+            if (dhuMode) OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
         }
         switchRow("Restart automatically after a change", "Restarts Android Auto each time an override or preset is applied", autoRestart) {
             autoRestart = it; model.setAutoRestartAfterChange(it) }
-        switchRow("DHU mode", "After every restart from this app, also start the head unit server so the Desktop Head Unit can reconnect. Leave off for the car.", dhuMode) {
+        switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
     } }
 }

@@ -10,6 +10,8 @@ package io.github.highwindbr.aaxp.runtime;
 public final class ControlRequests {
     public static final String RESTART_KEY = "control.restart_request";
     public static final String HEAD_UNIT_KEY = "control.head_unit_request";
+    /** Asks every Android Auto process to send a description of its on-screen views. */
+    public static final String DUMP_KEY = "control.dump_request";
     public static final long MAX_AGE_MS = 30_000L;
     /** When a restarted process tries to start the head unit server, counted from module load. */
     public static final long[] HEAD_UNIT_START_DELAYS_MS = {3_000L, 7_000L, 12_000L};

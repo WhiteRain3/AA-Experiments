@@ -49,6 +49,18 @@ instrumented or physical-device acceptance yet.
   grouped by purpose, a generator that derives every role from one seed colour (dark or light),
   glyph icon colours, six built-in themes (original palettes, no third-party artwork), and user
   themes that can be kept, exported and imported as JSON. Nothing reaches Android Auto until Save.
+- Role finder: a debugging look in the theme editor that gives each of the 46 colour roles its
+  own distinct colour, to learn from a car screenshot which role paints which part.
+- Crash safe mode for the look features: if an Android Auto process crashes twice within five
+  minutes while a wallpaper, glyph icons, colours or status bar changes are set, those hooks are
+  left out at the next start, a toast says so, and the Manager shows a banner with a button to
+  switch them back on. Changing any look setting also clears it. Flag overrides are unaffected.
+- Status bar changes: hide the clock, signal, battery, do-not-disturb icon or notification
+  count; recolour the clock and icons; remove the plate behind the bar. Untested on a car.
+- Screen layout capture: on request the module describes the views Android Auto is showing
+  (class, id, position, size, colours, display size and density; never any text) and hands the
+  description to the Manager, where it can be saved to a file. Stays on the phone.
+- The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside
   Android Auto the module hooks the public `WallpaperManager` read methods and returns that image
   while a version is configured; otherwise, and on any failure, the original call proceeds. The
@@ -64,7 +76,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr13`, versionCode unchanged.
+- versionName `1.0.0-wr14`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

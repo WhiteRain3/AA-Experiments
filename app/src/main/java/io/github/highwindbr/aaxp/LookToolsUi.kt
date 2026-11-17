@@ -1,0 +1,136 @@
+package io.github.highwindbr.aaxp
+
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import io.github.highwindbr.aaxp.runtime.StatusBarTweaks
+import kotlinx.coroutines.delay
+
+/** Shown only after crash safe mode switched the look off inside Android Auto. */
+@Composable internal fun SafeModeBanner(model: ManagerViewModel, connected: Boolean) {
+    var report by remember { mutableStateOf(model.safeModeReport()) }
+    val text = report ?: return
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Look changes are switched off", fontWeight = FontWeight.Bold)
+            Text("Android Auto crashed twice within a few minutes while the wallpaper, glyph icons, colours or status bar changes were on, so they were left out ($text). " +
+                "Flag overrides are not affected. Changing any look setting, or the button below, switches them back on at the next restart.",
+                style = MaterialTheme.typography.bodySmall)
+            Button({ model.resetSafeMode { report = model.safeModeReport() } }, Modifier.fillMaxWidth(), enabled = connected) {
+                Text("Switch look changes back on")
+            }
+        }
+    }
+}
+
+private val STATUS_BAR_PARTS = listOf(
+    "clock" to "Clock", "signal_icon" to "Signal", "battery_level" to "Battery",
+    "dnd_icon" to "Do not disturb icon", "notification_count_wrapper" to "Notification count")
+
+/** Hide or recolour parts of Android Auto's status bar. */
+@Composable internal fun StatusBarCard(model: ManagerViewModel, connected: Boolean) {
+    val stored = remember(connected) { if (connected) StatusBarTweaks.parse(model.statusBarConfig()) else null }
+    var hidden by remember(stored) { mutableStateOf(stored?.hide?.toSet().orEmpty()) }
+    var clockColor by remember(stored) { mutableStateOf(stored?.clockColor) }
+    var iconColor by remember(stored) { mutableStateOf(stored?.iconColor) }
+    var noPlate by remember(stored) { mutableStateOf(stored?.noPlate ?: false) }
+    var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
+    picking?.let { (title, apply) ->
+        ColorPickerDialog(title, 0xFFFFFFFF.toInt(), onDismiss = { picking = null }) { apply(it); picking = null }
+    }
+    @Composable fun switchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+        Row(Modifier.fillMaxWidth().toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
+            verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = checked, onCheckedChange = null)
+        }
+    }
+    @Composable fun colorRow(title: String, color: Int?, onChange: (Int?) -> Unit) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ColorSwatch(color, onClick = { picking = title to { picked -> onChange(picked) } })
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            if (color != null) TextButton({ onChange(null) }) { Text("Android Auto's own") }
+        }
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Status bar (experimental)", fontWeight = FontWeight.Bold)
+        Text("Hide or recolour the clock, signal and battery on the car screen. Untested on a real car so far: Android Auto may repaint the colours when it switches between day and night. Needs a restart of Android Auto.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        STATUS_BAR_PARTS.forEach { (id, label) ->
+            switchRow("Hide: $label", id in hidden) { hidden = if (it) hidden + id else hidden - id }
+        }
+        switchRow("Remove the plate behind the status bar", noPlate) { noPlate = it }
+        colorRow("Clock colour", clockColor) { clockColor = it }
+        colorRow("Icon colour", iconColor) { iconColor = it }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({
+                // Keep the order stable so the stored text does not change needlessly.
+                val hide = LinkedHashSet(StatusBarTweaks.HIDEABLE.filter { it in hidden })
+                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate)))
+            }, Modifier.weight(1f), enabled = connected) { Text("Save") }
+            OutlinedButton({
+                hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false
+                model.setStatusBarConfig(null)
+            }, Modifier.weight(1f), enabled = connected && stored != null) { Text("Turn off") }
+        }
+    } }
+}
+
+/**
+ * Asks Android Auto to describe what it is showing (which views, where, what colours; never any
+ * text) and lets the user save that description to a file to send along with a screenshot.
+ */
+@Composable internal fun ScreenLayoutCard(model: ManagerViewModel, connected: Boolean) {
+    val context = LocalContext.current
+    var captures by remember { mutableStateOf(model.screenLayoutCaptures()) }
+    var waiting by remember { mutableStateOf(false) }
+    LaunchedEffect(waiting) {
+        if (waiting) { delay(3_000); captures = model.screenLayoutCaptures(); waiting = false }
+    }
+    val saver = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        if (uri != null) runCatching {
+            context.contentResolver.openOutputStream(uri).use { out ->
+                checkNotNull(out) { "Cannot write the file" }.write(model.screenLayoutText().toByteArray(Charsets.UTF_8))
+            }
+        }.fold({ model.reportMessage("Screen layout saved.") }, { model.reportMessage("Screen layout not saved: ${it.message}") })
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Screen layout capture", fontWeight = FontWeight.Bold)
+        Text("While Android Auto is on the car screen, this records how that screen is built: each element's type, position, size and colours, plus the screen's size and density. It never records text such as messages or song titles. The file stays on this phone until you save and share it yourself.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(if (captures.isEmpty()) "Nothing captured yet." else "Captured: " + captures.joinToString { "${it.first} (${it.second / 1024} KB)" },
+            style = MaterialTheme.typography.bodyMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button({ model.requestScreenLayout(); waiting = true }, Modifier.weight(1f), enabled = connected && !waiting) {
+                Text(if (waiting) "Capturing…" else "Capture now")
+            }
+            OutlinedButton({ saver.launch("aa-screen-layout.txt") }, Modifier.weight(1f), enabled = captures.isNotEmpty()) { Text("Save to file") }
+        }
+        if (captures.isNotEmpty()) TextButton({ model.clearScreenLayouts(); captures = model.screenLayoutCaptures() }) { Text("Delete captures") }
+    } }
+}

@@ -8,6 +8,21 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ThemesTest {
+    @Test fun roleFinderGivesEveryRoleItsOwnOpaqueColour() {
+        val finder = Themes.roleFinder()
+        assertEquals(Themes.ALL_ROLES.toSet(), finder.keys)
+        assertEquals(finder.size, finder.values.toSet().size)
+        assertTrue(finder.values.all { ColorMath.alpha(it) == 255 })
+        // No two roles are close enough to be confused in a screenshot.
+        val colours = finder.values.toList()
+        for (i in colours.indices) for (j in i + 1 until colours.size) {
+            val distance = kotlin.math.abs(ColorMath.red(colours[i]) - ColorMath.red(colours[j])) +
+                kotlin.math.abs(ColorMath.green(colours[i]) - ColorMath.green(colours[j])) +
+                kotlin.math.abs(ColorMath.blue(colours[i]) - ColorMath.blue(colours[j]))
+            assertTrue("roles $i and $j are too similar", distance >= 24)
+        }
+    }
+
     @Test fun hsvAndHslRoundTrip() {
         for (color in listOf(0xFFFF2D95.toInt(), 0xFF00B4D8.toInt(), 0xFF808080.toInt(), 0xFF000000.toInt(), 0xFFFFFFFF.toInt())) {
             val hsv = ColorMath.colorToHsv(color)

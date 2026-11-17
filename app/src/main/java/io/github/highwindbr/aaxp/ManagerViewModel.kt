@@ -1256,6 +1256,28 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         onDone()
     }
 
+    // ---- Colours outside the palette roles (Android Auto's fixed resource palette) ----
+
+    fun resourceColors(): Map<String, Int> = runCatching {
+        io.github.highwindbr.aaxp.runtime.ResourceColors.parse(ServiceBridge.dynamicPreferencesOrNull()
+            ?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null))
+    }.getOrNull().orEmpty()
+
+    fun setResourceColors(colors: Map<String, Int>) = viewModelScope.launch {
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            val encoded = io.github.highwindbr.aaxp.runtime.ResourceColors.encode(colors)
+            if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, encoded)
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { (if (colors.isEmpty()) "Extra colours removed." else "Extra colours saved.") +
+                if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Extra colours not saved: ${it.message}" }))
+    }
+
     // ---- Status bar, crash safe mode and screen layout captures ----
 
     fun statusBarConfig(): String? = runCatching {

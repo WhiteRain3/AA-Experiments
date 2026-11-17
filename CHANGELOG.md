@@ -65,6 +65,10 @@ instrumented or physical-device acceptance yet.
   app start if switched on), sends nothing about the user, takes APKs only from this
   repository's release downloads, and refuses a build signed with a different key. A workflow
   publishes a release when the version name changes on the fork's branch.
+- More colours: Android Auto colours app labels, the clock, the rail's own icons, the launcher
+  background and the map's focus border from a fixed resource palette, which the role overrides
+  never reach. A new hook answers those colour resources with configured colours, set on the
+  Themes page. Untested on a car.
 - Manager layout: a Home screen with the module's state, one restart button and shortcuts; a
   Look tab listing every look feature with its current state; each feature on a page of its
   own; updates, restart behaviour, presets and diagnostics under Settings. The former Status

@@ -110,6 +110,7 @@ public final class AndroidAutoModule extends XposedModule {
             installGlyphIconHooks();
             installThemeColorHooks(param.getClassLoader());
             installStatusBarHooks();
+            installResourceColorHooks();
         }
         try {
             JSONObject profile = readProfile();
@@ -201,7 +202,7 @@ public final class AndroidAutoModule extends XposedModule {
             String signature = SafeMode.signature(
                     overrideSnapshot.get(ThemeColors.COLORS_KEY), overrideSnapshot.get(GlyphIcons.KEY),
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
-                    overrideSnapshot.get(CarWallpaper.RAIL_KEY),
+                    overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -372,6 +373,84 @@ public final class AndroidAutoModule extends XposedModule {
         } catch (Throwable t) {
             event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
+    }
+
+    private volatile String resourceColorsRaw;
+    private volatile Map<Integer, Integer> resourceColorsById = Map.of();
+
+    /**
+     * Resource id to replacement colour, rebuilt when the stored setting changes. Needs Android
+     * Auto's resources to turn names into ids, so it stays empty until the application exists.
+     */
+    private Map<Integer, Integer> resourceColors() {
+        String raw = overrideSnapshot.get(ResourceColors.KEY);
+        if (raw == null) return Map.of();
+        if (raw.equals(resourceColorsRaw)) return resourceColorsById;
+        android.content.Context context = currentApplication();
+        if (context == null) return Map.of();
+        Map<Integer, Integer> byId = new HashMap<>();
+        android.content.res.Resources resources = context.getResources();
+        for (Map.Entry<String, Integer> entry : ResourceColors.byResourceName(ResourceColors.parse(raw)).entrySet()) {
+            int id = resources.getIdentifier(entry.getKey(), "color", AA_PACKAGE);
+            if (id != 0) byId.put(id, entry.getValue());
+        }
+        resourceColorsById = byId;
+        resourceColorsRaw = raw;
+        event(Log.INFO, "RESOURCE_COLORS_READY", null, "resources", String.valueOf(byId.size()));
+        return byId;
+    }
+
+    /**
+     * Colours Android Auto reads from its fixed resource palette (labels, clock, rail icons,
+     * launcher background, the map's focus border). Layouts resolve those through TypedArray,
+     * code through Resources; both are answered with the configured colour when the value came
+     * from one of the configured colour resources. Installed only when the setting exists at
+     * process start. Fails open.
+     */
+    private void installResourceColorHooks() {
+        if (overrideSnapshot.get(ResourceColors.KEY) == null) return;
+        int installed = 0;
+        try {
+            Method[] typed = {
+                    android.content.res.TypedArray.class.getDeclaredMethod("getColor", int.class, int.class),
+                    android.content.res.TypedArray.class.getDeclaredMethod("getColorStateList", int.class)};
+            for (Method method : typed) {
+                final boolean list = method.getReturnType() != int.class;
+                hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                    Map<Integer, Integer> colors = resourceColors();
+                    if (!colors.isEmpty() && chain.getThisObject() instanceof android.content.res.TypedArray array) {
+                        Integer color = colors.get(array.getResourceId((Integer) chain.getArg(0), 0));
+                        if (color != null) {
+                            eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", "layout", "first");
+                            return list ? android.content.res.ColorStateList.valueOf(color) : (Object) color;
+                        }
+                    }
+                    return chain.proceed();
+                });
+                installed++;
+            }
+            Method[] direct = {
+                    android.content.res.Resources.class.getDeclaredMethod("getColor", int.class, android.content.res.Resources.Theme.class),
+                    android.content.res.Resources.class.getDeclaredMethod("getColorStateList", int.class, android.content.res.Resources.Theme.class)};
+            for (Method method : direct) {
+                final boolean list = method.getReturnType() != int.class;
+                hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                    Map<Integer, Integer> colors = resourceColors();
+                    if (!colors.isEmpty()) {
+                        Integer color = colors.get((Integer) chain.getArg(0));
+                        if (color != null) {
+                            eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", "code", "first");
+                            return list ? android.content.res.ColorStateList.valueOf(color) : (Object) color;
+                        }
+                    }
+                    return chain.proceed();
+                });
+                installed++;
+            }
+        } catch (Throwable t) {
+            event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+        event(Log.INFO, "RESOURCE_COLOR_HOOKS", null, "installed", String.valueOf(installed));
     }
 
     private final Map<Integer, Boolean> railLayouts = new ConcurrentHashMap<>();

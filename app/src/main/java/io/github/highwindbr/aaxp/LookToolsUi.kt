@@ -100,6 +100,38 @@ private val STATUS_BAR_PARTS = listOf(
     } }
 }
 
+private val EXTRA_COLOURS = listOf(
+    io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to "Labels, clock and rail icons",
+    io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to "Launcher background",
+    io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to "Focus border around the map")
+
+/** Colours that the palette roles do not reach, because Android Auto reads them from fixed resources. */
+@Composable internal fun ExtraColorsCard(model: ManagerViewModel, connected: Boolean) {
+    val stored = remember(connected) { if (connected) model.resourceColors() else emptyMap() }
+    var colors by remember(stored) { mutableStateOf(stored) }
+    var picking by remember { mutableStateOf<Pair<String, String>?>(null) }
+    picking?.let { (group, label) ->
+        ColorPickerDialog(label, colors[group] ?: 0xFFF2F0F0.toInt(), onDismiss = { picking = null }) {
+            colors = colors + (group to it); picking = null
+        }
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("More colours (experimental)", fontWeight = FontWeight.Bold)
+        Text("A few things ignore the theme because Android Auto colours them from a fixed list: app labels, the clock, the rail's own icons, the launcher background and the border around the map. Set them here. Not yet tried on a car; these colours are used in many places, so other text may change too.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        EXTRA_COLOURS.forEach { (group, label) ->
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ColorSwatch(colors[group], onClick = { picking = group to label })
+                Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                if (colors[group] != null) TextButton({ colors = colors - group }) { Text("Android Auto's own") }
+            }
+        }
+        Text("The launcher's focus ring is not here: it appears to follow the theme's Primary colour as a lighter tint.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button({ model.setResourceColors(colors) }, Modifier.fillMaxWidth(), enabled = connected) { Text("Save") }
+    } }
+}
+
 /** Check this fork's GitHub releases for a newer build and install it. */
 @Composable internal fun UpdateCard(model: ManagerViewModel) {
     val installed = remember { model.installedVersionName() }

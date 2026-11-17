@@ -126,6 +126,7 @@ Built and unit-tested, not yet confirmed on the device:
 - Update check through the release page redirect (wr21).
 - Wallpaper darken and blur, seed colour from the wallpaper, theme copy and paste, the
   quick settings tile, rail alignment nudges.
+- "More colours" (labels, clock, rail icons, launcher background, map focus border).
 
 ### Colour roles confirmed on the car (Android Auto 18.0)
 
@@ -139,10 +140,27 @@ Built and unit-tested, not yet confirmed on the device:
 | `OnSurfaceVariant` | Icons inside cards, media skip buttons |
 | `TextPrimary` | Song title and artist on the media card |
 
-The other 39 roles have not been seen in use. Not reached by the roles at all: the launcher
-background and app labels, the rail's microphone and launcher icons (a fixed off-white,
-`#F2F0F0`), the launcher's pink focus ring, the map's blue focus border, the media card's
-background and play button.
+The other 39 roles have not been seen in use.
+
+Android Auto has a second source of colour that the roles never reach: a tonal palette in its
+resources, used from layouts through theme attributes `palette_{p,s,t,n,nv,e}_{tone}`, which
+point at colour resources named `baseline_palette_*`, `dynamic_palette_*` and
+`neutral_palette_*`. Found in the 18.0 resources and matched to the owner's screenshots:
+
+| Colour resource | Value | What it paints |
+|---|---|---|
+| `baseline_palette_n_95` | `#F2F0F0` | App labels, the clock, the rail's microphone and launcher icons |
+| `baseline_palette_n_15` | `#252626` | Launcher background behind the wallpaper |
+| `neutral_palette_p_40` | `#00629F` | Focus border around the map on the dashboard |
+
+`runtime/ResourceColors.java` and `installResourceColorHooks()` override these by hooking
+`TypedArray.getColor/getColorStateList` and `Resources.getColor/getColorStateList`; the "More
+colours" card on the Themes page sets them. Built and unit-tested, not confirmed on the car.
+
+The launcher's focus ring is `?attr/palette_p_85` in the theme. On the car it was a light pink
+while the role finder had `Primary` set to pure red, so it appears to be a light tint derived
+from `Primary`; this is an inference from one screenshot. The media card's background and play
+button are not themed by either mechanism (probably taken from the album art).
 
 ### View ids seen in the layout capture (Android Auto 18.0)
 
@@ -171,8 +189,8 @@ Google's. A session that needs them asks the owner to upload `gearhead-code.zip`
 
 1. Polish the reorganised app after the owner's feedback: each feature page should feel
    finished (previews, less text, consistent spacing), not a moved card.
-2. Colour the things the roles do not reach, starting with the rotary focus ring and the
-   launcher labels and rail icons. Needs the reverse-engineering material.
+2. Get the owner's result for "More colours" and fix what it shows. If labels change in places
+   they should not, narrow the override from the palette colour to specific views.
 3. Live preview of a theme in the theme editor, using the confirmed role list.
 4. Per-app icon overrides, hiding and renaming apps in the launcher.
 5. Day and night themes.

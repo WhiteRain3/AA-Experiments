@@ -41,7 +41,12 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,6 +58,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
@@ -69,7 +77,6 @@ import io.github.highwindbr.aaxp.core.CarTheme
 import io.github.highwindbr.aaxp.core.ColorMath
 import io.github.highwindbr.aaxp.core.Presets
 import io.github.highwindbr.aaxp.core.Themes
-import io.github.highwindbr.aaxp.runtime.GlyphIcons
 
 private val QUICK_COLORS = listOf(
     0xFFFFFFFF, 0xFF000000, 0xFF808080, 0xFFE10600, 0xFFFF2D95, 0xFFFF8A3D, 0xFFFFB000,
@@ -183,43 +190,113 @@ private fun readText(context: Context, uri: Uri): String =
 /** Four colours that give an impression of a theme. */
 @Composable
 private fun ThemeStrip(roles: Map<String, Int>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-        listOf("Background", "Primary", "Secondary", "Tertiary", "OnSurface").forEach { role ->
-            Box(Modifier.size(18.dp).clip(CircleShape).background(Color(roles[role] ?: 0xFF808080.toInt()))
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
+    Row(Modifier.clip(RoundedCornerShape(8.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp))) {
+        listOf("Background", "Primary", "Secondary", "Tertiary").forEach { role ->
+            Box(Modifier.weight(1f).height(26.dp).background(Color(roles[role] ?: roles["Surface"] ?: 0xFF808080.toInt())))
         }
     }
 }
 
 /**
- * Full-screen theme editor: load a built-in or saved theme, generate one from a single colour,
- * adjust every role with a colour picker, set the glyph icon colours, then save. Nothing is
- * applied to Android Auto until Save is pressed.
+ * A small picture of the car screen painted from the seven colour slots that have been seen to
+ * change something: dashboard card, rail, media card and the map's round button. Slots without
+ * a colour show a neutral stand-in, so the picture is only a guide.
+ */
+@Composable
+internal fun CarScreenMock(roles: Map<String, Int>, modifier: Modifier = Modifier) {
+    fun c(role: String, fallback: Long) = Color(roles[role] ?: fallback.toInt())
+    val outline = c("OutlineVariant", 0xFF5A5A5A)
+    val surface = c("Surface", 0xFF2A2B2C)
+    val plate = c("SurfaceVariant", 0xFF3C3D3E)
+    val high = c("SurfaceHigh", 0xFF404142)
+    val onSurface = c("OnSurface", 0xFFE6E6E6)
+    val onVariant = c("OnSurfaceVariant", 0xFFB8B8B8)
+    val title = c("TextPrimary", 0xFFFFFFFF)
+    Row(modifier.fillMaxWidth().aspectRatio(1200f / 723f).clip(RoundedCornerShape(10.dp)).background(Color(0xFF121212))
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(10.dp)).padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        // Rail with app icons ringed in OutlineVariant.
+        Column(Modifier.width(26.dp).fillMaxSize(), verticalArrangement = Arrangement.SpaceEvenly, horizontalAlignment = Alignment.CenterHorizontally) {
+            repeat(4) { Box(Modifier.size(18.dp).clip(CircleShape).background(Color(0xFF242424)).border(1.5.dp, outline, CircleShape)) }
+        }
+        Column(Modifier.weight(1f).fillMaxSize(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.weight(1f).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Dashboard card.
+                Column(Modifier.weight(1f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(surface).padding(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Box(Modifier.width(34.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(onSurface))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(16.dp).clip(CircleShape).background(plate), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(7.dp).clip(CircleShape).background(onVariant))
+                        }
+                        Box(Modifier.width(26.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(onVariant))
+                    }
+                }
+                // Map area with the round button.
+                Box(Modifier.weight(1.4f).fillMaxSize().clip(RoundedCornerShape(8.dp)).background(Color(0xFF1B2A33))) {
+                    Box(Modifier.align(Alignment.BottomEnd).padding(6.dp).size(20.dp).clip(CircleShape).background(high)
+                        .border(1.5.dp, outline, CircleShape), contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(onSurface))
+                    }
+                }
+            }
+            // Media card.
+            Column(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(8.dp)).background(surface).padding(horizontal = 8.dp),
+                verticalArrangement = Arrangement.Center) {
+                Box(Modifier.width(60.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(title))
+                Spacer(Modifier.height(3.dp))
+                Box(Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(onVariant))
+            }
+        }
+    }
+}
+
+/** One colour slot: swatch, name, current value (or "Default") and a clear button. */
+@Composable
+private fun RoleRow(role: String, current: Int?, onPick: () -> Unit, onClear: () -> Unit) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        ColorSwatch(current, onClick = onPick)
+        Column(Modifier.weight(1f)) {
+            Text(role, style = MaterialTheme.typography.bodyMedium)
+            val hint = Themes.hint(role)
+            Text(listOf(current?.let { ColorMath.toHex(it) } ?: "Default", hint).filter { it.isNotEmpty() }.joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (current != null) IconButton(onClear, Modifier.size(48.dp)) { Icon(Icons.Default.Close, "Clear $role") }
+    }
+}
+
+/**
+ * Full-screen theme editor with a live mock of the car screen pinned at the top and three steps:
+ * Start (themes and one colour), Colours (colour slots) and Keep and share. Nothing is applied to
+ * Android Auto until "Apply to car" is pressed.
  */
 @Composable
 internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
     val context = LocalContext.current
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
-    val roles = remember { mutableStateMapOf<String, Int>().apply { putAll(model.themeColorsMap()) } }
+    val initialRoles = remember { model.themeColorsMap() }
+    val roles = remember { mutableStateMapOf<String, Int>().apply { putAll(initialRoles) } }
+    // Single-colour icon colours live on the App icons page; the editor only carries them along.
     val initialGlyph = remember { model.glyphIconColors() }
-    var glyphEnabled by remember { mutableStateOf(initialGlyph != null) }
-    val glyphStart = remember { GlyphIcons.parseColors(initialGlyph ?: GlyphIcons.DEFAULT_COLORS) ?: intArrayOf(-1, 0) }
-    var glyphColor by remember { mutableStateOf(glyphStart[0]) }
-    var glyphBackground by remember { mutableStateOf(glyphStart[1]) }
+    var glyphText by remember { mutableStateOf(initialGlyph) }
     var seed by remember { mutableStateOf(0xFFFF2D95.toInt()) }
     var seedDark by remember { mutableStateOf(true) }
     var savedThemes by remember { mutableStateOf(model.carThemes()) }
     var themeName by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("") }
-    // What the colour picker is currently editing: a title, a start colour and where the result goes.
+    var tab by remember { mutableStateOf(0) }
+    var menu by remember { mutableStateOf(false) }
+    var confirmCancel by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<Triple<String, Int, (Int) -> Unit>?>(null) }
+    val edited = roles.toMap() != initialRoles
 
-    fun glyphText() = "${ColorMath.toHex(glyphColor)},${ColorMath.toHex(glyphBackground)}"
     fun load(theme: CarTheme) {
         roles.clear(); roles.putAll(theme.roles)
-        GlyphIcons.parseColors(theme.glyphColors)?.let { glyphColor = it[0]; glyphBackground = it[1]; glyphEnabled = true }
+        theme.glyphColors?.let { glyphText = it }
         themeName = if (theme.builtIn) "" else theme.name
     }
+    fun close() { if (edited) confirmCancel = true else onClose() }
 
     val exporter = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
         if (uri != null) runCatching {
@@ -239,131 +316,130 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
     picking?.let { (title, start, apply) ->
         ColorPickerDialog(title, start, onDismiss = { picking = null }) { picked -> apply(picked); picking = null }
     }
+    if (confirmCancel) AlertDialog(onDismissRequest = { confirmCancel = false },
+        title = { Text("Discard your changes?") },
+        text = { Text("You have colour changes that are not applied to the car.") },
+        confirmButton = { TextButton({ confirmCancel = false; onClose() }) { Text("Discard") } },
+        dismissButton = { TextButton({ confirmCancel = false }) { Text("Keep editing") } })
 
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
+    Dialog(onDismissRequest = ::close, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         Surface(Modifier.fillMaxSize()) { Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Theme editor", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                OutlinedButton(onClose) { Text("Cancel") }
-                Button({ model.applyCarTheme(roles.toMap(), if (glyphEnabled) glyphText() else null); onClose() }) { Text("Save") }
+                OutlinedButton(::close) { Text("Cancel") }
+                Button({ model.applyCarTheme(roles.toMap(), glyphText); onClose() }) { Text("Apply to car") }
+                Box {
+                    IconButton({ menu = true }, Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, "More") }
+                    DropdownMenu(menu, { menu = false }) {
+                        DropdownMenuItem({ Text("Load role finder") }, { menu = false; roles.clear(); roles.putAll(Themes.roleFinder()); themeName = "" })
+                    }
+                }
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
+            // Live mock, pinned above the steps.
+            Box(Modifier.padding(horizontal = 16.dp)) { CarScreenMock(roles, Modifier.fillMaxWidth(0.7f).align(Alignment.Center)) }
+            TabRow(tab, Modifier.padding(top = 8.dp)) {
+                listOf("Start", "Colours", "Keep and share").forEachIndexed { index, label ->
+                    Tab(tab == index, { tab = index }, text = { Text(label) })
+                }
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Pick a theme to start from, or build your own. Changes reach Android Auto when you tap Save, after it restarts.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                Text("Themes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                (Themes.BUILT_IN + savedThemes).forEach { theme ->
-                    Card(Modifier.fillMaxWidth().clickable { load(theme) }) {
-                        Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text(theme.name + if (theme.builtIn) "" else "  (mine)", fontWeight = FontWeight.SemiBold)
-                                if (theme.description.isNotEmpty()) Text(theme.description, style = MaterialTheme.typography.bodySmall)
-                                ThemeStrip(theme.roles)
-                            }
-                            if (!theme.builtIn) TextButton({ model.deleteCarTheme(theme.name); savedThemes = model.carThemes() }) { Text("Delete") }
-                            TextButton({ load(theme) }) { Text("Load") }
-                        }
-                    }
-                }
-
-                OutlinedButton({ roles.clear(); roles.putAll(Themes.roleFinder()); themeName = "" }, Modifier.fillMaxWidth()) {
-                    Text("Load role finder (for screenshots)")
-                }
-                Text("The role finder gives every colour role its own loud colour. Save it, take a screenshot of the car screen, and the colours show which role paints what. It is meant to look bad.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
-                HorizontalDivider()
-                Text("Start from one colour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ColorSwatch(seed, onClick = { picking = Triple("Seed colour", seed) { seed = ColorMath.withAlpha(it, 255) } })
-                    FilterChip(seedDark, { seedDark = true }, { Text("Dark") })
-                    FilterChip(!seedDark, { seedDark = false }, { Text("Light") })
-                    Button({ roles.clear(); roles.putAll(Themes.generate(seed, seedDark)) }) { Text("Generate") }
-                }
-                OutlinedButton({
-                    val picked = runCatching {
-                        CarWallpaperStudio.loadSource(context)?.let { image ->
-                            val small = android.graphics.Bitmap.createScaledBitmap(image, 64, 64, true)
-                            val pixels = IntArray(64 * 64).also { small.getPixels(it, 0, 64, 0, 0, 64, 64) }
-                            ColorMath.dominantColor(pixels)
-                        }
-                    }.getOrNull()
-                    if (picked != null) { seed = picked; roles.clear(); roles.putAll(Themes.generate(picked, seedDark)) }
-                    else model.reportMessage("No seed colour found: set a car wallpaper with some colour in it first.")
-                }, Modifier.fillMaxWidth()) { Text("Use my car wallpaper's main colour") }
-
-                HorizontalDivider()
-                Text("Glyph app icons", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Switch(glyphEnabled, { glyphEnabled = it })
-                    ColorSwatch(glyphColor, onClick = { picking = Triple("Glyph colour", glyphColor) { glyphColor = it } })
-                    Text("Glyph")
-                    ColorSwatch(glyphBackground, onClick = { picking = Triple("Glyph background", glyphBackground) { glyphBackground = it } })
-                    Text("Background")
-                }
-
-                HorizontalDivider()
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Colours (${roles.size} set)", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    TextButton({ roles.clear() }) { Text("Clear all") }
-                }
-                Text("A role without a colour keeps Android Auto's own. Tap a chip to choose; tap × to clear one.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), label = { Text("Find a role") }, singleLine = true)
-                Themes.ROLE_GROUPS.forEach { (group, names) ->
-                    val visible = names.filter { filter.isBlank() || it.contains(filter.trim(), true) || Themes.hint(it).contains(filter.trim(), true) }
-                    if (visible.isNotEmpty()) {
-                        Text(group, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        visible.forEach { role ->
-                            val current = roles[role]
-                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                ColorSwatch(current, onClick = {
-                                    picking = Triple(role, current ?: 0xFF808080.toInt()) { roles[role] = it }
-                                })
-                                Column(Modifier.weight(1f)) {
-                                    Text(role, style = MaterialTheme.typography.bodyMedium)
-                                    val hint = Themes.hint(role)
-                                    Text(listOf(current?.let { ColorMath.toHex(it) } ?: "Android Auto's own", hint)
-                                        .filter { it.isNotEmpty() }.joinToString(" · "),
-                                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                when (tab) {
+                    0 -> {
+                        Text("Themes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        (Themes.BUILT_IN + savedThemes).forEach { theme ->
+                            Card(Modifier.fillMaxWidth().clickable { load(theme) }) {
+                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(theme.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        if (!theme.builtIn) {
+                                            Text("Saved", Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
+                                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                            TextButton({ model.deleteCarTheme(theme.name); savedThemes = model.carThemes() }) { Text("Delete") }
+                                        }
+                                    }
+                                    if (theme.description.isNotEmpty()) Text(theme.description, style = MaterialTheme.typography.bodySmall)
+                                    ThemeStrip(theme.roles)
                                 }
-                                if (current != null) TextButton({ roles.remove(role) }) { Text("×") }
+                            }
+                        }
+                        HorizontalDivider()
+                        Text("Start from one colour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            ColorSwatch(seed, onClick = { picking = Triple("Base colour", seed) { seed = ColorMath.withAlpha(it, 255) } })
+                            FilterChip(seedDark, { seedDark = true }, { Text("Dark") })
+                            FilterChip(!seedDark, { seedDark = false }, { Text("Light") })
+                            Button({ roles.clear(); roles.putAll(Themes.generate(seed, seedDark)) }) { Text("Generate") }
+                        }
+                        OutlinedButton({
+                            val picked = runCatching {
+                                CarWallpaperStudio.loadSource(context)?.let { image ->
+                                    val small = android.graphics.Bitmap.createScaledBitmap(image, 64, 64, true)
+                                    val pixels = IntArray(64 * 64).also { small.getPixels(it, 0, 64, 0, 0, 64, 64) }
+                                    ColorMath.dominantColor(pixels)
+                                }
+                            }.getOrNull()
+                            if (picked != null) { seed = picked; roles.clear(); roles.putAll(Themes.generate(picked, seedDark)) }
+                            else model.reportMessage("No base colour found: set a car wallpaper with some colour in it first.")
+                        }, Modifier.fillMaxWidth()) { Text("Use my car wallpaper's main colour") }
+                    }
+                    1 -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${roles.size} colour slots set", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                            TextButton({ roles.clear() }) { Text("Clear all") }
+                        }
+                        OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), label = { Text("Find a colour slot") }, singleLine = true)
+                        val q = filter.trim()
+                        fun matches(role: String) = q.isBlank() || role.contains(q, true) || Themes.hint(role).contains(q, true)
+                        val confirmed = Themes.CONFIRMED_ROLES.filter(::matches)
+                        if (confirmed.isNotEmpty()) {
+                            Text("These change the car screen", style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            confirmed.forEach { role ->
+                                RoleRow(role, roles[role], { picking = Triple(role, roles[role] ?: 0xFF808080.toInt()) { roles[role] = it } }, { roles.remove(role) })
+                            }
+                        }
+                        val unseen = Themes.UNSEEN_ROLES.filter(::matches)
+                        if (unseen.isNotEmpty()) {
+                            Text("Not seen in use yet", style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Text("These may do nothing, or change something that has not been spotted yet.",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            unseen.forEach { role ->
+                                RoleRow(role, roles[role], { picking = Triple(role, roles[role] ?: 0xFF808080.toInt()) { roles[role] = it } }, { roles.remove(role) })
                             }
                         }
                     }
+                    else -> {
+                        Text("Keep this as my theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(themeName, { themeName = it.take(Presets.MAX_NAME_LENGTH) }, Modifier.weight(1f),
+                                label = { Text("Theme name") }, singleLine = true)
+                            Button({
+                                if (model.saveCarTheme(CarTheme(themeName, "", roles.toMap(), glyphText)))
+                                    savedThemes = model.carThemes()
+                            }, enabled = Presets.cleanName(themeName) != null) { Text("Keep") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton({ exporter.launch("aa-experiments-themes.json") }, Modifier.weight(1f), enabled = savedThemes.isNotEmpty()) { Text("Export mine") }
+                            OutlinedButton({ importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f)) { Text("Import") }
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton({
+                                val name = Presets.cleanName(themeName) ?: "Shared theme"
+                                clipboard.setText(androidx.compose.ui.text.AnnotatedString(
+                                    Themes.encode(listOf(CarTheme(name, "", roles.toMap(), glyphText)))))
+                                model.reportMessage("Theme copied as text.")
+                            }, Modifier.weight(1f), enabled = roles.isNotEmpty()) { Text("Copy as text") }
+                            OutlinedButton({
+                                runCatching { Themes.decode(clipboard.getText()?.text.orEmpty()).first() }
+                                    .fold({ load(it) }, { model.reportMessage("The clipboard does not hold a theme.") })
+                            }, Modifier.weight(1f)) { Text("Paste theme") }
+                        }
+                    }
                 }
-
-                HorizontalDivider()
-                Text("Keep this as my theme", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(themeName, { themeName = it.take(Presets.MAX_NAME_LENGTH) }, Modifier.weight(1f),
-                        label = { Text("Theme name") }, singleLine = true)
-                    Button({
-                        if (model.saveCarTheme(CarTheme(themeName, "", roles.toMap(), if (glyphEnabled) glyphText() else null)))
-                            savedThemes = model.carThemes()
-                    }, enabled = Presets.cleanName(themeName) != null) { Text("Keep") }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton({ exporter.launch("aa-experiments-themes.json") }, Modifier.weight(1f), enabled = savedThemes.isNotEmpty()) { Text("Export mine") }
-                    OutlinedButton({ importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f)) { Text("Import") }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton({
-                        val name = Presets.cleanName(themeName) ?: "Shared theme"
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(
-                            Themes.encode(listOf(CarTheme(name, "", roles.toMap(), if (glyphEnabled) glyphText() else null)))))
-                        model.reportMessage("Theme copied as text.")
-                    }, Modifier.weight(1f), enabled = roles.isNotEmpty()) { Text("Copy as text") }
-                    OutlinedButton({
-                        runCatching { Themes.decode(clipboard.getText()?.text.orEmpty()).first() }
-                            .fold({ load(it) }, { model.reportMessage("The clipboard does not hold a theme.") })
-                    }, Modifier.weight(1f)) { Text("Paste theme") }
-                }
-                Spacer(Modifier.height(320.dp))
+                Spacer(Modifier.height(200.dp))
             }
         } }
     }

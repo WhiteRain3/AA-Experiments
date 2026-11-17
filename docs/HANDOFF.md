@@ -173,7 +173,7 @@ Google's. A session that needs them asks the owner to upload `gearhead-code.zip`
    finished (previews, less text, consistent spacing), not a moved card.
 2. Colour the things the roles do not reach, starting with the rotary focus ring and the
    launcher labels and rail icons. Needs the reverse-engineering material.
-3. Live preview of a theme in the theme editor, using the confirmed role list.
+3. (Done, untested on device) Live preview of a theme in the theme editor. Design reviewer list items 2-9 (cut text, page previews, wallpaper editor order, Home/Look tiles, action consistency, wording, colour picker) are still open.
 4. Per-app icon overrides, hiding and renaming apps in the launcher.
 5. Day and night themes.
 6. Wallpaper on the dashboard, not only the launcher.

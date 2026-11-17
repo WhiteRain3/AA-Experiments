@@ -6,13 +6,14 @@
   (for example after "Restart" or "Restart automatically after a change" in AA Experiments),
   it closes DHU, starts the head unit server again and reopens DHU.
 
-  Close the DHU window, or press Ctrl+C here, to stop.
+  Press Ctrl+C here to stop. Closing the DHU window also stops it, unless -KeepOpen is given.
 
 .EXAMPLE
   .\scripts\dhu-watch.ps1
   .\scripts\dhu-watch.ps1 -Touch                 # DHU's default touch-screen profile
   .\scripts\dhu-watch.ps1 -SdkPath C:\Android
   .\scripts\dhu-watch.ps1 -NoRoot                # do not start the head unit server (start it on the phone)
+  .\scripts\dhu-watch.ps1 -KeepOpen              # reopen DHU whenever it closes, until Ctrl+C
 
 .NOTES
   Starting the head unit server from the PC needs root on the phone (it uses "su").
@@ -21,7 +22,8 @@ param(
     [string]$SdkPath,
     [string]$Config = (Join-Path $PSScriptRoot 'dhu-rotary.ini'),
     [switch]$Touch,
-    [switch]$NoRoot
+    [switch]$NoRoot,
+    [switch]$KeepOpen
 )
 
 $ErrorActionPreference = 'Stop'
@@ -47,11 +49,24 @@ if ($devices.Count -ne 1) {
 }
 
 # ---- helpers --------------------------------------------------------------------------------
-function Get-AutoPid {
-    # Main Android Auto process only; its helper processes have a ":name" suffix.
-    $out = (adb shell "pidof $pkg" 2>$null | Out-String).Trim()
-    if ($out) { return ($out -split '\s+' | Sort-Object) -join ' ' }
-    return ''
+function Get-AutoPids {
+    # Every Android Auto process (main, :car, :projection, ...). Listing all processes and
+    # filtering here keeps the package name out of the command line, so the query never
+    # matches itself.
+    $pids = @()
+    foreach ($line in (adb shell "ps -A -o PID,NAME" 2>$null)) {
+        $parts = ($line.Trim() -split '\s+', 2)
+        if ($parts.Count -eq 2 -and $parts[1].StartsWith($pkg)) { $pids += $parts[0] }
+    }
+    return ,@($pids | Sort-Object)
+}
+
+function Test-AutoRestarted($before) {
+    # A restart is when a process we saw earlier is gone. New helper processes appearing on
+    # their own do not count.
+    $now = Get-AutoPids
+    foreach ($p in $before) { if ($now -notcontains $p) { return $true } }
+    return $false
 }
 
 function Get-HeadUnitService {
@@ -94,34 +109,49 @@ function Stop-Dhu($process) {
 $script:service = if ($NoRoot) { $null } else { Get-HeadUnitService }
 if ($script:service) { Write-Host "Head unit server: $($script:service)" }
 
+function Open-Session {
+    Start-HeadUnitServer
+    Start-Sleep -Milliseconds 2000
+    $script:known = Get-AutoPids      # read after the server start, which itself starts Android Auto
+    $script:dhu = Start-Dhu
+    Write-Host "$(Get-Date -Format HH:mm:ss) DHU started. Android Auto processes: $($script:known -join ' ')"
+}
+
 Write-Host 'Starting head unit server and DHU...'
-Start-HeadUnitServer
-Start-Sleep -Milliseconds 1500
-$lastPid = Get-AutoPid
-$dhu = Start-Dhu
-Write-Host 'Watching the phone. Close the DHU window or press Ctrl+C to stop.'
+Open-Session
+Write-Host 'Watching the phone. Press Ctrl+C to stop.'
 
 try {
     while ($true) {
         Start-Sleep -Milliseconds 1000
 
-        if ($dhu.HasExited) {
-            # DHU closed while Android Auto kept running: you closed the window. Stop.
-            if ((Get-AutoPid) -eq $lastPid) { Write-Host 'DHU was closed. Stopping.'; break }
+        $restarted = Test-AutoRestarted $script:known
+        if (-not $restarted -and $script:dhu.HasExited) {
+            # DHU went away. It closes itself when Android Auto dies, so give the phone a few
+            # seconds to show a restart before deciding the window was closed by hand.
+            for ($i = 0; $i -lt 6 -and -not $restarted; $i++) {
+                Start-Sleep -Milliseconds 1000
+                $restarted = Test-AutoRestarted $script:known
+            }
+            if (-not $restarted) {
+                if ($KeepOpen) {
+                    Write-Host "$(Get-Date -Format HH:mm:ss) DHU closed. Reopening (-KeepOpen)..."
+                    Open-Session
+                    continue
+                }
+                Write-Host 'DHU was closed and Android Auto did not restart. Stopping. Use -KeepOpen to always reopen it.'
+                break
+            }
         }
 
-        $current = Get-AutoPid
-        if ($current -ne $lastPid) {
+        if ($restarted) {
             Write-Host "$(Get-Date -Format HH:mm:ss) Android Auto restarted. Reopening DHU..."
-            Stop-Dhu $dhu
-            Start-Sleep -Milliseconds 1200
-            Start-HeadUnitServer
+            Stop-Dhu $script:dhu
             Start-Sleep -Milliseconds 1500
-            $lastPid = Get-AutoPid     # read after the server start, which itself starts Android Auto
-            $dhu = Start-Dhu
+            Open-Session
         }
     }
 } finally {
-    Stop-Dhu $dhu
+    Stop-Dhu $script:dhu
     adb forward --remove tcp:5277 2>$null | Out-Null
 }

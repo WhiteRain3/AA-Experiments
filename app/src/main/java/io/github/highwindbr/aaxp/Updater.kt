@@ -28,9 +28,19 @@ internal object Updater {
 
     /** The latest published build; null when there is none that can be used. Throws on network errors. */
     fun latest(): AvailableUpdate? {
+        // First the release page's redirect, which has no hourly limit; the API only as a fallback.
+        runCatching {
+            val page = open(UpdateCheck.LATEST_PAGE).apply { instanceFollowRedirects = false }
+            try {
+                if (page.responseCode in 301..308) UpdateCheck.fromLatestRedirect(page.getHeaderField("Location")) else null
+            } finally { page.disconnect() }
+        }.getOrNull()?.let { return it }
         val connection = open(UpdateCheck.LATEST_URL)
         try {
             if (connection.responseCode == 404) return null
+            check(connection.responseCode != 403 && connection.responseCode != 429) {
+                "GitHub's hourly limit for this network is used up; try again later or on Wi-Fi"
+            }
             check(connection.responseCode == 200) { "GitHub answered ${connection.responseCode}" }
             return UpdateCheck.parse(connection.inputStream.use { it.readBytes().toString(Charsets.UTF_8) })
         } finally { connection.disconnect() }
@@ -44,6 +54,8 @@ internal object Updater {
             check(connection.responseCode == 200) { "Download answered ${connection.responseCode}" }
             // GitHub redirects release downloads to its own storage; only https is ever followed.
             check(connection.url.protocol == "https") { "Download left https" }
+            // The size comes from the release list when known, otherwise from the download itself.
+            val expected = if (update.sizeBytes > 0) update.sizeBytes else connection.contentLengthLong
             var total = 0L
             connection.inputStream.use { input -> target.outputStream().use { output ->
                 val buffer = ByteArray(64 * 1024)
@@ -52,10 +64,10 @@ internal object Updater {
                     total += read
                     check(total <= UpdateCheck.MAX_APK_BYTES) { "Download is too large" }
                     output.write(buffer, 0, read)
-                    progress((total * 100 / update.sizeBytes.coerceAtLeast(1)).toInt().coerceIn(0, 100))
+                    if (expected > 0) progress((total * 100 / expected).toInt().coerceIn(0, 100))
                 }
             } }
-            check(total == update.sizeBytes) { "Download is incomplete" }
+            check(total > 0 && (expected <= 0 || total == expected)) { "Download is incomplete" }
             return target
         } finally { connection.disconnect() }
     }

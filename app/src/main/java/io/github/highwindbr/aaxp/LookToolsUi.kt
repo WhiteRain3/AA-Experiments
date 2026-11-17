@@ -110,13 +110,14 @@ private val STATUS_BAR_PARTS = listOf(
     var onOpen by remember { mutableStateOf(model.checkUpdatesOnOpen()) }
     // Result of the last check made from this card: null until one has finished.
     var upToDate by remember { mutableStateOf<Boolean?>(null) }
-    LaunchedEffect(Unit) { if (onOpen) model.checkForUpdate(quiet = true) { available = it } }
+    var failure by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) { if (onOpen) model.checkForUpdate(quiet = true) { update, _ -> available = update } }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Updates", fontWeight = FontWeight.Bold)
         Text("Installed: $installed. Checking contacts github.com to read this fork's releases; nothing about you or the phone is sent.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         available?.let { update ->
-            Text("${update.versionName} is available (${update.sizeBytes / (1024 * 1024)} MB)", fontWeight = FontWeight.SemiBold)
+            Text("${update.versionName} is available" + if (update.sizeBytes > 0) " (${update.sizeBytes / (1024 * 1024)} MB)" else "", fontWeight = FontWeight.SemiBold)
             if (update.notes.isNotBlank()) Text(update.notes.trim(), style = MaterialTheme.typography.bodySmall)
             Button({ busy = true; percent = 0
                 model.installUpdate(update, { percent = it }) { busy = false; percent = null } },
@@ -124,8 +125,9 @@ private val STATUS_BAR_PARTS = listOf(
         }
         if (available == null && upToDate == true) Text("No newer build is published (checked ${
             java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}).", style = MaterialTheme.typography.bodyMedium)
-        OutlinedButton({ busy = true; upToDate = null
-            model.checkForUpdate { available = it; upToDate = it == null; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy) {
+        failure?.let { Text("The check failed: $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
+        OutlinedButton({ busy = true; upToDate = null; failure = null
+            model.checkForUpdate { update, error -> available = update; failure = error; upToDate = update == null && error == null; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy) {
             Text(if (busy && percent == null) "Checking…" else "Check for updates")
         }
         Row(Modifier.fillMaxWidth().toggleable(value = onOpen, role = Role.Switch, onValueChange = { onOpen = it; model.setCheckUpdatesOnOpen(it) }),

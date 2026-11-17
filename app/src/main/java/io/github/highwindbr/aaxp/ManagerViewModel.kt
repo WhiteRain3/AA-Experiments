@@ -1166,7 +1166,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun setCheckUpdatesOnOpen(enabled: Boolean) { uiPreferences.edit().putBoolean("check_updates_on_open", enabled).apply() }
 
     /** Asks GitHub for the latest build. [onDone] gets it when it is newer than this one, else null. */
-    fun checkForUpdate(quiet: Boolean = false, onDone: (io.github.highwindbr.aaxp.core.AvailableUpdate?) -> Unit) = viewModelScope.launch {
+    fun checkForUpdate(quiet: Boolean = false, onDone: (io.github.highwindbr.aaxp.core.AvailableUpdate?, String?) -> Unit) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { runCatching { Updater.latest() } }
         val update = result.getOrNull()?.takeIf { io.github.highwindbr.aaxp.core.UpdateCheck.isNewer(it, installedVersionName()) }
         if (!quiet || update != null) mutable.value = mutable.value.copy(message = when {
@@ -1175,7 +1175,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             result.getOrNull() == null -> "No published build found yet."
             else -> "You have the latest build."
         })
-        onDone(update)
+        onDone(update, result.exceptionOrNull()?.let { it.message ?: it.javaClass.simpleName })
     }
 
     /** Downloads [update], checks it can install over this app, and opens the system installer. */

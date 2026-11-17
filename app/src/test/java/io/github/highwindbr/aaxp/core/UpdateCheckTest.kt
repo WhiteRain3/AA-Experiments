@@ -11,6 +11,17 @@ class UpdateCheckTest {
         """{"tag_name":"$tag","body":"notes"$extra,"assets":[{"name":"$name","size":1000,"browser_download_url":"$url"}]}"""
     private val good = "https://github.com/WhiteRain3/AA-Experiments/releases/download/1.0.0-wr17/AA-Experiments.apk"
 
+    @Test fun readsTheLatestBuildFromTheReleasePageRedirect() {
+        val update = UpdateCheck.fromLatestRedirect("https://github.com/WhiteRain3/AA-Experiments/releases/tag/1.0.0-wr20")!!
+        assertEquals(20, update.build)
+        assertEquals("https://github.com/WhiteRain3/AA-Experiments/releases/download/1.0.0-wr20/AA-Experiments-1.0.0-wr20.apk", update.apkUrl)
+        assertNull(UpdateCheck.fromLatestRedirect(null))
+        assertNull(UpdateCheck.fromLatestRedirect("https://github.com/WhiteRain3/AA-Experiments/releases"))
+        assertNull(UpdateCheck.fromLatestRedirect("https://github.com/Someone/AA-Experiments/releases/tag/1.0.0-wr20"))
+        assertNull(UpdateCheck.fromLatestRedirect("https://github.com/WhiteRain3/AA-Experiments/releases/tag/1.0.0-wr20/../../x"))
+        assertNull(UpdateCheck.fromLatestRedirect("https://github.com/WhiteRain3/AA-Experiments/releases/tag/1.0.0"))
+    }
+
     @Test fun buildNumbers() {
         assertEquals(17, UpdateCheck.buildNumber("1.0.0-wr17"))
         assertNull(UpdateCheck.buildNumber("1.0.0"))

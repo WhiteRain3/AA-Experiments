@@ -38,6 +38,22 @@ object UpdateCheck {
         null
     }.getOrNull()
 
+    const val LATEST_PAGE = "https://github.com/WhiteRain3/AA-Experiments/releases/latest"
+    private const val TAG_PREFIX = "https://github.com/WhiteRain3/AA-Experiments/releases/tag/"
+    private val TAG = Regex("[0-9A-Za-z.]+-wr\\d{1,6}")
+
+    /**
+     * The latest build from where GitHub's "latest release" page redirects to. This needs no
+     * API call, so it is not subject to the API's hourly limit, which is shared by everyone
+     * behind the same mobile network address. The size is unknown (0) until the download starts.
+     */
+    fun fromLatestRedirect(location: String?): AvailableUpdate? {
+        val tag = location?.takeIf { it.startsWith(TAG_PREFIX) }?.removePrefix(TAG_PREFIX) ?: return null
+        if (!TAG.matches(tag)) return null
+        val build = buildNumber(tag) ?: return null
+        return AvailableUpdate(tag, build, "$DOWNLOAD_PREFIX$tag/AA-Experiments-$tag.apk", 0L, "")
+    }
+
     fun isNewer(update: AvailableUpdate, installedVersionName: String?): Boolean {
         val installed = buildNumber(installedVersionName) ?: return true
         return update.build > installed

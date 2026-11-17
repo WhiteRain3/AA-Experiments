@@ -80,7 +80,11 @@ public final class AndroidAutoModule extends XposedModule {
                 refreshSnapshot(preferences);
                 if (MediaStartupLaunchGate.REQUEST_KEY.equals(key) ||
                         MediaStartupLabGate.REQUEST_KEY.equals(key)) requestMediaLaunchCheck();
+                if (ControlRequests.RESTART_KEY.equals(key)) handleRestartRequest(preferences);
+                if (ControlRequests.HEAD_UNIT_KEY.equals(key)) handleHeadUnitRequest(preferences, 0L);
             };
+    private volatile String handledRestartRequest;
+    private volatile String handledHeadUnitRequest;
 
     @Override public void onModuleLoaded(XposedModuleInterface.ModuleLoadedParam param) {
         moduleProcessName = param.getProcessName();
@@ -89,6 +93,9 @@ public final class AndroidAutoModule extends XposedModule {
             remotePreferences = getRemotePreferences(PREF_GROUP);
             refreshSnapshot(remotePreferences);
             remotePreferences.registerOnSharedPreferenceChangeListener(preferenceListener);
+            // A head unit request issued together with a restart is picked up by the new process.
+            // A restart request is deliberately NOT replayed here: that would restart in a loop.
+            handleHeadUnitRequest(remotePreferences, 1500L);
         } catch (Throwable t) {
             event(Log.WARN, "REMOTE_PREFERENCES_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
             log(Log.WARN, TAG, "Remote preferences unavailable; all hooks fail open", t);
@@ -161,6 +168,69 @@ public final class AndroidAutoModule extends XposedModule {
         } catch (Throwable t) {
             event(Log.ERROR, "PROFILE_FAILED", null, "error", t.getClass().getSimpleName());
             log(Log.ERROR, TAG, "Dynamic profile failed; no further hooks installed", t);
+        }
+    }
+
+    /**
+     * Manager-requested restart: every Android Auto process hosting the module ends itself, so
+     * the next start re-reads experiments. Only a fresh request delivered as a live preference
+     * change is honoured, once per process.
+     */
+    private void handleRestartRequest(SharedPreferences preferences) {
+        try {
+            String request = preferences.getString(ControlRequests.RESTART_KEY, null);
+            if (!ControlRequests.isFresh(request, System.currentTimeMillis())
+                    || request.equals(handledRestartRequest)) return;
+            handledRestartRequest = request;
+            event(Log.INFO, "CONTROL_RESTART", null, "process", String.valueOf(moduleProcessName));
+            new Handler(Looper.getMainLooper()).postDelayed(
+                    () -> android.os.Process.killProcess(android.os.Process.myPid()), 250L);
+        } catch (Throwable t) {
+            event(Log.WARN, "CONTROL_RESTART_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    /** Manager-requested start of Android Auto's own developer head unit server. Fails open. */
+    private void handleHeadUnitRequest(SharedPreferences preferences, long delayMs) {
+        try {
+            String request = preferences.getString(ControlRequests.HEAD_UNIT_KEY, null);
+            if (!ControlRequests.isFresh(request, System.currentTimeMillis())
+                    || request.equals(handledHeadUnitRequest)) return;
+            handledHeadUnitRequest = request;
+            new Handler(Looper.getMainLooper()).postDelayed(this::startHeadUnitServer, delayMs);
+        } catch (Throwable t) {
+            event(Log.WARN, "CONTROL_HEAD_UNIT_FAILED", null, "error", t.getClass().getSimpleName());
+        }
+    }
+
+    private void startHeadUnitServer() {
+        try {
+            Object current = Class.forName("android.app.ActivityThread")
+                    .getMethod("currentApplication").invoke(null);
+            if (!(current instanceof android.content.Context context)) {
+                event(Log.WARN, "CONTROL_HEAD_UNIT_FAILED", null, "reason", "no_application");
+                return;
+            }
+            android.content.pm.PackageInfo info = context.getPackageManager().getPackageInfo(AA_PACKAGE,
+                    android.content.pm.PackageManager.GET_SERVICES
+                            | android.content.pm.PackageManager.MATCH_DISABLED_COMPONENTS);
+            String[] names = new String[info.services == null ? 0 : info.services.length];
+            for (int i = 0; i < names.length; i++) names[i] = info.services[i].name;
+            String service = ControlRequests.pickHeadUnitService(names);
+            if (service == null) {
+                event(Log.WARN, "CONTROL_HEAD_UNIT_FAILED", null, "reason", "service_not_found");
+                return;
+            }
+            android.content.Intent intent = new android.content.Intent().setClassName(AA_PACKAGE, service);
+            try {
+                context.startForegroundService(intent);
+            } catch (Throwable foregroundRejected) {
+                context.startService(intent);
+            }
+            event(Log.INFO, "CONTROL_HEAD_UNIT_STARTED", null, "service", service,
+                    "process", String.valueOf(moduleProcessName));
+        } catch (Throwable t) {
+            event(Log.WARN, "CONTROL_HEAD_UNIT_FAILED", null, "error", t.getClass().getSimpleName());
         }
     }
 

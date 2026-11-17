@@ -4,6 +4,24 @@ Entries describe their named release or development stage. Historical pending
 statements are not the current release status; use [Release process](docs/RELEASE.md)
 and [candidate readiness](docs/STABLE_1.0.0_READINESS.md) for ongoing work.
 
+## Fork additions (WhiteRain3) — on top of 1.0.0
+
+Not part of the upstream project. Validation scope: JVM unit tests only; none of this has
+instrumented or physical-device acceptance yet.
+
+- Plain-language descriptions: a bundled `flag_descriptions.json` gives about 100 experiments a
+  title, description, risk label and suggested value. They appear on the list card and the detail
+  screen, and catalog search also matches their text. They are editorial only and never influence
+  resolution, editability or applied values.
+- Android Auto controls on the Status screen: restart Android Auto, start its developer head unit
+  server, or both. The Manager writes a short-lived one-shot request to remote preferences; the
+  module in each Android Auto process ends that process (restart) or starts Android Auto's own head
+  unit service (looked up structurally among its declared services). Requests older than 30 seconds
+  are ignored, a restart request is never replayed at process start, and every path fails open.
+  Events: `CONTROL_RESTART`, `CONTROL_HEAD_UNIT_STARTED`, `CONTROL_*_FAILED`.
+- Optional "Restart automatically after a change" after a normal override is saved and published.
+- versionName `1.0.0-wr1`, versionCode unchanged.
+
 ## 1.0.0 — stable candidate
 
 - Set versionName `1.0.0` and versionCode `180`, preserving package identity.

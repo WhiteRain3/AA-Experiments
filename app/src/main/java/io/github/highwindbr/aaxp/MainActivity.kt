@@ -271,6 +271,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         state.profilePublished)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
     item { ScreenTitle("Status", "Environment, resolver and runtime readiness") }
+    item { AndroidAutoControlsCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -390,6 +391,36 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         state.suspendedOverrides, state.hiddenSuspendedKeys, { auditOpen = false },
         model::discardSuspendedOverride, model::hideSuspendedFromAll
     )
+}
+
+/** Restart Android Auto and start its developer head unit server through the module, without root. */
+@Composable private fun AndroidAutoControlsCard(model: ManagerViewModel, connected: Boolean) {
+    var autoRestart by remember { mutableStateOf(model.autoRestartAfterChange()) }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Android Auto controls", fontWeight = FontWeight.Bold)
+        Text("Android Auto reads experiments when it starts. Restarting closes it on the car screen, so use this while parked. It only reacts while Android Auto is running.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Button({ model.requestAndroidAutoControl(restart = true, headUnit = true) }, Modifier.fillMaxWidth(), enabled = connected) {
+            Text("Restart + start head unit server") }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            OutlinedButton({ model.requestAndroidAutoControl(restart = true, headUnit = false) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
+            OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
+        }
+        Row(Modifier.fillMaxWidth().toggleable(value = autoRestart, role = androidx.compose.ui.semantics.Role.Switch) {
+            autoRestart = it; model.setAutoRestartAfterChange(it) }, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Restart automatically after a change", style = MaterialTheme.typography.bodyMedium)
+                Text("Restarts Android Auto each time an override is saved", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked = autoRestart, onCheckedChange = null)
+        }
+    } }
+}
+
+/** Plain-language note for an experiment, when the bundled descriptions have one. */
+@Composable private fun rememberFlagDescription(key: String): io.github.highwindbr.aaxp.core.FlagDescription? {
+    val context = LocalContext.current
+    return remember(key) { io.github.highwindbr.aaxp.core.FlagDescriptions.find(context, key) }
 }
 
 @Composable private fun ScanProgressDialog(progress: AnalysisProgress, onCancel: (() -> Unit)? = null) {
@@ -884,8 +915,10 @@ private fun suspendedName(entry: SuspendedOverride): String =
     var exportOpen by remember { mutableStateOf(false) }; var filtersOpen by remember { mutableStateOf(false) }
     var advancedTarget by remember { mutableStateOf<DiscoveredIdentifier?>(null) }
     var bulkRestoreWarning by remember { mutableStateOf(false) }
+    val descriptionContext = LocalContext.current
     val activeQuery = CatalogQuery(query, editableOnly = editable, includeUnknown = includeUnknown, kind = kind, type = type, resolution = resolution,
-        runtimeStatus = runtime, reviewedOnly = reviewed, killSwitchOnly = killSwitch, overrideKeys = if (modified) state.dynamicOverrides.keys else null)
+        runtimeStatus = runtime, reviewedOnly = reviewed, killSwitchOnly = killSwitch, overrideKeys = if (modified) state.dynamicOverrides.keys else null,
+        descriptionKeys = io.github.highwindbr.aaxp.core.FlagDescriptions.matching(descriptionContext, query.trim()))
     LaunchedEffect(state.aa.buildFingerprintSha256, query, includeUnknown, kind, type, resolution, reviewed, runtime, editable, modified, killSwitch, state.dynamicOverrides.keys) {
         delay(300); model.searchCatalog(activeQuery)
     }
@@ -1024,6 +1057,10 @@ private fun suspendedName(entry: SuspendedOverride): String =
             if (isCustom) Box(Modifier.width(4.dp).fillMaxHeight().background(MaterialTheme.colorScheme.primary))
             Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(technicalDisplay(identifier.key), modifier = Modifier.semantics { contentDescription = identifier.key }, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium, fontWeight = if (override != null) FontWeight.SemiBold else FontWeight.Medium, fontFamily = FontFamily.Monospace)
+                rememberFlagDescription(identifier.key)?.let { note ->
+                    Text("${note.title}: ${note.description}", maxLines = 2, overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
+                }
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     Text(friendly(identifier.inferredType.name),
@@ -1082,6 +1119,7 @@ private fun isNumericZero(value: String): Boolean = value.trim().matches(Regex("
     onAdvancedResume: (String) -> Unit,
     onAdvancedRestore: (String) -> Unit
 ) {
+    val flagNote = rememberFlagDescription(identifier.key)
     var input by remember(identifier.key, override) { mutableStateOf(override?.encodedValue.orEmpty()) }
     var saveConfirmed by remember(identifier.key) { mutableStateOf(false) }
     val normalInputIssue = OverrideInputFeedback.issue(identifier.inferredType, input)
@@ -1149,6 +1187,17 @@ private fun isNumericZero(value: String): Boolean = value.trim().matches(Regex("
                 else "Configure the runtime value returned by this experiment.",
                 style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
             ) }
+            flagNote?.let { note ->
+                item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(note.title, fontWeight = FontWeight.Bold)
+                    Text(note.description, style = MaterialTheme.typography.bodyMedium)
+                    Text("Risk: ${note.riskLabel}", style = MaterialTheme.typography.labelMedium)
+                    note.suggest?.let { Text("Try: $it", style = MaterialTheme.typography.bodySmall) }
+                    note.verified?.let { Text("Checked: $it", style = MaterialTheme.typography.bodySmall) }
+                    Text("Description is an editorial note, not a guarantee. Effects depend on the Android Auto build, server and head unit.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
+                } } }
+            }
             item { Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Values", fontWeight = FontWeight.Bold)
                 ValueRow("Default value", identifier.compiledDefault ?: "Not inferred")

@@ -82,6 +82,8 @@ private data class OverrideRefreshOutcome(val active: Map<String, TypedOverride>
     val mediaLabAutoCapable: Boolean, val mediaLabAutoEnabled: Boolean,
     val mediaLabRouteAAvailable: Boolean, val mediaLabRouteBAvailable: Boolean)
 
+private const val AUTO_RESTART_PREF = "auto_restart_after_change"
+
 class ManagerViewModel(application: Application) : AndroidViewModel(application) {
     private val mutable = MutableStateFlow(ManagerUiState())
     private val database = CatalogDatabase(application)
@@ -940,11 +942,46 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         when {
             result.isFailure -> mutable.value = mutable.value.copy(saveState = SaveState.FAILED,
                 message = "Override rejected: ${result.exceptionOrNull()?.message}")
-            result.getOrThrow() == ProfileMutationCoordinator.Outcome.PUBLISHED ->
-                mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = "Override saved and runtime profile published. Restart Android Auto to apply.")
+            result.getOrThrow() == ProfileMutationCoordinator.Outcome.PUBLISHED -> {
+                val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = false)
+                mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = if (restarted)
+                    "Override saved and runtime profile published. Android Auto was asked to restart."
+                else "Override saved and runtime profile published. Restart Android Auto to apply.")
+            }
             else -> mutable.value = mutable.value.copy(saveState = SaveState.FAILED,
                 message = "Override saved, but runtime profile was NOT published. Check LSPosed and retry publication.")
         }
+    }
+
+    // ---- Android Auto controls (restart / developer head unit server) ----
+
+    private val controlPreferences = application.getSharedPreferences("manager_ui", Context.MODE_PRIVATE)
+
+    fun autoRestartAfterChange(): Boolean = controlPreferences.getBoolean(AUTO_RESTART_PREF, false)
+
+    fun setAutoRestartAfterChange(enabled: Boolean) {
+        controlPreferences.edit().putBoolean(AUTO_RESTART_PREF, enabled).apply()
+    }
+
+    /** Writes one-shot requests the module acts on. Blocking remote-preference I/O: call off Main. */
+    private fun sendControlRequests(restart: Boolean, headUnit: Boolean): Boolean {
+        val editor = ServiceBridge.dynamicPreferencesOrNull()?.edit() ?: return false
+        val request = io.github.highwindbr.aaxp.runtime.ControlRequests.make(
+            System.currentTimeMillis(), java.util.UUID.randomUUID().toString())
+        // The head unit request is written with the restart so the restarted process still sees it.
+        if (headUnit) editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.HEAD_UNIT_KEY, request)
+        if (restart) editor.putString(io.github.highwindbr.aaxp.runtime.ControlRequests.RESTART_KEY, request)
+        return editor.commit()
+    }
+
+    fun requestAndroidAutoControl(restart: Boolean, headUnit: Boolean) = viewModelScope.launch {
+        val sent = withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart, headUnit) }.getOrDefault(false) }
+        mutable.value = mutable.value.copy(message = when {
+            !sent -> "Request failed: LSPosed remote preferences unavailable."
+            restart && headUnit -> "Asked Android Auto to restart and start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_*)."
+            restart -> "Asked Android Auto to restart. It only reacts while it is running."
+            else -> "Asked Android Auto to start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_HEAD_UNIT_*)."
+        })
     }
 
     private fun deltaSummary(items: List<EditableCatalogDelta>) = CatalogChangeSummary(

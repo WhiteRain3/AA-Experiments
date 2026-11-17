@@ -140,7 +140,11 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             isAppearanceLightNavigationBars = !dark
         }
     }
-    MaterialTheme(colorScheme = colors) {
+    val shapes = androidx.compose.material3.Shapes(
+        extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(8.dp), small = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
+        medium = androidx.compose.foundation.shape.RoundedCornerShape(20.dp), large = androidx.compose.foundation.shape.RoundedCornerShape(24.dp),
+        extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(32.dp))
+    MaterialTheme(colorScheme = colors, shapes = shapes) {
         Surface(Modifier.fillMaxSize(), color = colors.background, contentColor = colors.onBackground) {
             ManagerApp(model, theme, { theme = it; prefs.edit().putString("theme_mode", it.name).apply() }, accent) {
                 accent = it; prefs.edit().putString("accent_palette", it.name).apply()
@@ -207,7 +211,11 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             else -> Unit
         }
     }
-    val destinations = listOf(Triple("Status", Icons.Default.Home, 0), Triple("Experiments", Icons.Default.Science, 1), Triple("Settings", Icons.Default.Settings, 2))
+    // Tab numbers are kept from before (0 home, 1 flags, 2 settings); Look was added as 3.
+    val destinations = listOf(Triple("Home", Icons.Default.Home, 0), Triple("Look", androidx.compose.material.icons.Icons.Default.Palette, 3),
+        Triple("Flags", Icons.Default.Science, 1), Triple("Settings", Icons.Default.Settings, 2))
+    var featurePageName by rememberSaveable { mutableStateOf<String?>(null) }
+    val featurePage = featurePageName?.let { name -> runCatching { FeaturePage.valueOf(name) }.getOrNull() }
     val feedbackHost = remember { SnackbarHostState() }
     // Initialize with the existing message so returning from Details does not
     // replay an earlier Advanced save/restore notification.
@@ -224,6 +232,26 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             ) feedbackHost.showSnackbar(current.take(220), withDismissAction = true)
         }
     }
+    val connected = state.framework.connected
+    featurePage?.let { page ->
+        BackHandler { featurePageName = null }
+        FeaturePageScaffold(page, feedbackHost, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM) {
+            when (page) {
+                FeaturePage.THEMES -> ThemeColorsCard(model, connected)
+                FeaturePage.WALLPAPER -> CarWallpaperCard(model, connected)
+                FeaturePage.ICONS -> GlyphIconsCard(model, connected)
+                FeaturePage.STATUS_BAR -> StatusBarCard(model, connected)
+                FeaturePage.LOOK_FILE -> LookFileCard(model, connected)
+                FeaturePage.PRESETS -> PresetsCard(model, state.dynamicOverrides, connected)
+                FeaturePage.CONTROLS -> AndroidAutoControlsCard(model, connected)
+                FeaturePage.UPDATES -> UpdateCard(model)
+                FeaturePage.LAYOUT_CAPTURE -> ScreenLayoutCard(model, connected)
+                FeaturePage.SYSTEM -> StatusScreen(state, model) { chosen -> experimentFilterName = chosen.name; featurePageName = null; tab = 1 }
+            }
+        }
+        state.scanProgress?.let { progress -> ScanProgressDialog(progress, if (state.deepResolveRunning) ({ model.deepResolveInconclusive() }) else null) }
+        return
+    }
     Scaffold(
         topBar = { TopAppBar(title = { Row(verticalAlignment = Alignment.CenterVertically) { Image(painterResource(R.drawable.app_icon), null, Modifier.size(32.dp), contentScale = ContentScale.Fit); Spacer(Modifier.width(10.dp)); Text("AA Experiments", fontWeight = FontWeight.SemiBold) } }, actions = { if (tab == 0) IconButton(model::refreshInstallation) { Icon(Icons.Default.Refresh, "Refresh status") } }) },
         bottomBar = { NavigationBar { destinations.forEach { (label, icon, index) ->
@@ -234,11 +262,34 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         } } },
         snackbarHost = { SnackbarHost(feedbackHost) }
     ) { padding -> Box(Modifier.padding(padding).fillMaxSize()) { when (tab) {
-        0 -> StatusScreen(state, model) { chosen -> experimentFilterName = chosen.name; tab = 1 }
+        0 -> {
+            val scopeOk = state.framework.scope.any { it == "com.google.android.projection.gearhead" }
+            val checking = state.loading || state.scanProgress != null
+            val ready = connected && scopeOk && state.aa.installed
+            HomeScreen(model, connected, ready, checking,
+                headline = when {
+                    checking -> "Checking…"
+                    !state.aa.installed -> "Android Auto not found"
+                    !connected -> "Module not connected"
+                    !scopeOk -> "Android Auto is not in scope"
+                    else -> "Ready"
+                },
+                detail = when {
+                    checking -> "Looking at the installed Android Auto"
+                    !state.aa.installed -> "Install Android Auto, or import a package under System status"
+                    !connected -> "Enable AA Experiments in LSPosed, then open this app again"
+                    !scopeOk -> "Tick Android Auto in this module's scope in LSPosed"
+                    else -> "Android Auto ${state.aa.versionName ?: ""} · module active"
+                },
+                modifiedFlags = state.dynamicOverrides.size,
+                onOpen = { featurePageName = it.name }, onFlags = { tab = 1 })
+        }
+        3 -> LookScreen(model, connected) { featurePageName = it.name }
         1 -> AdvancedScreen(state, model, experimentQuery, { experimentQuery = it }, experimentFilter, { experimentFilterName = it.name }, experimentReviewedOnly, { experimentReviewedOnly = it }, experimentTypeName, { experimentTypeName = it }, experimentListState, advancedAccess) { experimentKey = it.key }
         else -> SettingsScreen(state, model, theme, onTheme, accent, onAccent, settingsPage,
             { settingsPageName = it.name }, advancedAccess,
-            { wantEnabled -> if (wantEnabled) advancedOptInWarning = true else setAdvancedAccess(false) })
+            { wantEnabled -> if (wantEnabled) advancedOptInWarning = true else setAdvancedAccess(false) },
+            { featurePageName = it.name })
     } } }
     if (advancedOptInWarning) AlertDialog(
         onDismissRequest = { advancedOptInWarning = false },
@@ -270,17 +321,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         state.mediaLabRoute, state.mediaLabAutoEnabled, state.mediaStartupAutoEnabled,
         state.profilePublished)
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-    item { ScreenTitle("Status", "Environment, resolver and runtime readiness") }
-    item { SafeModeBanner(model, state.framework.connected) }
-    item { UpdateCard(model) }
-    item { AndroidAutoControlsCard(model, state.framework.connected) }
-    item { PresetsCard(model, state.dynamicOverrides, state.framework.connected) }
-    item { CarWallpaperCard(model, state.framework.connected) }
-    item { GlyphIconsCard(model, state.framework.connected) }
-    item { ThemeColorsCard(model, state.framework.connected) }
-    item { StatusBarCard(model, state.framework.connected) }
-    item { LookFileCard(model, state.framework.connected) }
-    item { ScreenLayoutCard(model, state.framework.connected) }
     item { Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer)) { Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             if (analyzing) CircularProgressIndicator(Modifier.size(12.dp), strokeWidth = 2.dp)
@@ -417,7 +457,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Android Auto controls", fontWeight = FontWeight.Bold)
         Text("Android Auto reads experiments when it starts. Restarting closes it on the car screen, so use this while parked. It only reacts while Android Auto is running.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -440,7 +479,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val colours = remember(connected, revision) { if (connected) model.themeColorsMap().size else 0 }
     if (editing) ThemeEditor(model) { editing = false; revision++ }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Themes and colours (experimental)", fontWeight = FontWeight.Bold)
         Text("Recolour Android Auto's interface: pick a ready-made theme, generate one from a single colour, or set each colour yourself. Restart Android Auto after saving.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (roleClass == null) {
@@ -478,7 +516,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val colors = "${io.github.highwindbr.aaxp.core.ColorMath.toHex(glyph)},${io.github.highwindbr.aaxp.core.ColorMath.toHex(background)}"
     val valid = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Glyph app icons (experimental)", fontWeight = FontWeight.Bold)
         Text("Shows apps on the car screen as single-colour glyphs, using each app's own themed-icon layer. Apps without one keep their normal icon. Restart Android Auto after changing it.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -521,7 +558,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Car wallpaper", fontWeight = FontWeight.Bold)
         Text("Shows your own image on the car screen without changing the phone's wallpaper. Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image instead. Restart Android Auto after changing it.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (enabled) "Custom image is set." else "Not set: Android Auto uses the phone's wallpaper.",
@@ -1888,7 +1924,7 @@ private fun readRecoveryDocument(context: android.content.Context, uri: Uri): St
     theme: ThemeMode, onTheme: (ThemeMode) -> Unit,
     accent: AccentPalette, onAccent: (AccentPalette) -> Unit,
     page: SettingsPage, onPage: (SettingsPage) -> Unit,
-    advancedAccess: Boolean, onAdvancedAccess: (Boolean) -> Unit) {
+    advancedAccess: Boolean, onAdvancedAccess: (Boolean) -> Unit, onFeature: (FeaturePage) -> Unit) {
     var restoreConfirm by remember { mutableStateOf(false) }
     var legacyBackupExpanded by rememberSaveable { mutableStateOf(false) }
     var dangerZoneExpanded by rememberSaveable { mutableStateOf(false) }
@@ -2066,7 +2102,20 @@ private fun readRecoveryDocument(context: android.content.Context, uri: Uri): St
             }
         }
         else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 8.dp, bottom = 16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)){
-            item{ScreenTitle("Settings", "Appearance, media and advanced tools")}
+            item{ScreenTitle("Settings", "This app, Android Auto and tools")}
+            item{SectionLabel("This app")}
+            item{Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)){
+                SettingsRow(FeaturePage.UPDATES.icon, FeaturePage.UPDATES.title, "Installed: $appVersionName") { onFeature(FeaturePage.UPDATES) } }}
+            item{SectionLabel("Android Auto")}
+            item{Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)){ Column {
+                SettingsRow(FeaturePage.CONTROLS.icon, FeaturePage.CONTROLS.title, FeaturePage.CONTROLS.subtitle) { onFeature(FeaturePage.CONTROLS) }
+                HorizontalDivider()
+                SettingsRow(FeaturePage.PRESETS.icon, FeaturePage.PRESETS.title, FeaturePage.PRESETS.subtitle) { onFeature(FeaturePage.PRESETS) }
+                HorizontalDivider()
+                SettingsRow(FeaturePage.SYSTEM.icon, FeaturePage.SYSTEM.title, FeaturePage.SYSTEM.subtitle) { onFeature(FeaturePage.SYSTEM) }
+                HorizontalDivider()
+                SettingsRow(FeaturePage.LAYOUT_CAPTURE.icon, FeaturePage.LAYOUT_CAPTURE.title, FeaturePage.LAYOUT_CAPTURE.subtitle) { onFeature(FeaturePage.LAYOUT_CAPTURE) }
+            } }}
             item{SectionLabel("Appearance")}
             item{Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)){Column{
                 AnchoredPreferenceDropdown(Icons.Default.DarkMode, "Theme", "Choose the app theme mode", listOf("Follow system", "Light", "Dark"), theme.ordinal) { onTheme(ThemeMode.entries[it]) }

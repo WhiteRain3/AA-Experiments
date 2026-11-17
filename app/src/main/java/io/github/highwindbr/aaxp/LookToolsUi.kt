@@ -78,7 +78,6 @@ private val STATUS_BAR_PARTS = listOf(
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Status bar (experimental)", fontWeight = FontWeight.Bold)
         Text("Hide or recolour the clock, signal and battery on the car screen. Untested on a real car so far: Android Auto may repaint the colours when it switches between day and night. Needs a restart of Android Auto.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         STATUS_BAR_PARTS.forEach { (id, label) ->
@@ -113,7 +112,6 @@ private val STATUS_BAR_PARTS = listOf(
     var failure by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { if (onOpen) model.checkForUpdate(quiet = true) { update, _ -> available = update } }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Updates", fontWeight = FontWeight.Bold)
         Text("Installed: $installed. Checking contacts github.com to read this fork's releases; nothing about you or the phone is sent.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         available?.let { update ->
@@ -167,7 +165,6 @@ private val STATUS_BAR_PARTS = listOf(
             dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Style packs and backup", fontWeight = FontWeight.Bold)
         Text("One file with the whole look: colours, glyph icons, status bar changes, the car wallpaper with its placement, your themes and your flag presets. Use it as a backup or to pass a style on.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -196,7 +193,6 @@ private val STATUS_BAR_PARTS = listOf(
         }.fold({ model.reportMessage("Screen layout saved.") }, { model.reportMessage("Screen layout not saved: ${it.message}") })
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Screen layout capture", fontWeight = FontWeight.Bold)
         Text("While Android Auto is on the car screen, this records how that screen is built: each element's type, position, size and colours, plus the screen's size and density. It never records text such as messages or song titles. The file stays on this phone until you save and share it yourself.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(if (captures.isEmpty()) "Nothing captured yet." else "Captured: " + captures.joinToString { "${it.first} (${it.second / 1024} KB)" },

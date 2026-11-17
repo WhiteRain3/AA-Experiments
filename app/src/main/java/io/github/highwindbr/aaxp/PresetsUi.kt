@@ -74,7 +74,6 @@ internal fun PresetsCard(model: ManagerViewModel, current: Map<String, TypedOver
     }
 
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Presets", fontWeight = FontWeight.Bold)
         Text("Save the current normal overrides under a name and switch between sets. Applying a preset replaces the current set; experiments it does not mention go back to default.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (presets.isEmpty()) Text("No presets yet.", style = MaterialTheme.typography.bodyMedium)

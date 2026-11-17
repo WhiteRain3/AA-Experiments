@@ -65,6 +65,10 @@ instrumented or physical-device acceptance yet.
   app start if switched on), sends nothing about the user, takes APKs only from this
   repository's release downloads, and refuses a build signed with a different key. A workflow
   publishes a release when the version name changes on the fork's branch.
+- Manager layout: a Home screen with the module's state, one restart button and shortcuts; a
+  Look tab listing every look feature with its current state; each feature on a page of its
+  own; updates, restart behaviour, presets and diagnostics under Settings. The former Status
+  screen's technical detail is now the "System status" page.
 - Car wallpaper editor: rail alignment nudges for head units that place the rail and the main
   area a few pixels apart.
 - Theme editor role hints now come from role finder screenshots taken on a car.
@@ -100,7 +104,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr24`, versionCode unchanged.
+- versionName `1.0.0-wr25`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

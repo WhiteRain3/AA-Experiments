@@ -420,9 +420,27 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
 
 /** A wallpaper for the car screen that is different from the phone's. */
 @Composable private fun CarWallpaperCard(model: ManagerViewModel, connected: Boolean) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var enabled by remember(connected) { mutableStateOf(connected && model.carWallpaperEnabled()) }
+    var hasSource by remember { mutableStateOf(CarWallpaperStudio.sourceFile(context).isFile) }
+    var editing by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+    fun openEditor() {
+        scope.launch {
+            val bitmap = withContext(Dispatchers.IO) { runCatching { CarWallpaperStudio.loadSource(context) }.getOrNull() }
+            if (bitmap == null) model.reportMessage("That image could not be read.") else editing = bitmap
+        }
+    }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) model.setCarWallpaper(uri) { saved -> if (saved) enabled = true }
+        if (uri != null) scope.launch {
+            val imported = withContext(Dispatchers.IO) { runCatching { CarWallpaperStudio.importSource(context, uri) }.isSuccess }
+            if (imported) { hasSource = true; openEditor() } else model.reportMessage("That image could not be opened.")
+        }
+    }
+    editing?.let { source ->
+        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered ->
+            model.storeCarWallpaper(rendered) { saved -> if (saved) enabled = true; editing = null }
+        }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Car wallpaper", fontWeight = FontWeight.Bold)
@@ -431,7 +449,8 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         Text(if (enabled) "Custom image is set." else "Not set: Android Auto uses the phone's wallpaper.",
             style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ picker.launch("image/*") }, Modifier.weight(1f), enabled = connected) { Text(if (enabled) "Change image" else "Choose image") }
+            Button({ picker.launch("image/*") }, Modifier.weight(1f), enabled = connected) { Text(if (hasSource) "New image" else "Choose image") }
+            OutlinedButton({ openEditor() }, Modifier.weight(1f), enabled = connected && hasSource) { Text("Edit") }
             OutlinedButton({ model.clearCarWallpaper { cleared -> if (cleared) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Remove") }
         }
     } }

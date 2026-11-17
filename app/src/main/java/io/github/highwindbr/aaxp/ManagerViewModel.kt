@@ -960,25 +960,9 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             ?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY, null))
     }.getOrDefault(false)
 
-    /** Stores a downscaled JPEG copy of [uri] for the module and enables it. */
-    fun setCarWallpaper(uri: android.net.Uri, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+    /** Stores [bitmap] as the car wallpaper for the module and enables it. */
+    fun storeCarWallpaper(bitmap: android.graphics.Bitmap, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { runCatching {
-            val resolver = getApplication<Application>().contentResolver
-            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            resolver.openInputStream(uri).use { android.graphics.BitmapFactory.decodeStream(it, null, bounds) }
-            require(bounds.outWidth > 0 && bounds.outHeight > 0) { "Not a readable image" }
-            val maxEdge = io.github.highwindbr.aaxp.runtime.CarWallpaper.MAX_EDGE
-            val options = android.graphics.BitmapFactory.Options().apply {
-                inSampleSize = io.github.highwindbr.aaxp.runtime.CarWallpaper.sampleSize(bounds.outWidth, bounds.outHeight, maxEdge)
-            }
-            var bitmap = checkNotNull(resolver.openInputStream(uri).use {
-                android.graphics.BitmapFactory.decodeStream(it, null, options) }) { "Image could not be decoded" }
-            val longest = maxOf(bitmap.width, bitmap.height)
-            if (longest > maxEdge) {
-                val scale = maxEdge.toFloat() / longest
-                bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap,
-                    (bitmap.width * scale).toInt().coerceAtLeast(1), (bitmap.height * scale).toInt().coerceAtLeast(1), true)
-            }
             val bytes = java.io.ByteArrayOutputStream().use { out ->
                 check(bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)) { "Image could not be encoded" }
                 out.toByteArray()
@@ -995,6 +979,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Car wallpaper not saved: ${it.message}" }))
         onDone(result.isSuccess)
     }
+
+    fun reportMessage(text: String) { mutable.value = mutable.value.copy(message = text) }
 
     fun clearCarWallpaper(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val cleared = withContext(Dispatchers.IO) { runCatching {

@@ -25,11 +25,16 @@ instrumented or physical-device acceptance yet.
   while a version is configured; otherwise, and on any failure, the original call proceeds. The
   phone's own wallpaper is never changed. Events: `CAR_WALLPAPER_HOOKS`, `CAR_WALLPAPER_SERVED`,
   `CAR_WALLPAPER_FAILED`.
+- Car wallpaper editor: move, zoom, rotate, fill/fit, and choose between covering the whole screen
+  (under the rail) or the main area only, for a configurable screen size and rail position. The
+  stored image is shaped so that Android Auto, which centres the wallpaper on the main area and
+  scales it to fill that area, shows the edited frame at 1:1. The source image and placement are
+  kept privately so the wallpaper can be edited again.
 - `scripts/dhu-watch.ps1` (Windows, untested by the author of the change): keeps the Desktop Head
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr2`, versionCode unchanged.
+- versionName `1.0.0-wr3`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

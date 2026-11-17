@@ -14,6 +14,8 @@ public class GlyphIconsTest {
         assertTrue(GlyphIcons.isIconLoader("loadIcon", DRAWABLE));
         assertTrue(GlyphIcons.isIconLoader("getApplicationIcon", DRAWABLE));
         assertTrue(GlyphIcons.isIconLoader("getBadgedIcon", DRAWABLE));
+        assertTrue(GlyphIcons.isIconLoader("getDrawableForDensity", DRAWABLE));
+        assertFalse(GlyphIcons.isIconLoader("getDrawable", DRAWABLE));
         assertFalse(GlyphIcons.isIconLoader("loadLabel", "java.lang.CharSequence"));
         assertFalse(GlyphIcons.isIconLoader("loadBanner", DRAWABLE));
         assertFalse(GlyphIcons.isIconLoader("getIcon", "int"));

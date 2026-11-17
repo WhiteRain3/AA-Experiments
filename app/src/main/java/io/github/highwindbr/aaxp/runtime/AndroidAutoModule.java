@@ -184,6 +184,8 @@ public final class AndroidAutoModule extends XposedModule {
         String[] owners = {
                 "android.content.pm.PackageItemInfo",
                 "android.content.pm.LauncherActivityInfo",
+                "android.content.pm.ResolveInfo",
+                "android.content.res.Resources",
                 "android.app.ApplicationPackageManager"
         };
         for (String owner : owners) {

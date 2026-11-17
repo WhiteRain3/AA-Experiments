@@ -28,7 +28,8 @@ instrumented or physical-device acceptance yet.
   are skipped), delete, and export/import as JSON. Applying shows the exact list of changes first
   and marks elevated-risk experiments.
 - Glyph app icons (experimental): inside Android Auto the module wraps the result of the platform
-  icon loaders (`PackageItemInfo`, `LauncherActivityInfo`, `ApplicationPackageManager`). An
+  icon loaders (`PackageItemInfo`, `LauncherActivityInfo`, `ResolveInfo`, `ApplicationPackageManager`,
+  and `Resources.getDrawableForDensity`, which is the call Android Auto 18.0 uses for app icons). An
   adaptive icon with a monochrome layer becomes a one-colour glyph on a plain background; anything
   else, and any failure, returns the original icon. Events: `GLYPH_ICON_HOOKS`,
   `GLYPH_ICON_SERVED`, `GLYPH_ICON_FAILED`.
@@ -47,7 +48,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr7`, versionCode unchanged.
+- versionName `1.0.0-wr8`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

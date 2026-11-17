@@ -24,6 +24,8 @@ public final class GlyphIcons {
             case "getBadgedIcon":
             case "getApplicationIcon":
             case "getActivityIcon":
+            // Android Auto's own icon class loads an app's icon resource through this call.
+            case "getDrawableForDensity":
                 return true;
             default:
                 return false;

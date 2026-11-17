@@ -32,6 +32,13 @@ object Themes {
 
     val ALL_ROLES: List<String> = ROLE_GROUPS.flatMap { it.second }
 
+    /** Roles whose effect has been seen on a real car screen: the ones with a [hint]. */
+    val CONFIRMED_ROLES: List<String> = listOf("OutlineVariant", "Surface", "SurfaceVariant", "SurfaceHigh",
+        "OnSurface", "OnSurfaceVariant", "TextPrimary")
+
+    /** Every role not in [CONFIRMED_ROLES], in editor order. */
+    val UNSEEN_ROLES: List<String> = ALL_ROLES.filter { it !in CONFIRMED_ROLES }
+
     /**
      * What a role paints, where that has been seen on a real car screen (Android Auto 18.0 with
      * the role finder look). Empty when the role has not been seen in use yet.

@@ -100,8 +100,9 @@ internal fun WallpaperPage(model: ManagerViewModel, connected: Boolean, resetSig
     var pickingRail by remember { mutableStateOf(false) }
     fun commitRail() = model.setRailLook(CarWallpaper.encodeRailLook(CarWallpaper.RailLook(railColor, strength)))
     // The page menu's reset has already written the default; this only brings the rows back to it.
+    val resetWatcher = remember { io.github.highwindbr.aaxp.core.ResetWatcher(resetSignal) }
     LaunchedEffect(resetSignal) {
-        if (resetSignal != 0) { enabled = false; railColor = null; strength = CarWallpaper.DEFAULT_RAIL_STRENGTH }
+        if (resetWatcher.changed(resetSignal)) { enabled = false; railColor = null; strength = CarWallpaper.DEFAULT_RAIL_STRENGTH }
     }
 
     fun openEditor() {

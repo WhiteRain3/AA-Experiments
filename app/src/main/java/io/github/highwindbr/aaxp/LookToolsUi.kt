@@ -61,7 +61,8 @@ private fun iconChoiceText(choice: String): String = when (choice) {
 @Composable internal fun PerAppIconsCard(model: ManagerViewModel, connected: Boolean, resetSignal: Int = 0) {
     var choices by remember(connected) { mutableStateOf(if (connected) model.perAppIcons() else emptyMap()) }
     // The page menu's reset has already written the default; this only brings the rows back to it.
-    LaunchedEffect(resetSignal) { if (resetSignal != 0) choices = emptyMap() }
+    val resetWatcher = remember { io.github.highwindbr.aaxp.core.ResetWatcher(resetSignal) }
+    LaunchedEffect(resetSignal) { if (resetWatcher.changed(resetSignal)) choices = emptyMap() }
     var apps by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     LaunchedEffect(Unit) { apps = model.launchableApps() }
     val names = remember(apps) { apps.toMap() }

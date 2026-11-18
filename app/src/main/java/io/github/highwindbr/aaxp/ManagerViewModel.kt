@@ -1736,7 +1736,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * Puts the colour slots and the extra colours back to default, with one undo copy. The map border
      * width is a flag override that Undo cannot bring back, so it is left alone; it has its own reset.
      */
-    fun resetColourPage() = viewModelScope.launch {
+    fun resetColourPage(onDone: () -> Unit = {}) = viewModelScope.launch {
         val result = lookWrite { runCatching {
             captureUndo("resetting the colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
@@ -1747,6 +1747,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         } }
         result.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = result.fold({ "Colours are back to default." }, { "Colours not reset: ${it.message}" }))
+        onDone()
     }
 
     /**

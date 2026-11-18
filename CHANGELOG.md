@@ -129,6 +129,7 @@ instrumented or physical-device acceptance yet.
 - Loading a look file always removes its temporary wallpaper copy, and a problem updating the wallpaper editor after the look was applied is reported as that, not as "nothing was changed".
 - Fixed: after using "Reset status bar to default", reopening the Status bar page showed every row as default until the app was closed, and the next change then wrote those defaults over what was stored. The page now shows what is stored every time it opens.
 - The same fix for the App icons page, the single-app icon rows and the Wallpaper page, and the Colours page now shows the reset colours only after they were written (it could show the old ones).
+- Colour rows give their label all the room left over, so labels like "Launcher background" no longer break in the middle of a word.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

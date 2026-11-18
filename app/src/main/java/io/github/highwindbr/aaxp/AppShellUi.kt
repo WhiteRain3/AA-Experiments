@@ -376,9 +376,11 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled, onClick = onPick),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         ColorSwatch(colour, Modifier.size(40.dp))
-        Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
-        if (tip != null) TipIcon(label, tip)
-        Spacer(Modifier.weight(1f))
+        // The label and its "?" take all the room the value and reset icon leave, so a label never wraps in a narrow column.
+        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+            if (tip != null) TipIcon(label, tip)
+        }
         Text(colour?.let { "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it) } ?: "Default",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (colour != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))

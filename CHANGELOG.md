@@ -113,6 +113,7 @@ instrumented or physical-device acceptance yet.
 - One-tap styles keep your status bar setup (hidden parts, battery number, clock size and bold) and change only its colours and background; the wallpaper's darken and blur are stored only after the car's copy was written, and a refused wallpaper save leaves the editor's settings as they were.
 - The launcher's "icons only" setting is now part of look files and of Undo.
 - The rail strip look and the icon figure size are part of look files and Undo, and a style can carry them (the built-in styles leave your own alone); changing the rail strip keeps an undo copy first.
+- Per-app icon choices are part of look files and Undo (changing them keeps an undo copy first); the built-in styles leave them alone.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

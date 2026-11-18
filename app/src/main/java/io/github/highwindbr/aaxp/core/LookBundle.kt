@@ -21,7 +21,8 @@ class LookBundle(
     val resourceColors: String? = null,
     val launcherConfig: String? = null,
     val railLook: String? = null,
-    val glyphSize: String? = null
+    val glyphSize: String? = null,
+    val perAppIcons: String? = null
 )
 
 object LookBundles {
@@ -37,6 +38,7 @@ object LookBundles {
         bundle.launcherConfig?.let { put("launcherConfig", it) }
         bundle.railLook?.let { put("railLook", it) }
         bundle.glyphSize?.let { put("glyphSize", it) }
+        bundle.perAppIcons?.let { put("perAppIcons", it) }
         bundle.themesJson?.let { put("themes", JSONObject(it)) }
         bundle.presetsJson?.let { put("presets", JSONObject(it)) }
         bundle.wallpaperImage?.let { image ->
@@ -71,6 +73,8 @@ object LookBundles {
             ?.let { it in io.github.highwindbr.aaxp.runtime.GlyphIcons.MIN_SIZE..io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_SIZE } == true) {
             "The icon size in this file is not readable"
         }
+        val perApp = root.optString("perAppIcons").ifEmpty { null }
+        require(perApp == null || io.github.highwindbr.aaxp.runtime.GlyphIcons.parsePerApp(perApp).isNotEmpty()) { "The per-app icon choices in this file are not readable" }
         val themes = root.optJSONObject("themes")?.toString()?.also { Themes.decode(it) }
         val presets = root.optJSONObject("presets")?.toString()?.also { Presets.decode(it) }
         val image = root.optString("wallpaperImage").ifEmpty { null }?.let {
@@ -78,6 +82,6 @@ object LookBundles {
             java.util.Base64.getDecoder().decode(it)
         }
         return LookBundle(colors, glyph, statusBar, themes, presets,
-            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors, launcher, railLook, glyphSize)
+            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors, launcher, railLook, glyphSize, perApp)
     }
 }

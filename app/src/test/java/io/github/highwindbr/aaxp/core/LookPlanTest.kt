@@ -59,6 +59,12 @@ class LookPlanTest {
         assertNull(bad.railLook); assertNull(bad.glyphSize)
     }
 
+    @Test fun stylesNeverCarryPerAppIconChoices() {
+        // Applying a style writes exactly the parts of LookPlan; none of them is the per-app choices, so the owner's stay.
+        val names = (LookPlan::class.java.declaredFields + CarTheme::class.java.declaredFields).map { it.name.lowercase() }
+        assertTrue(names.none { "perapp" in it || "per_app" in it })
+    }
+
     @Test fun aLookWithoutExtrasSwitchesThemOff() {
         val plan = LookPlan.of(CarTheme("Mine", "", mapOf("Primary" to 0xFF112233.toInt())))
         assertNull(plan.glyphColors); assertNull(plan.statusBar); assertNull(plan.resourceColors)

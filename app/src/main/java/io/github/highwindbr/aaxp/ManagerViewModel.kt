@@ -1298,7 +1298,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null)))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null)))
     }
 
     /**
@@ -1320,6 +1321,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, bundle.launcherConfig)
             put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, bundle.railLook)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, bundle.glyphSize)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, bundle.perAppIcons)
             val parts = mutableListOf("colours, glyph icons and status bar")
             bundle.wallpaperImage?.let { image ->
                 CarWallpaperStudio.sourceFile(context).writeBytes(image)
@@ -1511,6 +1513,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setPerAppIcons(choices: Map<String, String>) = viewModelScope.launch {
         val saved = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the icon choices")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             val encoded = io.github.highwindbr.aaxp.runtime.GlyphIcons.encodePerApp(choices)
             if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY)
@@ -1594,7 +1597,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             if (wallpaperStamp != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(getApplication())) else null,
             wallpaperStamp, carWallpaperEnabled(), prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null))
     }
 
     /** Copies the wallpaper image in use aside for undo if that has not been done. Blocking: call off Main. */
@@ -1662,6 +1666,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, kept.launcherConfig)
             put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, kept.railLook)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, kept.glyphSize)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, kept.perAppIcons)
             val imageKept = kept.wallpaperStamp != null && kept.wallpaperSettings != null && undoImage.isFile &&
                 controlPreferences.getString("undo_image_stamp", null) == kept.wallpaperStamp
             val action = io.github.highwindbr.aaxp.core.LookUndo.wallpaperAction(kept, imageKept)
@@ -1692,10 +1697,10 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.RESTORE -> kept
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.REMOVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, null, null, false, kept.launcherConfig, kept.railLook, kept.glyphSize)
+                        kept.resourceColors, null, null, false, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.LEAVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig, kept.railLook, kept.glyphSize)
+                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons)
             }
             io.github.highwindbr.aaxp.core.LookUndo.restoredMessage(
                 io.github.highwindbr.aaxp.core.LookUndo.differences(now, effective), kept.label) to restarted

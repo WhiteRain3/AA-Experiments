@@ -19,7 +19,8 @@ class LookSnapshot(
     val wallpaperOn: Boolean? = null,
     val launcherConfig: String? = null,
     val railLook: String? = null,
-    val glyphSize: String? = null
+    val glyphSize: String? = null,
+    val perAppIcons: String? = null
 )
 
 object LookUndo {
@@ -33,6 +34,7 @@ object LookUndo {
         s.launcherConfig?.let { put("launcherConfig", it) }
         s.railLook?.let { put("railLook", it) }
         s.glyphSize?.let { put("glyphSize", it) }
+        s.perAppIcons?.let { put("perAppIcons", it) }
         if (s.wallpaperStamp != null && s.wallpaperSettings != null) {
             put("wallpaperSettings", s.wallpaperSettings)
             put("wallpaperStamp", s.wallpaperStamp)
@@ -47,7 +49,7 @@ object LookUndo {
         LookSnapshot(j.optString("label", "a change"), str("themeColors"), str("glyphColors"), str("statusBar"),
             str("resourceColors"), if (stamp != null) j.optJSONObject("wallpaperSettings") else null, stamp,
             if (j.has("wallpaperOn")) j.optBoolean("wallpaperOn") else null, str("launcherConfig"),
-            str("railLook"), str("glyphSize"))
+            str("railLook"), str("glyphSize"), str("perAppIcons"))
     }.getOrNull()
 
     enum class WallpaperAction { REMOVE, RESTORE, LEAVE }
@@ -91,6 +93,7 @@ object LookUndo {
         if (now.launcherConfig != kept.launcherConfig) add("launcher")
         if (now.railLook != kept.railLook) add("rail strip")
         if (now.glyphSize != kept.glyphSize) add("icon size")
+        if (now.perAppIcons != kept.perAppIcons) add("per-app icons")
         if (now.wallpaperStamp != kept.wallpaperStamp || now.wallpaperSettings?.toString() != kept.wallpaperSettings?.toString())
             add("wallpaper")
     }

@@ -125,8 +125,9 @@ private val STATUS_BAR_PARTS = listOf(
         if (!noPlate) {
             colorRow("Plate colour (lower the opacity in the picker for see-through)", plateColor) { plateColor = it }
             // Android Auto 18.0's plate only takes a corner radius together with a colour the module draws.
+            // Cleared in an effect, not during composition.
+            androidx.compose.runtime.LaunchedEffect(plateColor) { if (plateColor == null) plateRadius = null }
             if (plateColor == null) {
-                plateRadius = null
                 Text("Pick a plate colour to also set how round its corners are.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             } else switchRow("Set the plate's corner roundness", plateRadius != null) { plateRadius = if (it) 12 else null }

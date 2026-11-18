@@ -47,6 +47,13 @@ class LookBundleTest {
         assertNull(none.railLook); assertNull(none.glyphSize)
     }
 
+    @Test fun carriesThePerAppIconChoices() {
+        val text = "com.example.maps=glyph;com.example.radio=FF0000,00000000;com.example.news=original"
+        assertEquals(text, LookBundles.decode(LookBundles.encode(LookBundle(perAppIcons = text))).perAppIcons)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(perAppIcons = "nonsense"))) }.isFailure)
+        assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).perAppIcons)
+    }
+
     @Test fun emptyBundleIsValidAndHasNoParts() {
         val bundle = LookBundles.decode(LookBundles.encode(LookBundle()))
         assertNull(bundle.themeColors); assertNull(bundle.glyphColors); assertNull(bundle.statusBar)

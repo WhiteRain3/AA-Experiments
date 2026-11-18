@@ -230,6 +230,46 @@ for the phone's apps before loading, so those icons belong to the phone's apps. 
 small icons and media art arrive as Icon or Bitmap objects and cannot be tied to an app.
 Per-app choices are stored in `icons.per_app` (`GlyphIcons.parsePerApp`, `effectiveColors`).
 
+### Day and night in Android Auto 18.0 (read from the decompiled code, nothing built yet)
+
+- The car's night state arrives as a car sensor event and is filtered by Android Auto's own
+  developer setting `car_day_night_mode` (car / day / night / auto). The owner can use that
+  setting to test day and night without waiting for dusk.
+- It reaches the UI as `Configuration.uiMode` night bits on a per-window context
+  (`createDisplayContext(...).createConfigurationContext(...)`), kept current while running.
+  The application context's `uiMode` is the phone's, not the car's.
+- The role enum (`lfv`): methods taking a Context pick dark or light from that context's
+  `uiMode`; two methods without a Context always answer dark and two always light (same
+  signatures, so only telling them apart by calling the original and comparing works).
+  Light is also gated by a flag ("GM3"): when it is off, everything is dark whatever the car
+  says. Whether it is on for the owner is not known.
+- Palette colour resources (`baseline_/dynamic_/neutral_palette_*`) have no night variants; day
+  and night differ one level up, in which tone a theme attribute points at. A hook on
+  `Resources`/`TypedArray` can read night from that Resources' `uiMode`.
+- On a change Android Auto rebuilds the window's context and either re-creates the root view or
+  dispatches a configuration change; which one per window (dashboard, launcher) was not traced.
+- Verdict: colours can follow day and night without a restart for role colours and resource
+  colours (answered per call from `uiMode`); colours the module sets itself on views (status
+  bar) only refresh if that view is inflated again. Compose screens may keep a colour scheme
+  when the flag above is off. All of this needs the car to confirm.
+
+### The dashboard's windows in Android Auto 18.0 (read from the decompiled code, nothing built yet)
+
+- "Dashboard" and "GhFacetBar" are not activities: each is a fragment inside an
+  `android.app.Presentation`, with a transparent decor (background colour 0, translucent
+  format) and the title set on the window attributes before `show()`. A hook after
+  `Dialog.show()` can match `getWindow().getAttributes().getTitle()` without obfuscated names.
+- The Dashboard window is exactly the cards column (405x697 on the owner's car). Its content
+  is a Compose view; cards have about 12dp between them and 20dp corners. Nothing opaque sits
+  behind the cards inside that window.
+- The map region fills the whole main area and belongs to the navigation app; the Dashboard
+  window floats over part of it. There is no background layer behind the map or in the gutter
+  around the cards column.
+- The launcher's wallpaper view (`grid_background`) exists only in the launcher's layout.
+- So a wallpaper on the dashboard can only be an image inside the Dashboard window: visible in
+  the gaps between cards and at their corners, or through the cards if the `Surface` role is
+  given some transparency. Nothing can be shown behind the map.
+
 ## Reverse-engineering material
 
 Working out Android Auto's internals needs its decompiled code and resources. Those were

@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
  * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent;
- * clock_size=120;clock_bold=on"; every part is optional.
+ * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12"; every part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
 public final class StatusBarTweaks {
@@ -31,6 +31,14 @@ public final class StatusBarTweaks {
     public static final int DEFAULT_CLOCK_SIZE = 100;
     public static final int MIN_CLOCK_SIZE = 70;
     public static final int MAX_CLOCK_SIZE = 140;
+
+    /** Largest corner radius offered for the plate, in dp. */
+    public static final int MAX_PLATE_RADIUS = 48;
+
+    /** A corner radius in dp as pixels on a screen of the given density; never negative. */
+    public static float radiusPx(int dp, float density) {
+        return Math.max(0f, dp * density);
+    }
 
     /** {@code original} text size scaled to {@code percent}, never below one pixel. */
     public static float scaledSize(float original, int percent) {
@@ -61,6 +69,10 @@ public final class StatusBarTweaks {
         /** Size of the clock as a percentage of Android Auto's own size. */
         public final int clockSize;
         public final boolean clockBold;
+        /** Colour of the plate behind the status bar, opacity included; null keeps Android Auto's. */
+        public final Integer plateColor;
+        /** Corner radius of the plate in dp; null keeps Android Auto's. */
+        public final Integer plateRadius;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
@@ -77,8 +89,33 @@ public final class StatusBarTweaks {
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent,
                       Integer batteryColor, int batterySize, int clockSize, boolean clockBold) {
-            this.clockSize = Math.max(MIN_CLOCK_SIZE, Math.min(MAX_CLOCK_SIZE, clockSize));
-            this.clockBold = clockBold;
+            this(builder(hide, clockColor, iconColor, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold));
+        }
+
+        private static Builder builder(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate,
+                boolean batteryPercent, Integer batteryColor, int batterySize, int clockSize, boolean clockBold) {
+            Builder builder = new Builder();
+            builder.hide = hide;
+            builder.clockColor = clockColor;
+            builder.iconColor = iconColor;
+            builder.noPlate = noPlate;
+            builder.batteryPercent = batteryPercent;
+            builder.batteryColor = batteryColor;
+            builder.batterySize = batterySize;
+            builder.clockSize = clockSize;
+            builder.clockBold = clockBold;
+            return builder;
+        }
+
+        private Config(Builder from) {
+            Set<String> hide = from.hide == null ? new LinkedHashSet<>() : from.hide;
+            Integer clockColor = from.clockColor, iconColor = from.iconColor, batteryColor = from.batteryColor;
+            boolean noPlate = from.noPlate, batteryPercent = from.batteryPercent;
+            int batterySize = from.batterySize;
+            this.plateColor = from.plateColor;
+            this.plateRadius = from.plateRadius == null ? null : Math.max(0, Math.min(MAX_PLATE_RADIUS, from.plateRadius));
+            this.clockSize = Math.max(MIN_CLOCK_SIZE, Math.min(MAX_CLOCK_SIZE, from.clockSize));
+            this.clockBold = from.clockBold;
             this.batteryColor = batteryColor;
             this.batterySize = Math.max(MIN_BATTERY_SIZE, Math.min(MAX_BATTERY_SIZE, batterySize));
             this.batteryPercent = batteryPercent;
@@ -90,7 +127,26 @@ public final class StatusBarTweaks {
 
         public boolean isEmpty() {
             return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate && !batteryPercent
-                    && clockSize == DEFAULT_CLOCK_SIZE && !clockBold;
+                    && clockSize == DEFAULT_CLOCK_SIZE && !clockBold && plateColor == null && plateRadius == null;
+        }
+    }
+
+    /** Every setting as a plain field, for building a {@link Config} without a long argument list. */
+    public static final class Builder {
+        public Set<String> hide = new LinkedHashSet<>();
+        public Integer clockColor;
+        public Integer iconColor;
+        public boolean noPlate;
+        public boolean batteryPercent;
+        public Integer batteryColor;
+        public int batterySize = DEFAULT_BATTERY_SIZE;
+        public int clockSize = DEFAULT_CLOCK_SIZE;
+        public boolean clockBold;
+        public Integer plateColor;
+        public Integer plateRadius;
+
+        public Config build() {
+            return new Config(this);
         }
     }
 
@@ -108,6 +164,7 @@ public final class StatusBarTweaks {
         int batterySize = DEFAULT_BATTERY_SIZE;
         int clockSize = DEFAULT_CLOCK_SIZE;
         boolean clockBold = false;
+        Integer plateColor = null, plateRadius = null;
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -155,6 +212,18 @@ public final class StatusBarTweaks {
                     }
                     if (clockSize < MIN_CLOCK_SIZE || clockSize > MAX_CLOCK_SIZE) return null;
                     break;
+                case "plate_color":
+                    plateColor = color(value);
+                    if (plateColor == null) return null;
+                    break;
+                case "plate_radius":
+                    try {
+                        plateRadius = Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (plateRadius < 0 || plateRadius > MAX_PLATE_RADIUS) return null;
+                    break;
                 case "clock_bold":
                     if (!"on".equals(value)) return null;
                     clockBold = true;
@@ -163,7 +232,10 @@ public final class StatusBarTweaks {
                     return null;
             }
         }
-        Config config = new Config(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold);
+        Builder builder = Config.builder(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold);
+        builder.plateColor = plateColor;
+        builder.plateRadius = plateRadius;
+        Config config = builder.build();
         return config.isEmpty() ? null : config;
     }
 
@@ -183,6 +255,11 @@ public final class StatusBarTweaks {
         }
         if (config.clockSize != DEFAULT_CLOCK_SIZE) append(text, "clock_size=" + config.clockSize);
         if (config.clockBold) append(text, "clock_bold=on");
+        // A removed plate has no colour or corners to speak of.
+        if (!config.noPlate) {
+            if (config.plateColor != null) append(text, "plate_color=" + String.format("%08X", config.plateColor));
+            if (config.plateRadius != null) append(text, "plate_radius=" + config.plateRadius);
+        }
         return text.toString();
     }
 

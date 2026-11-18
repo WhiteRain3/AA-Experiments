@@ -119,6 +119,7 @@ instrumented or physical-device acceptance yet.
 - Colours page reset no longer touches the map border width (it is a flag override that Undo cannot bring back); the reset confirmation says so.
 - Redesign, piece 3: the Status bar page has a preview bar and sections (Show, Clock, Battery, Icons, Background); parts and the background are shown with switches (the stored setting is unchanged), everything applies as soon as it is changed (sliders on release), and the page menu resets it. The day/night note is a "?" in the page header.
 - Redesign, piece 4: the App icons page is one page: a preview of five sample icons, a "Single-colour icons" switch with icon colour, background colour and figure size, the single-app icon choices as rows, and the launcher's "Show app names" switch (the stored setting is unchanged); everything applies as soon as it is changed. The separate Launcher page is gone. The page menu resets the whole page with one undo copy.
+- Look changes made one after another are written in order (an older write can no longer land last), and "Restart after a change" now applies to flag overrides and presets only; look changes use the changes-waiting banner's Restart button.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

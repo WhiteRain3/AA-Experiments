@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import org.json.JSONArray
@@ -1167,7 +1168,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     /** Stores "Role=colour" overrides (one per line); blank text removes them all. */
     fun setThemeColors(text: String, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val parsed = io.github.highwindbr.aaxp.runtime.ThemeColors.parse(text)
-        val saved = parsed != null && withContext(Dispatchers.IO) { runCatching {
+        val saved = parsed != null && lookWrite { runCatching {
             captureUndo("changing colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(parsed)
@@ -1221,7 +1222,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     /** Writes the role colours and the glyph colours in one step; null [glyphColors] turns glyphs off. */
     fun applyCarTheme(roles: Map<String, Int>, glyphColors: String?) = viewModelScope.launch {
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("applying a theme")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(roles)
@@ -1233,7 +1234,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, glyphColors)
             }
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
             { changesWaiting = !it
@@ -1362,14 +1363,14 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrNull().orEmpty()
 
     fun setResourceColors(colors: Map<String, Int>) = viewModelScope.launch {
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("changing the extra colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ResourceColors.encode(colors)
             if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
             else editor.putString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, encoded)
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
             { (if (colors.isEmpty()) "Extra colours removed." else "Extra colours saved.") +
@@ -1384,13 +1385,13 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrNull()
 
     fun setRailLook(look: String?) = viewModelScope.launch {
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("changing the rail strip")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (look == null) editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY)
             else editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, look)
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
             { changesWaiting = !it
@@ -1406,7 +1407,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrNull()
 
     fun setLauncherConfig(config: String?) = viewModelScope.launch {
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("changing the launcher")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY)
@@ -1415,7 +1416,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 editor.putString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, config)
             }
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
             { changesWaiting = !it
@@ -1431,7 +1432,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrNull()
 
     fun setStatusBarConfig(config: String?) = viewModelScope.launch {
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("changing the status bar")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY)
@@ -1440,7 +1441,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 editor.putString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, config)
             }
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
             { changesWaiting = !it
@@ -1512,7 +1513,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }.getOrNull())
 
     fun setPerAppIcons(choices: Map<String, String>) = viewModelScope.launch {
-        val saved = withContext(Dispatchers.IO) { runCatching {
+        val saved = lookWrite { runCatching {
             captureUndo("changing the icon choices")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             val encoded = io.github.highwindbr.aaxp.runtime.GlyphIcons.encodePerApp(choices)
@@ -1543,7 +1544,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     /** [size] is the figure size in percent; null leaves the stored size as it is. */
     fun setGlyphIcons(colors: String?, size: Int? = null, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val valid = colors == null || io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
-        val saved = valid && withContext(Dispatchers.IO) { runCatching {
+        val saved = valid && lookWrite { runCatching {
             captureUndo("changing the icons")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             if (colors == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
@@ -1563,6 +1564,11 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         })
         onDone(saved)
     }
+
+    private val lookWriteLock = kotlinx.coroutines.sync.Mutex()
+
+    /** Runs a look write on the IO dispatcher, one at a time and in the order they were asked for, so an older write never lands last. */
+    private suspend fun <T> lookWrite(block: () -> T): T = lookWriteLock.withLock { withContext(Dispatchers.IO) { block() } }
 
     // ---- Undo for the look ----
 
@@ -1652,7 +1658,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     /** Puts back the look kept before the last change. */
     fun undoLastChange() = viewModelScope.launch {
-        val result = withContext(Dispatchers.IO) { runCatching {
+        val result = lookWrite { runCatching {
             val kept = checkNotNull(undoKeeper.load()) { "The saved copy cannot be read" }
             val context = getApplication<Application>()
             val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
@@ -1692,7 +1698,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 markWallpaperApplied()
             }
             undoKeeper.clear()
-            val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            val restarted = false // the changes-waiting banner offers the restart
             val effective = when (action) {
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.RESTORE -> kept
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.REMOVE ->
@@ -1717,13 +1723,13 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * width is a flag override that Undo cannot bring back, so it is left alone; it has its own reset.
      */
     fun resetColourPage() = viewModelScope.launch {
-        val result = withContext(Dispatchers.IO) { runCatching {
+        val result = lookWrite { runCatching {
             captureUndo("resetting the colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
             editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         result.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = result.fold({ "Colours are back to default." }, { "Colours not reset: ${it.message}" }))
@@ -1734,7 +1740,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * choices for single apps, and the launcher's app names. One undo copy for all.
      */
     fun resetIconsPage() = viewModelScope.launch {
-        val result = withContext(Dispatchers.IO) { runCatching {
+        val result = lookWrite { runCatching {
             captureUndo("resetting the app icons")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
@@ -1742,7 +1748,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY)
             editor.remove(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY)
             check(editor.commit()) { "Framework rejected the preference update" }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         result.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = result.fold({ "App icons are back to default." }, { "App icons not reset: ${it.message}" }))
@@ -1757,7 +1763,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      */
     fun applyLook(look: io.github.highwindbr.aaxp.core.CarTheme) = viewModelScope.launch {
         var wallpaperProblem: String? = null
-        val restarted = withContext(Dispatchers.IO) { runCatching {
+        val restarted = lookWrite { runCatching {
             captureUndo("applying ${look.name}")
             val context = getApplication<Application>()
             val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
@@ -1789,7 +1795,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 }
                 CarWallpaperStudio.save(context, updated)
             }.onFailure { wallpaperProblem = it.message }
-            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            false // the changes-waiting banner offers the restart
         } }
         restarted.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = restarted.fold(
@@ -1823,7 +1829,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     internal fun storeCarWallpaper(bitmap: android.graphics.Bitmap, rail: android.graphics.Bitmap? = null,
                           settings: CarWallpaperStudio.Saved? = null, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
-        val result = withContext(Dispatchers.IO) { runCatching {
+        val result = lookWrite { runCatching {
             // The undo copy is taken here, before anything is written, so cancelling the editor never replaces it.
             captureUndo("changing the wallpaper")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
@@ -1845,7 +1851,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun reportMessage(text: String) { mutable.value = mutable.value.copy(message = text) }
 
     fun clearCarWallpaper(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
-        val cleared = withContext(Dispatchers.IO) { runCatching {
+        val cleared = lookWrite { runCatching {
             captureUndo("removing the wallpaper")
             ServiceBridge.dynamicPreferencesOrNull()?.edit()
                 ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)

@@ -120,7 +120,7 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
-- versionName `1.0.0-wr27`, versionCode unchanged.
+- versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

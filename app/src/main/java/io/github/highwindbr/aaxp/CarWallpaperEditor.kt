@@ -374,7 +374,7 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     FilterChip(coverage == WallpaperCoverage.MAIN_AREA, { coverage = WallpaperCoverage.MAIN_AREA }, { Text("Main area") })
                 }
 
-                CollapsibleSection("Advanced") {
+                CollapsibleSection("Advanced", "Rail separation, alignment and car screen size") {
                     Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(if (separatorThickness == 0) "Rail separation: off" else "Rail separation: $separatorThickness px",

@@ -135,6 +135,7 @@ instrumented or physical-device acceptance yet.
 - Colour rows put the value under the label in one cell, with the reset slot always reserved, so labels wrap only at spaces and all rows line up; "00FFFFFF" reads "Transparent".
 - The reset control is a small "Reset" text button (it looked like an undo arrow), in a slot that is always reserved.
 - Section headings on every page have the same height (with or without a "?"), 24dp above and 8dp below.
+- The folded sections on the Status bar page are equal card rows with a one-line summary of what is set ("140%, bold, #00FFFF", "Default", "Hidden").
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

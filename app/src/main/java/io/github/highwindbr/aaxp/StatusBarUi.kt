@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -42,19 +43,24 @@ internal val STATUS_BAR_PARTS = listOf(
 internal const val STATUS_BAR_PAGE_TIP = "Hide, resize or recolour the clock, signal and battery. Not tried on a real car yet: " +
     "Android Auto may repaint the colours when it switches between day and night."
 
-/** A section whose rows can be folded away; the heading shows a chevron. */
+/** A folded section shown as one card row: title, a one-line summary of what is set, an optional "?" and a chevron. */
 @Composable
-internal fun CollapsibleSection(title: String, tip: String? = null, startOpen: Boolean = false, content: @Composable () -> Unit) {
+internal fun CollapsibleSection(title: String, summary: String, tip: String? = null, startOpen: Boolean = false, content: @Composable () -> Unit) {
     var open by remember { mutableStateOf(startOpen) }
-    Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-        Row(Modifier.fillMaxWidth().clickable { open = !open }.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
-            if (tip != null) TipIcon(title, tip)
-            Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, if (open) "Fold $title" else "Open $title",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp)) {
+        Surface(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable { open = !open },
+            shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Row(Modifier.heightIn(min = 64.dp).padding(start = 16.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+                }
+                if (tip != null) TipIcon(title, tip)
+                Icon(if (open) Icons.Default.ExpandLess else Icons.Default.ExpandMore, if (open) "Fold $title" else "Open $title",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
-        if (open) Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        if (open) Surface(Modifier.fillMaxWidth().padding(top = 8.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(horizontal = 16.dp)) { content() }
         }
     }
@@ -160,7 +166,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
             }
         }
 
-        CollapsibleSection("Clock") {
+        CollapsibleSection("Clock", io.github.highwindbr.aaxp.core.StatusBarSummary.clock(clockSize, StatusBarTweaks.DEFAULT_CLOCK_SIZE, clockBold, clockColor)) {
             SliderRow("Size", "$clockSize%", clockSize.toFloat(), StatusBarTweaks.MIN_CLOCK_SIZE.toFloat()..StatusBarTweaks.MAX_CLOCK_SIZE.toFloat(),
                 onChangeFinished = { clockSize = (it / 5).toInt() * 5; commit() },
                 onReset = if (clockSize != StatusBarTweaks.DEFAULT_CLOCK_SIZE) ({ clockSize = StatusBarTweaks.DEFAULT_CLOCK_SIZE; commit() }) else null,
@@ -173,7 +179,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
                 enabled = connected)
         }
 
-        CollapsibleSection("Battery", tip = "The battery number is the one status bar change that updates while Android Auto is running.") {
+        CollapsibleSection("Battery", io.github.highwindbr.aaxp.core.StatusBarSummary.battery(batteryPercent, byLevel, batterySize, StatusBarTweaks.DEFAULT_BATTERY_SIZE), tip = "The battery number is the one status bar change that updates while Android Auto is running.") {
             SwitchRow("Show as a percentage", batteryPercent, { batteryPercent = it; commit() }, enabled = connected)
             if (batteryPercent) {
                 RowDivider()
@@ -214,7 +220,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
             }
         }
 
-        CollapsibleSection("Icons", tip = "The signal and battery icons. Not known whether a larger row is cut off by the background or touches the clock.") {
+        CollapsibleSection("Icons", io.github.highwindbr.aaxp.core.StatusBarSummary.icons(iconSize, StatusBarTweaks.DEFAULT_ICON_SIZE, iconColor), tip = "The signal and battery icons. Not known whether a larger row is cut off by the background or touches the clock.") {
             SliderRow("Size", "$iconSize%", iconSize.toFloat(), StatusBarTweaks.MIN_ICON_SIZE.toFloat()..StatusBarTweaks.MAX_ICON_SIZE.toFloat(),
                 onChangeFinished = { iconSize = (it / 5).toInt() * 5; commit() },
                 onReset = if (iconSize != StatusBarTweaks.DEFAULT_ICON_SIZE) ({ iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE; commit() }) else null,
@@ -223,7 +229,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
             ColourRow("Colour", iconColor, { pick("Icon colour", iconColor) { iconColor = it } }, { iconColor = null; commit() }, enabled = connected)
         }
 
-        CollapsibleSection("Background") {
+        CollapsibleSection("Background", io.github.highwindbr.aaxp.core.StatusBarSummary.background(StatusBarView.backgroundShown(noPlate), plateColor, plateRadius)) {
             SwitchRow("Show background", StatusBarView.backgroundShown(noPlate), { noPlate = StatusBarView.noPlateFor(it); commit() }, enabled = connected)
             if (StatusBarView.backgroundShown(noPlate)) {
                 RowDivider()

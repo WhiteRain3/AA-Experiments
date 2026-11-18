@@ -114,6 +114,7 @@ instrumented or physical-device acceptance yet.
 - The launcher's "icons only" setting is now part of look files and of Undo.
 - The rail strip look and the icon figure size are part of look files and Undo, and a style can carry them (the built-in styles leave your own alone); changing the rail strip keeps an undo copy first.
 - Per-app icon choices are part of look files and Undo (changing them keeps an undo copy first); the built-in styles leave them alone.
+- Redesign, piece 1: shared page components (a "?" tip that opens a short explanation, sections, switch/colour/slider/link rows, one reset icon, a per-page menu); "How this works" is now a "?" tip.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

@@ -5,6 +5,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,7 +21,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
@@ -37,6 +42,8 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material.icons.filled.Wallpaper
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -236,20 +243,140 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
     }
 }
 
-/** A collapsed "How this works" section for the long caveats that most people do not need each time. */
-@Composable internal fun HowThisWorks(text: String) {
+// ---- Shared components for the feature pages (see docs/DESIGN_SPEC.md) ----
+
+/**
+ * A "?" that opens a short explanation in a bottom sheet. The useful sentence goes first and the
+ * caveat second; a caveat is moved here, never deleted.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable internal fun TipIcon(title: String, text: String) {
     var open by remember { mutableStateOf(false) }
-    Column {
-        TextButton({ open = !open }) { Text(if (open) "How this works ▲" else "How this works ▼") }
-        if (open) Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    IconButton({ open = true }, Modifier.size(48.dp)) {
+        Icon(Icons.AutoMirrored.Filled.HelpOutline, "About $title", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+    if (open) ModalBottomSheet({ open = false }) {
+        Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(text, style = MaterialTheme.typography.bodyMedium)
+            TextButton({ open = false }, Modifier.align(Alignment.End)) { Text("Got it") }
+        }
     }
 }
+
+/** The old collapsed note, now a "?" like every other explanation. */
+@Composable internal fun HowThisWorks(text: String) = TipIcon("How this works", text)
+
+/** A heading with an optional "?" and one card holding its rows. */
+@Composable internal fun SettingsSection(
+    title: String, tip: String? = null, content: @Composable ColumnScope.() -> Unit
+) {
+    Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
+        Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary)
+            if (tip != null) TipIcon(title, tip)
+        }
+        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+            Column(Modifier.padding(horizontal = 16.dp)) { content() }
+        }
+    }
+}
+
+/** A thin line between two rows of a section. */
+@Composable internal fun RowDivider() =
+    androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+/** The one reset control: shown only when a row differs from default. */
+@Composable internal fun ResetIcon(onReset: () -> Unit) {
+    IconButton(onReset, Modifier.size(48.dp)) { Icon(Icons.Default.Restore, "Back to default", Modifier.size(22.dp)) }
+}
+
+/** Label left, switch right; the whole row toggles. */
+@Composable internal fun SwitchRow(
+    label: String, checked: Boolean, onChange: (Boolean) -> Unit, tip: String? = null, enabled: Boolean = true
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled) { onChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+        if (tip != null) TipIcon(label, tip)
+        Spacer(Modifier.weight(1f))
+        androidx.compose.material3.Switch(checked, onChange, enabled = enabled)
+    }
+}
+
+/** Swatch, label, the value ("RRGGBB" or "Default") and a reset icon when a colour is set. */
+@Composable internal fun ColourRow(
+    label: String, colour: Int?, onPick: () -> Unit, onReset: () -> Unit, tip: String? = null, enabled: Boolean = true
+) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled, onClick = onPick),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        ColorSwatch(colour, Modifier.size(40.dp))
+        Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+        if (tip != null) TipIcon(label, tip)
+        Spacer(Modifier.weight(1f))
+        Text(colour?.let { "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it) } ?: "Default",
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (colour != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))
+    }
+}
+
+/**
+ * Label and value on one line with the slider below. [onChangeFinished] receives the value when
+ * the slider is released; the reset icon shows while the value is not [default].
+ */
+@Composable internal fun SliderRow(
+    label: String, valueText: String, value: Float, range: ClosedFloatingPointRange<Float>, onChangeFinished: (Float) -> Unit,
+    onReset: (() -> Unit)? = null, tip: String? = null, enabled: Boolean = true, steps: Int = 0
+) {
+    var shown by remember(value) { mutableStateOf(value) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        Row(Modifier.heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (tip != null) TipIcon(label, tip)
+            Spacer(Modifier.weight(1f))
+            Text(valueText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            if (onReset != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))
+        }
+        androidx.compose.material3.Slider(shown, { shown = it }, valueRange = range, steps = steps, enabled = enabled,
+            onValueChangeFinished = { onChangeFinished(shown) })
+    }
+}
+
+/** A row that opens a sub-screen or dialog: label, a short state, a chevron. */
+@Composable internal fun LinkRow(label: String, state: String? = null, onClick: () -> Unit, tip: String? = null) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+        if (tip != null) TipIcon(label, tip)
+        Spacer(Modifier.weight(1f))
+        if (state != null) Text(state, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** The card at the top of a page that shows the current saved result. */
+@Composable internal fun PreviewCard(content: @Composable ColumnScope.() -> Unit) {
+    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) { content() }
+    }
+}
+
+/** What a page's "more" menu holds: the page-wide reset and any page-specific items. */
+internal class PageMenu(
+    val pageName: String, val onReset: (() -> Unit)? = null, val extra: List<Pair<String, () -> Unit>> = emptyList()
+)
 
 /** The frame around a feature's page: back arrow, title, and the app's messages at the bottom. */
 @Composable internal fun FeaturePageScaffold(
     page: FeaturePage, messages: SnackbarHostState, model: ManagerViewModel, connected: Boolean, onBack: () -> Unit, scrolls: Boolean = true,
-    content: @Composable () -> Unit
+    menu: PageMenu? = null, content: @Composable () -> Unit
 ) {
+    var menuOpen by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
+    if (confirmReset && menu?.onReset != null) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmReset = false },
+        title = { Text("Put everything on this page back to default?") },
+        confirmButton = { TextButton({ confirmReset = false; menu.onReset.invoke() }) { Text("Reset") } },
+        dismissButton = { TextButton({ confirmReset = false }) { Text("Cancel") } })
     Scaffold(snackbarHost = { SnackbarHost(messages) }) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -259,7 +386,16 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
                     Text(page.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(page.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                IconBadge(page.icon, 40)
+                if (menu != null) Box {
+                    IconButton({ menuOpen = true }, Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, "More") }
+                    androidx.compose.material3.DropdownMenu(menuOpen, { menuOpen = false }) {
+                        menu.extra.forEach { (label, action) ->
+                            androidx.compose.material3.DropdownMenuItem({ Text(label) }, { menuOpen = false; action() })
+                        }
+                        if (menu.onReset != null) androidx.compose.material3.DropdownMenuItem(
+                            { Text("Reset ${menu.pageName} to default") }, { menuOpen = false; confirmReset = true })
+                    }
+                } else IconBadge(page.icon, 40)
             }
             if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
                 item { ChangesWaitingBanner(model, connected); content() }

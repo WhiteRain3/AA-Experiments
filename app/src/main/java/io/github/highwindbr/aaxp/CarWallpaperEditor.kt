@@ -34,6 +34,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -89,7 +92,7 @@ internal object CarWallpaperStudio {
 
     data class Saved(val screen: CarScreen, val coverage: WallpaperCoverage, val placement: WallpaperPlacement,
                      val separatorThickness: Int = 0, val separatorColor: String = "#FFFFFF",
-                     val dim: Int = 0, val blur: Int = 0, val railShiftX: Int = 0, val railShiftY: Int = 0)
+                     val dim: Int = 0, val blurLevel: Int = 0, val railShiftX: Int = 0, val railShiftY: Int = 0)
 
     fun settingsJson(saved: Saved): org.json.JSONObject = org.json.JSONObject()
         .put("width", saved.screen.width).put("height", saved.screen.height)
@@ -98,7 +101,7 @@ internal object CarWallpaperStudio {
         .put("zoom", saved.placement.zoom.toDouble()).put("offsetX", saved.placement.offsetX.toDouble())
         .put("offsetY", saved.placement.offsetY.toDouble()).put("turns", saved.placement.quarterTurns)
         .put("separatorThickness", saved.separatorThickness).put("separatorColor", saved.separatorColor)
-        .put("dim", saved.dim).put("blur", saved.blur)
+        .put("dim", saved.dim).put("blurFine", saved.blurLevel)
         .put("railShiftX", saved.railShiftX).put("railShiftY", saved.railShiftY)
 
     /** Editor settings from a look file; anything missing or out of range falls back to a default. */
@@ -112,7 +115,9 @@ internal object CarWallpaperStudio {
             WallpaperPlacement(j.optDouble("zoom", 1.0).toFloat().coerceIn(0.1f, 8f), j.optDouble("offsetX", 0.0).toFloat(),
                 j.optDouble("offsetY", 0.0).toFloat(), j.optInt("turns", 0).mod(4)),
             j.optInt("separatorThickness", 0).coerceIn(0, 24), j.optString("separatorColor", "#FFFFFF"),
-            j.optInt("dim", 0).coerceIn(0, 80), j.optInt("blur", 0).coerceIn(0, 10),
+            j.optInt("dim", 0).coerceIn(0, 80),
+            io.github.highwindbr.aaxp.core.BlurLevel.fromStored(
+                if (j.has("blurFine")) j.optInt("blurFine") else null, if (j.has("blur")) j.optInt("blur") else null),
             j.optInt("railShiftX", 0).coerceIn(-20, 20), j.optInt("railShiftY", 0).coerceIn(-20, 20))
     }
 
@@ -140,7 +145,7 @@ internal object CarWallpaperStudio {
         val source = loadSource(context) ?: return null
         val saved = load(context)
         val color = WallpaperGeometry.parseColor(saved.separatorColor)
-        val rendered = render(softened(source, saved.blur), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
+        val rendered = render(softened(source, saved.blurLevel), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
             if (color != null) WallpaperGeometry.separator(saved.screen, saved.coverage, saved.separatorThickness) else null,
             color ?: 0, saved.dim)
         return rendered to railSlice(rendered, saved.screen, saved.coverage, saved.railShiftX, saved.railShiftY)
@@ -153,7 +158,7 @@ internal object CarWallpaperStudio {
      */
     fun softened(source: Bitmap, blur: Int): Bitmap {
         if (blur <= 0) return source
-        val radius = blur * maxOf(source.width, source.height) / 200f
+        val radius = io.github.highwindbr.aaxp.core.BlurLevel.radius(blur, maxOf(source.width, source.height))
         val scale = if (radius > 4f) 4f / radius else 1f
         val w = (source.width * scale).toInt().coerceAtLeast(1)
         val h = (source.height * scale).toInt().coerceAtLeast(1)
@@ -175,7 +180,9 @@ internal object CarWallpaperStudio {
             WallpaperPlacement(p.getFloat("zoom", 1f), p.getFloat("offset_x", 0f), p.getFloat("offset_y", 0f),
                 p.getInt("turns", 0)),
             p.getInt("separator_thickness", 0), p.getString("separator_color", null) ?: "#FFFFFF",
-            p.getInt("dim", 0).coerceIn(0, 80), p.getInt("blur", 0).coerceIn(0, 10),
+            p.getInt("dim", 0).coerceIn(0, 80),
+            io.github.highwindbr.aaxp.core.BlurLevel.fromStored(
+                if (p.contains("blur_fine")) p.getInt("blur_fine", 0) else null, if (p.contains("blur")) p.getInt("blur", 0) else null),
             p.getInt("rail_shift_x", 0).coerceIn(-20, 20), p.getInt("rail_shift_y", 0).coerceIn(-20, 20))
     }
 
@@ -187,7 +194,7 @@ internal object CarWallpaperStudio {
             .putFloat("zoom", saved.placement.zoom).putFloat("offset_x", saved.placement.offsetX)
             .putFloat("offset_y", saved.placement.offsetY).putInt("turns", saved.placement.quarterTurns)
             .putInt("separator_thickness", saved.separatorThickness).putString("separator_color", saved.separatorColor)
-            .putInt("dim", saved.dim).putInt("blur", saved.blur)
+            .putInt("dim", saved.dim).putInt("blur_fine", saved.blurLevel).remove("blur")
             .putInt("rail_shift_x", saved.railShiftX).putInt("rail_shift_y", saved.railShiftY)
             .apply()
     }
@@ -252,12 +259,16 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     var separatorThickness by remember { mutableStateOf(initial.separatorThickness) }
     var separatorColorText by remember { mutableStateOf(initial.separatorColor) }
     var dim by remember { mutableStateOf(initial.dim) }
-    var blur by remember { mutableStateOf(initial.blur) }
+    var blur by remember { mutableStateOf(initial.blurLevel) }
     var railShiftX by remember { mutableStateOf(initial.railShiftX) }
     var railShiftY by remember { mutableStateOf(initial.railShiftY) }
     // The blur is recomputed when the slider is released, not on every step.
-    var blurApplied by remember { mutableStateOf(initial.blur) }
-    val shown = remember(source, blurApplied) { CarWallpaperStudio.softened(source, blurApplied) }
+    var blurApplied by remember { mutableStateOf(initial.blurLevel) }
+    // Blurred off the main thread; the previous picture stays until the new one is ready.
+    val blurredPicture by produceState(Triple(source, -1, source), source, blurApplied) {
+        value = Triple(source, blurApplied, withContext(Dispatchers.Default) { CarWallpaperStudio.softened(source, blurApplied) })
+    }
+    val shown = blurredPicture.third
 
     val screen = CarScreen(
         widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 800,
@@ -274,8 +285,10 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     val saveNow = {
         saving = true
         CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
-            separatorThickness, separatorColorText, dim, blur, railShiftX, railShiftY))
-        val rendered = CarWallpaperStudio.render(shown, spec, placement,
+            separatorThickness, separatorColorText, dim, blurApplied, railShiftX, railShiftY))
+        // Save the picture that matches the saved setting, even if the preview is still catching up.
+        val picture = if (blurredPicture.second == blurApplied) shown else CarWallpaperStudio.softened(source, blurApplied)
+        val rendered = CarWallpaperStudio.render(picture, spec, placement,
             if (separatorColor != null) separator else null, separatorColor ?: 0, dim)
         onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage, railShiftX, railShiftY))
     }
@@ -352,8 +365,8 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
 
                 Text(if (dim == 0) "Darken: off" else "Darken: $dim%", style = MaterialTheme.typography.labelLarge)
                 Slider(dim.toFloat(), { dim = it.toInt() }, valueRange = 0f..80f)
-                Text(if (blur == 0) "Blur: off" else "Blur: $blur", style = MaterialTheme.typography.labelLarge)
-                Slider(blur.toFloat(), { blur = it.toInt() }, valueRange = 0f..10f, steps = 9, onValueChangeFinished = { blurApplied = blur })
+                Text(io.github.highwindbr.aaxp.core.BlurLevel.label(blur), style = MaterialTheme.typography.labelLarge)
+                Slider(blur.toFloat(), { blur = it.toInt() }, valueRange = 0f..40f, steps = 39, onValueChangeFinished = { blurApplied = blur })
 
                 Text("Cover", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

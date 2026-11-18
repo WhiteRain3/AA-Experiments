@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -73,31 +76,39 @@ internal fun PresetsCard(model: ManagerViewModel, current: Map<String, TypedOver
         }
     }
 
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Save the current normal overrides under a name and switch between sets. Applying a preset replaces the current set; experiments it does not mention go back to default.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (presets.isEmpty()) Text("No presets yet.", style = MaterialTheme.typography.bodyMedium)
-        presets.forEach { preset ->
-            HorizontalDivider()
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+    SettingsSection("Saved presets", tip = "Save the current normal overrides under a name and switch between sets. " +
+        "Applying a preset replaces the current set; experiments it does not mention go back to default.") {
+        if (presets.isEmpty()) Text("No presets yet", Modifier.heightIn(min = 56.dp).padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        presets.forEachIndexed { index, preset ->
+            if (index > 0) RowDivider()
+            var menu by remember { mutableStateOf(false) }
+            Row(Modifier.fillMaxWidth().heightIn(min = 64.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text(preset.name, fontWeight = FontWeight.SemiBold)
+                    Text(preset.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     val pending = model.presetDiff(preset).size
-                    Text("${preset.overrides.size} override(s) · " + (if (pending == 0) "active now" else "$pending change(s) if applied"),
+                    Text("${preset.overrides.size} overrides · " + (if (pending == 0) "active now" else "$pending changes if applied"),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Button({ applying = preset }, enabled = connected) { Text("Apply") }
-                TextButton({ deleting = preset }) { Text("Delete") }
+                androidx.compose.foundation.layout.Box {
+                    androidx.compose.material3.IconButton({ menu = true }, Modifier.size(48.dp)) {
+                        androidx.compose.material3.Icon(Icons.Default.MoreVert, "More")
+                    }
+                    androidx.compose.material3.DropdownMenu(menu, { menu = false }) {
+                        androidx.compose.material3.DropdownMenuItem({ Text("Delete") }, { menu = false; deleting = preset })
+                    }
+                }
             }
         }
-        HorizontalDivider()
-        Button({ naming = true }, Modifier.fillMaxWidth()) { Text("Save current overrides as preset") }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton({ exporter.launch("aa-experiments-presets.json") }, Modifier.weight(1f), enabled = presets.isNotEmpty()) { Text("Export") }
-            OutlinedButton({ importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f)) { Text("Import") }
-        }
-    } }
+        RowDivider()
+        LinkRow("Save current as preset", onClick = { naming = true })
+        RowDivider()
+        LinkRow("Export", onClick = { if (presets.isNotEmpty()) exporter.launch("aa-experiments-presets.json") else model.reportMessage("Save a preset first.") })
+        RowDivider()
+        LinkRow("Import", onClick = { importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })
+    }
 
     if (naming) {
         var name by remember { mutableStateOf("") }

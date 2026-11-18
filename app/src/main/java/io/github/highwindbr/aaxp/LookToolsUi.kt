@@ -3,6 +3,7 @@ package io.github.highwindbr.aaxp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -151,29 +152,47 @@ private fun iconChoiceText(choice: String): String = when (choice) {
     var upToDate by remember { mutableStateOf<Boolean?>(null) }
     var failure by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { if (onOpen) model.checkForUpdate(quiet = true) { update, _ -> available = update } }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Installed: $installed. Checking contacts github.com to read this fork's releases; nothing about you or the phone is sent.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    var checkedAt by remember { mutableStateOf<String?>(null) }
+    var showNotes by remember { mutableStateOf(false) }
+    available?.takeIf { showNotes && it.notes.isNotBlank() }?.let { update ->
+        androidx.compose.material3.AlertDialog(onDismissRequest = { showNotes = false },
+            title = { Text("What's new in ${update.versionName}") },
+            text = { Column(Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) { Text(update.notes.trim(), style = MaterialTheme.typography.bodyMedium) } },
+            confirmButton = { TextButton({ showNotes = false }) { Text("Close") } })
+    }
+    SettingsSection("This app", tip = "Checking contacts github.com to read this fork's releases; nothing about you or the phone is sent.") {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Installed", Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+            Text(installed, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
         available?.let { update ->
-            Text("${update.versionName} is available" + if (update.sizeBytes > 0) " (${update.sizeBytes / (1024 * 1024)} MB)" else "", fontWeight = FontWeight.SemiBold)
-            if (update.notes.isNotBlank()) Text(update.notes.trim(), style = MaterialTheme.typography.bodySmall)
-            Button({ busy = true; percent = 0
-                model.installUpdate(update, { percent = it }) { busy = false; percent = null } },
-                Modifier.fillMaxWidth(), enabled = !busy) { Text(percent?.let { "Downloading… $it%" } ?: "Download and install") }
+            RowDivider()
+            Column(Modifier.fillMaxWidth().padding(vertical = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("${update.versionName} available" + if (update.sizeBytes > 0) " (${update.sizeBytes / (1024 * 1024)} MB)" else "",
+                    style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                Button({ busy = true; percent = 0
+                    model.installUpdate(update, { percent = it }) { busy = false; percent = null } },
+                    Modifier.fillMaxWidth(), enabled = !busy) { Text(percent?.let { "Downloading… $it%" } ?: "Download and install") }
+            }
+            if (update.notes.isNotBlank()) { RowDivider(); LinkRow("What's new", onClick = { showNotes = true }) }
         }
-        if (available == null && upToDate == true) Text("No newer build is published (checked ${
-            java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())}).", style = MaterialTheme.typography.bodyMedium)
-        failure?.let { Text("The check failed: $it", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error) }
-        OutlinedButton({ busy = true; upToDate = null; failure = null
-            model.checkForUpdate { update, error -> available = update; failure = error; upToDate = update == null && error == null; busy = false } }, Modifier.fillMaxWidth(), enabled = !busy) {
-            Text(if (busy && percent == null) "Checking…" else "Check for updates")
-        }
-        Row(Modifier.fillMaxWidth().toggleable(value = onOpen, role = Role.Switch, onValueChange = { onOpen = it; model.setCheckUpdatesOnOpen(it) }),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text("Check each time the app opens", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = onOpen, onCheckedChange = null)
-        }
-    } }
+        RowDivider()
+        LinkRow("Check for updates", when {
+            busy && percent == null -> "Checking…"
+            failure != null -> "Failed"
+            available == null && upToDate == true -> "Up to date, checked ${checkedAt.orEmpty()}"
+            else -> null
+        }, onClick = {
+            if (!busy) { busy = true; upToDate = null; failure = null
+                model.checkForUpdate { update, error ->
+                    available = update; failure = error; upToDate = update == null && error == null; busy = false
+                    checkedAt = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(java.util.Date())
+                } }
+        })
+        failure?.let { Text("The check failed: $it", Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
+        RowDivider()
+        SwitchRow("Check when the app opens", onOpen, { onOpen = it; model.setCheckUpdatesOnOpen(it) })
+    }
 }
 
 /** Save the whole look to one file, or load one: a style pack to share and a backup in one. */
@@ -199,19 +218,17 @@ private fun iconChoiceText(choice: String): String = when (choice) {
     pending?.let { text ->
         androidx.compose.material3.AlertDialog(onDismissRequest = { pending = null },
             title = { Text("Load this look?") },
-            text = { Text("This replaces the colours, glyph icon colours and status bar changes in use now, and the car wallpaper if the file has one. " +
-                "Themes and flag presets from the file are added to yours; flag presets are not applied. Save your current look to a file first if you want to come back to it.") },
+            text = { Text("This replaces your colours, icon colours, status bar and wallpaper. Themes and presets in the file are added, presets are not applied. " +
+                "Save your current look first if you may want it back.") },
             confirmButton = { TextButton({ model.importLook(text); pending = null }) { Text("Load") } },
             dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
     }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("One file with the whole look: colours, glyph icons, status bar changes, the car wallpaper with its placement, your themes and your flag presets. Use it as a backup or to pass a style on.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ saver.launch("aa-look.json") }, Modifier.weight(1f), enabled = connected) { Text("Save look to file") }
-            OutlinedButton({ opener.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f), enabled = connected) { Text("Load a look") }
-        }
-    } }
+    SettingsSection("Look file", tip = "One file with the whole look: colours, glyph icons, status bar changes, the car wallpaper with its placement, " +
+        "your themes and your flag presets. Use it as a backup or to pass a style on.") {
+        LinkRow("Save look to file", onClick = { if (connected) saver.launch("aa-look.json") })
+        RowDivider()
+        LinkRow("Load a look", onClick = { if (connected) opener.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })
+    }
 }
 
 /**
@@ -232,17 +249,26 @@ private fun iconChoiceText(choice: String): String = when (choice) {
             }
         }.fold({ model.reportMessage("Screen layout saved.") }, { model.reportMessage("Screen layout not saved: ${it.message}") })
     }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("While Android Auto is on the car screen, this records how that screen is built: each element's type, position, size and colours, plus the screen's size and density. It never records text such as messages or song titles. The file stays on this phone until you save and share it yourself.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(if (captures.isEmpty()) "Nothing captured yet." else "Captured: " + captures.joinToString { "${it.first} (${it.second / 1024} KB)" },
-            style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ model.requestScreenLayout(); waiting = true }, Modifier.weight(1f), enabled = connected && !waiting) {
-                Text(if (waiting) "Capturing…" else "Capture now")
+    SettingsSection("Capture", tip = "While Android Auto is on the car screen, this records how that screen is built: each element's type, position, size and colours, " +
+        "plus the screen's size and density. It never records text such as messages or song titles. The file stays on this phone until you save and share it yourself.") {
+        if (captures.isEmpty()) Text("Nothing captured yet", Modifier.heightIn(min = 56.dp).padding(top = 16.dp), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        captures.forEachIndexed { index, capture ->
+            if (index > 0) RowDivider()
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(capture.first, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                Text("${capture.second / 1024} KB", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            OutlinedButton({ saver.launch("aa-screen-layout.txt") }, Modifier.weight(1f), enabled = captures.isNotEmpty()) { Text("Save to file") }
         }
-        if (captures.isNotEmpty()) TextButton({ model.clearScreenLayouts(); captures = model.screenLayoutCaptures() }) { Text("Delete captures") }
-    } }
+        RowDivider()
+        Button({ model.requestScreenLayout(); waiting = true }, Modifier.fillMaxWidth().padding(vertical = 8.dp), enabled = connected && !waiting) {
+            Text(if (waiting) "Capturing…" else "Capture now")
+        }
+        if (captures.isNotEmpty()) {
+            RowDivider()
+            LinkRow("Save to file", onClick = { saver.launch("aa-screen-layout.txt") })
+            RowDivider()
+            LinkRow("Delete captures", onClick = { model.clearScreenLayouts(); captures = model.screenLayoutCaptures() })
+        }
+    }
 }

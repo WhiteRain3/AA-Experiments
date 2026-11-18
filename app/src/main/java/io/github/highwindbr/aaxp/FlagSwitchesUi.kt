@@ -27,34 +27,27 @@ import io.github.highwindbr.aaxp.core.FlagSwitch
 import io.github.highwindbr.aaxp.core.FlagSwitches
 import io.github.highwindbr.aaxp.core.TypedOverride
 
-/** One switch row: title, an honest note, and the switch itself. */
+/** One switch row: the title, with the honest note behind a "?"; a red line only for live state. */
 @Composable
 private fun FlagSwitchRow(model: ManagerViewModel, overrides: Map<String, TypedOverride>, connected: Boolean, switch: FlagSwitch, note: String) {
     val missing by produceState<Set<String>?>(null, switch, connected) { value = model.flagSwitchMissing(switch) }
     val on = FlagSwitches.isOn(switch, overrides.mapValues { DynamicOverrideCodec.serialize(it.value) })
     val unavailable = missing?.isNotEmpty() == true
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(switch.title, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Switch(on, { model.setFlagSwitch(switch, it) }, enabled = connected && (on || !unavailable))
-        }
-        Text(note, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (unavailable) Text("Not in this Android Auto version: " + missing!!.joinToString(", "),
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
-    }
+    SwitchRow(switch.title, on, { model.setFlagSwitch(switch, it) }, tip = note, enabled = connected && (on || !unavailable))
+    if (unavailable) Text("Not in this Android Auto version: " + missing!!.joinToString(", "), Modifier.padding(bottom = 12.dp),
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
 }
 
 /** Switches that change several flags at once. They use the normal flag overrides, so they also show on the Flags page. */
 @Composable
 internal fun QuickSwitchesCard(model: ManagerViewModel, overrides: Map<String, TypedOverride>, connected: Boolean) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            FlagSwitchRow(model, overrides, connected, FlagSwitches.PARKED_APPS,
-                "Asks Android Auto to show phone apps and allow video apps while parked. Needs an Android Auto restart. " +
-                    "Not known whether Android Auto 18.0 honours this, or whether your car reports \"parked\" through the wireless adapter.")
-            FlagSwitchRow(model, overrides, connected, FlagSwitches.SHARP_PICTURE,
-                "Asks the wireless video for a sharper picture. It may use more Wi-Fi bandwidth and may stutter. " +
-                    "The best values for your adapter are not known. Turning it off puts your earlier values back. Needs an Android Auto restart.")
-        }
+    SettingsSection("Quick switches", tip = "These use the normal flag overrides, so they also show in Flags.") {
+        FlagSwitchRow(model, overrides, connected, FlagSwitches.PARKED_APPS,
+            "Asks Android Auto to show phone apps and allow video apps while parked. Needs an Android Auto restart. " +
+                "Not known whether Android Auto 18.0 honours this, or whether your car reports \"parked\" through the wireless adapter.")
+        RowDivider()
+        FlagSwitchRow(model, overrides, connected, FlagSwitches.SHARP_PICTURE,
+            "Asks the wireless video for a sharper picture. It may use more Wi-Fi bandwidth and may stutter. " +
+                "The best values for your adapter are not known. Turning it off puts your earlier values back. Needs an Android Auto restart.")
     }
 }

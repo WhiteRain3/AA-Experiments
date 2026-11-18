@@ -80,7 +80,7 @@ internal enum class FeaturePage(val title: String, val subtitle: String, val ico
     LOOK_FILE("Style packs and backup", "Save or load the whole look as one file", Icons.Default.Inventory2),
     PRESETS("Flag presets", "Named sets of flag overrides", Icons.Default.Bookmarks),
     QUICK_SWITCHES("Quick switches", "Several flags behind one switch", Icons.Default.Tune),
-    CONTROLS("Restart behaviour", "Automatic restart and Desktop Head Unit mode", Icons.Default.Tune),
+    CONTROLS("Restart", "When Android Auto restarts", Icons.Default.Tune),
     UPDATES("Updates", "Get the newest build of this app", Icons.Default.SystemUpdate),
     LAYOUT_CAPTURE("Screen layout capture", "Record how the car screen is built", Icons.Default.GridView),
     SYSTEM("System status", "Module, resolver and runtime details", Icons.Default.MonitorHeart)

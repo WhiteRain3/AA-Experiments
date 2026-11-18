@@ -457,32 +457,22 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     )
 }
 
-/** Restart Android Auto and start its developer head unit server through the module, without root. */
+/** When Android Auto restarts. The Restart button itself is on Home and in the banner. */
 @Composable private fun AndroidAutoControlsCard(model: ManagerViewModel, connected: Boolean) {
     var autoRestart by remember { mutableStateOf(model.autoRestartAfterChange()) }
     var dhuMode by remember { mutableStateOf(model.headUnitAfterRestart()) }
-    @Composable fun switchRow(title: String, subtitle: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-        Row(Modifier.fillMaxWidth().toggleable(value = checked, role = androidx.compose.ui.semantics.Role.Switch, onValueChange = onChange),
-            verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked = checked, onCheckedChange = null)
+    SettingsSection("Restart") {
+        SwitchRow("Restart after a change", autoRestart, { autoRestart = it; model.setAutoRestartAfterChange(it) },
+            tip = "Restarts Android Auto each time a flag override, preset or look file is applied. Restarting closes it on the car screen, " +
+                "so use this while parked. It only reacts while Android Auto is running. Other changes to the look use the Restart button in the banner instead.")
+        RowDivider()
+        SwitchRow("Desktop Head Unit mode", dhuMode, { dhuMode = it; model.setHeadUnitAfterRestart(it) },
+            tip = "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.")
+        if (dhuMode) {
+            RowDivider()
+            LinkRow("Head unit server", onClick = { if (connected) model.requestAndroidAutoControl(restart = false, headUnit = true) })
         }
     }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Android Auto reads experiments when it starts. Restarting closes it on the car screen, so use this while parked. It only reacts while Android Auto is running.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ model.requestAndroidAutoControl(restart = true, headUnit = dhuMode) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
-            if (dhuMode) OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
-        }
-        switchRow("Restart automatically after a change", "Restarts Android Auto each time a flag override, preset or look file is applied. Other changes to the look use the Restart button in the banner instead", autoRestart) {
-            autoRestart = it; model.setAutoRestartAfterChange(it) }
-        switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
-            dhuMode = it; model.setHeadUnitAfterRestart(it) }
-    } }
 }
 
 /** Plain-language note for an experiment, when the bundled descriptions have one. */
@@ -2025,7 +2015,6 @@ private fun readRecoveryDocument(context: android.content.Context, uri: Uri): St
             item{Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)){ Column {
                 SettingsRow(FeaturePage.CONTROLS.icon, FeaturePage.CONTROLS.title, FeaturePage.CONTROLS.subtitle) { onFeature(FeaturePage.CONTROLS) }
                 HorizontalDivider()
-                SettingsRow(FeaturePage.PRESETS.icon, FeaturePage.PRESETS.title, FeaturePage.PRESETS.subtitle) { onFeature(FeaturePage.PRESETS) }
                 HorizontalDivider()
                 SettingsRow(FeaturePage.SYSTEM.icon, FeaturePage.SYSTEM.title, FeaturePage.SYSTEM.subtitle) { onFeature(FeaturePage.SYSTEM) }
                 HorizontalDivider()

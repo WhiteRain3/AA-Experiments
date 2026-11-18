@@ -177,6 +177,95 @@ private val STATUS_BAR_PARTS = listOf(
     } }
 }
 
+private fun iconChoiceText(choice: String): String = when (choice) {
+    io.github.highwindbr.aaxp.runtime.GlyphIcons.ORIGINAL -> "Its own icon"
+    io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH -> "Glyph, main colours"
+    else -> "Glyph, own colours"
+}
+
+/** A different icon choice for single apps: its own icon, a glyph, or a glyph in colours of its own. */
+@Composable internal fun PerAppIconsCard(model: ManagerViewModel, connected: Boolean) {
+    var choices by remember(connected) { mutableStateOf(if (connected) model.perAppIcons() else emptyMap()) }
+    var apps by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
+    LaunchedEffect(Unit) { apps = model.launchableApps() }
+    val names = remember(apps) { apps.toMap() }
+    var adding by remember { mutableStateOf(false) }
+    var editing by remember { mutableStateOf<String?>(null) }
+    fun store(next: Map<String, String>) { choices = next; model.setPerAppIcons(next) }
+
+    if (adding) {
+        var search by remember { mutableStateOf("") }
+        val shown = apps.filter { it.first !in choices && (search.isBlank() || it.second.contains(search, true) || it.first.contains(search, true)) }
+        androidx.compose.material3.AlertDialog(onDismissRequest = { adding = false },
+            confirmButton = { TextButton({ adding = false }) { Text("Close") } },
+            title = { Text("Choose an app") },
+            text = { Column {
+                androidx.compose.material3.OutlinedTextField(search, { search = it }, Modifier.fillMaxWidth(), singleLine = true, label = { Text("Search") })
+                androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+                    items(shown.size) { index ->
+                        val (pkg, label) = shown[index]
+                        TextButton({ adding = false; editing = pkg }, Modifier.fillMaxWidth()) {
+                            Text(label, Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+            } })
+    }
+    editing?.let { pkg ->
+        val current = choices[pkg]
+        val startColors = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(current?.takeIf { it != io.github.highwindbr.aaxp.runtime.GlyphIcons.ORIGINAL && it != io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH }
+            ?: model.glyphIconColors() ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS) ?: intArrayOf(-1, 0xFF000000.toInt())
+        var kind by remember(pkg) { mutableStateOf(when (current) { null, io.github.highwindbr.aaxp.runtime.GlyphIcons.ORIGINAL -> 0; io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH -> 1; else -> 2 }) }
+        var glyph by remember(pkg) { mutableStateOf(startColors[0]) }
+        var background by remember(pkg) { mutableStateOf(startColors[1]) }
+        var picking by remember(pkg) { mutableStateOf(0) }
+        if (picking != 0) ColorPickerDialog(if (picking == 1) "Glyph colour" else "Background colour",
+            if (picking == 1) glyph else background, onDismiss = { picking = 0 }) { if (picking == 1) glyph = it else background = it; picking = 0 }
+        else androidx.compose.material3.AlertDialog(onDismissRequest = { editing = null },
+            confirmButton = { TextButton({
+                val choice = when (kind) {
+                    0 -> io.github.highwindbr.aaxp.runtime.GlyphIcons.ORIGINAL
+                    1 -> io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH
+                    else -> "${io.github.highwindbr.aaxp.core.ColorMath.toHex(glyph)},${io.github.highwindbr.aaxp.core.ColorMath.toHex(background)}"
+                }
+                store(choices + (pkg to choice)); editing = null
+            }, enabled = connected) { Text("Save") } },
+            dismissButton = { TextButton({ editing = null }) { Text("Cancel") } },
+            title = { Text(names[pkg] ?: pkg) },
+            text = { Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf("Its own icon", "Glyph in the main colours", "Glyph in its own colours").forEachIndexed { index, label ->
+                    Row(Modifier.fillMaxWidth().toggleable(value = kind == index, role = Role.RadioButton, onValueChange = { kind = index }),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        androidx.compose.material3.RadioButton(selected = kind == index, onClick = null)
+                        Text(label, Modifier.padding(start = 8.dp), style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                if (kind == 2) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    ColorSwatch(glyph, onClick = { picking = 1 }); Text("Glyph", Modifier.weight(1f))
+                    ColorSwatch(background, onClick = { picking = 2 }); Text("Background", Modifier.weight(1f))
+                }
+            } })
+    }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Single apps", fontWeight = FontWeight.Bold)
+        Text("Give one app a different icon from the rest: its own icon, a glyph, or a glyph in colours of its own. This works with glyph icons on or off.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        HowThisWorks("Not tried on a real car yet. It applies to app icons in the launcher, the rail and on cards; small icons inside notifications are not covered. Phone, calendar and settings shortcuts belong to the phone's own dialer, calendar and settings apps, so choose those. Changes show after Android Auto restarts.")
+        choices.forEach { (pkg, choice) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(names[pkg] ?: pkg, style = MaterialTheme.typography.bodyMedium)
+                    Text(iconChoiceText(choice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                TextButton({ editing = pkg }, enabled = connected) { Text("Change") }
+                TextButton({ store(choices - pkg) }, enabled = connected) { Text("Remove") }
+            }
+        }
+        OutlinedButton({ adding = true }, Modifier.fillMaxWidth(),
+            enabled = connected && choices.size < io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_PER_APP) { Text("Add an app") }
+    } }
+}
+
 /** Colour of the rail strip and how strongly the wallpaper shows there. */
 @Composable internal fun RailLookCard(model: ManagerViewModel, connected: Boolean) {
     val stored = remember(connected) { io.github.highwindbr.aaxp.runtime.CarWallpaper.parseRailLook(if (connected) model.railLook() else null) }

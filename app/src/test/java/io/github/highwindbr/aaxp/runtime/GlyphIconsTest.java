@@ -138,4 +138,56 @@ public class GlyphIconsTest {
             previous = inset;
         }
     }
+
+    @Test public void perAppRoundTrip() {
+        java.util.Map<String, String> choices = new java.util.LinkedHashMap<>();
+        choices.put("com.spotify.music", GlyphIcons.ORIGINAL);
+        choices.put("com.waze", "00E5FF,80000000");
+        choices.put("org.example.app_1", GlyphIcons.GLYPH);
+        String text = GlyphIcons.encodePerApp(choices);
+        org.junit.Assert.assertEquals("com.spotify.music=original;com.waze=00E5FF,80000000;org.example.app_1=glyph", text);
+        org.junit.Assert.assertEquals(choices, GlyphIcons.parsePerApp(text));
+    }
+
+    @Test public void perAppMalformedGivesNoChoices() {
+        org.junit.Assert.assertTrue(GlyphIcons.parsePerApp(null).isEmpty());
+        org.junit.Assert.assertTrue(GlyphIcons.parsePerApp("").isEmpty());
+        for (String bad : new String[] {"com.waze", "com.waze=", "=original", "com.waze=blue", "com.waze=FFF,000000",
+                "com waze=original", "com.waze=original;broken", "a;b=original"}) {
+            org.junit.Assert.assertTrue(bad, GlyphIcons.parsePerApp(bad).isEmpty());
+        }
+        org.junit.Assert.assertNull(GlyphIcons.encodePerApp(null));
+        org.junit.Assert.assertNull(GlyphIcons.encodePerApp(new java.util.LinkedHashMap<>()));
+        java.util.Map<String, String> mixed = new java.util.LinkedHashMap<>();
+        mixed.put("bad name", GlyphIcons.ORIGINAL);
+        mixed.put("com.ok", "nonsense");
+        mixed.put("com.fine", GlyphIcons.ORIGINAL);
+        org.junit.Assert.assertEquals("com.fine=original", GlyphIcons.encodePerApp(mixed));
+    }
+
+    @Test public void effectiveColoursPerApp() {
+        java.util.Map<String, String> choices = GlyphIcons.parsePerApp("a.orig=original;a.glyph=glyph;a.own=112233,445566");
+        String main = "FFFFFF,000000";
+        // Glyph icons on: an app follows the main setting unless it has a choice.
+        org.junit.Assert.assertEquals(main, GlyphIcons.effectiveColors(main, choices, "a.other"));
+        org.junit.Assert.assertEquals(main, GlyphIcons.effectiveColors(main, choices, null));
+        org.junit.Assert.assertNull(GlyphIcons.effectiveColors(main, choices, "a.orig"));
+        org.junit.Assert.assertEquals(main, GlyphIcons.effectiveColors(main, choices, "a.glyph"));
+        org.junit.Assert.assertEquals("112233,445566", GlyphIcons.effectiveColors(main, choices, "a.own"));
+        // Glyph icons off: only apps with a glyph choice get one.
+        org.junit.Assert.assertNull(GlyphIcons.effectiveColors(null, choices, "a.other"));
+        org.junit.Assert.assertNull(GlyphIcons.effectiveColors(null, choices, null));
+        org.junit.Assert.assertNull(GlyphIcons.effectiveColors(null, choices, "a.orig"));
+        org.junit.Assert.assertEquals(GlyphIcons.DEFAULT_COLORS, GlyphIcons.effectiveColors(null, choices, "a.glyph"));
+        org.junit.Assert.assertEquals("112233,445566", GlyphIcons.effectiveColors(null, choices, "a.own"));
+        org.junit.Assert.assertEquals(main, GlyphIcons.effectiveColors(main, null, "a.own"));
+    }
+
+    @Test public void packageNames() {
+        org.junit.Assert.assertTrue(GlyphIcons.isPackageName("com.google.android.apps.maps"));
+        org.junit.Assert.assertFalse(GlyphIcons.isPackageName(""));
+        org.junit.Assert.assertFalse(GlyphIcons.isPackageName(null));
+        org.junit.Assert.assertFalse(GlyphIcons.isPackageName("a=b"));
+        org.junit.Assert.assertFalse(GlyphIcons.isPackageName("a;b"));
+    }
 }

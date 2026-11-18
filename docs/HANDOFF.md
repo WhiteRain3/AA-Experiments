@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 459 tests and none fail.
+At the time of writing there are 463 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -214,12 +214,31 @@ Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`); `AutoTun
 `grid_item_image_container` (117x117 `grid_item_image`) and `grid_item_text_container` (173x52,
 with CarTextViews `grid_item_title` and `grid_item_text`). Focus is handled by `FocusInterceptor` views.
 
+### How Android Auto 18.0 loads app icons (read from the decompiled code)
+
+Launcher, rail hotseat and dashboard cards all go through one funnel: Android Auto's icon class
+(`GhIcon`, built from a ComponentName) -> an in-memory cache ("GH.AppIconCache", an LruCache of
+24 keyed by component and size; no disk cache) -> "GH.IconLoader", which calls
+`pm.getResourcesForApplication(pkg).getDrawableForDensity(iconRes, density, null)`. So in the
+module's `Resources.getDrawableForDensity` hook, `resources.getResourcePackageName(id)` is the
+app's package; `iconOwner()` in the module does this. `PackageItemInfo.loadIcon`,
+`LauncherActivityInfo` and `getActivityIcon` are not used for app icons;
+`getApplicationIcon(String | ApplicationInfo)` is a fallback. After loading, an adaptive icon's
+background and foreground layers are drawn into a bitmap, and from there on only bitmaps travel,
+with no package attached. Android Auto swaps its own dialer, calendar and settings components
+for the phone's apps before loading, so those icons belong to the phone's apps. Notification
+small icons and media art arrive as Icon or Bitmap objects and cannot be tied to an app.
+Per-app choices are stored in `icons.per_app` (`GlyphIcons.parsePerApp`, `effectiveColors`).
+
 ## Reverse-engineering material
 
 Working out Android Auto's internals needs its decompiled code and resources. Those were
 uploaded by the owner into one session and are not in this repository, because they are
-Google's. A session that needs them asks the owner to upload `gearhead-code.zip` and
-`gearhead-res.zip` again.
+Google's. A session that needs them asks the owner to upload `gearhead-code.zip` (the five
+`classes*.dex` files) and `gearhead-res.zip` (`resources.arsc`, `res/`, `AndroidManifest.xml`)
+again. To read them: put all of it into one zip and run jadx on that zip (jadx 1.5.1 from its
+GitHub releases; about three minutes, 26,000 files); the session's permission check may ask the
+owner to allow running it.
 
 ### Status bar settings need a restart (looked at 2026-11-18, left as is)
 

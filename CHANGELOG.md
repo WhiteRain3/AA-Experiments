@@ -163,6 +163,12 @@ instrumented or physical-device acceptance yet.
 - Status bar plate: corner roundness is offered only together with a plate colour. Android
   Auto 18.0's plate is a Material card whose colour and radius setters are renamed by
   obfuscation, so the module draws the plate itself, which needs a colour.
+- Per-app icons: on the App icons page, single apps can keep their own icon, get a glyph, or
+  get a glyph in colours of their own, with glyph icons on or off. Read from Android Auto
+  18.0's code: nearly every app icon is loaded with `getDrawableForDensity` on the app's own
+  resources, where the resource id names the package; the module uses that to tell apps apart.
+  The Manager lists apps with a launcher icon (a `queries` entry; nothing leaves the phone).
+  Untested on a car; not yet part of look files or Undo.
 - versionName `1.0.0-wr30`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

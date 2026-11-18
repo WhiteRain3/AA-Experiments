@@ -204,7 +204,7 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
                     overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY),
-                    overrideSnapshot.get(GlyphIcons.SIZE_KEY),
+                    overrideSnapshot.get(GlyphIcons.SIZE_KEY), overrideSnapshot.get(GlyphIcons.PER_APP_KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -984,7 +984,18 @@ public final class AndroidAutoModule extends XposedModule {
                     try {
                         hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                             Object original = chain.proceed();
-                            String setting = overrideSnapshot.get(GlyphIcons.KEY);
+                            String main = overrideSnapshot.get(GlyphIcons.KEY);
+                            String perAppRaw = overrideSnapshot.get(GlyphIcons.PER_APP_KEY);
+                            if (main == null && perAppRaw == null) return original;
+                            String setting = main;
+                            try {
+                                Map<String, String> choices = glyphChoices(perAppRaw);
+                                if (!choices.isEmpty()) {
+                                    setting = GlyphIcons.effectiveColors(main, choices, iconOwner(chain.getThisObject(), chain.getArgs()));
+                                }
+                            } catch (Throwable t) {
+                                eventOnce(Log.WARN, "GLYPH_ICON_FAILED", name, "per_app", "error", t.getClass().getSimpleName());
+                            }
                             if (setting == null) return original;
                             try {
                                 int size = GlyphIcons.parseSize(overrideSnapshot.get(GlyphIcons.SIZE_KEY));
@@ -1011,6 +1022,55 @@ public final class AndroidAutoModule extends XposedModule {
             }
         }
         event(Log.INFO, "GLYPH_ICON_HOOKS", null, "installed", String.valueOf(installed));
+    }
+
+    private volatile String glyphChoicesRaw;
+    private volatile Map<String, String> glyphChoicesParsed = Map.of();
+
+    /** Parsed per-app icon choices, re-parsed only when the stored text changes. */
+    private Map<String, String> glyphChoices(String raw) {
+        if (raw == null) return Map.of();
+        if (!raw.equals(glyphChoicesRaw)) {
+            glyphChoicesParsed = GlyphIcons.parsePerApp(raw);
+            glyphChoicesRaw = raw;
+        }
+        return glyphChoicesParsed;
+    }
+
+    /**
+     * The package an icon being loaded belongs to, judged from the hooked call alone, or null.
+     * Android Auto 18.0 loads nearly every app icon with getDrawableForDensity on the app's own
+     * Resources, where the resource id names the package; the other loaders carry it in the
+     * object or the first argument.
+     */
+    private static String iconOwner(Object target, java.util.List<Object> args) {
+        try {
+            Object first = args == null || args.isEmpty() ? null : args.get(0);
+            if (target instanceof android.content.res.Resources resources) {
+                if (!(first instanceof Integer id) || id == 0) return null;
+                String owner = resources.getResourcePackageName(id);
+                // Framework drawables (the default app icon among them) belong to no app.
+                return "android".equals(owner) ? null : owner;
+            }
+            if (target instanceof android.content.pm.PackageItemInfo info) return info.packageName;
+            if (target instanceof android.content.pm.ResolveInfo resolved) {
+                android.content.pm.ComponentInfo component = resolved.activityInfo != null ? resolved.activityInfo
+                        : resolved.serviceInfo != null ? resolved.serviceInfo : resolved.providerInfo;
+                return component == null ? null : component.packageName;
+            }
+            if (target instanceof android.content.pm.LauncherActivityInfo launcher) {
+                return launcher.getComponentName().getPackageName();
+            }
+            if (first instanceof String name) return name;
+            if (first instanceof android.content.pm.PackageItemInfo info) return info.packageName;
+            if (first instanceof android.content.ComponentName component) return component.getPackageName();
+            if (first instanceof Intent intent) {
+                return intent.getComponent() != null ? intent.getComponent().getPackageName() : intent.getPackage();
+            }
+        } catch (Throwable unknown) {
+            // Not tied to an app: the main setting applies.
+        }
+        return null;
     }
 
     /** Returns a one-colour adaptive icon built from the monochrome layer, or the input unchanged. */

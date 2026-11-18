@@ -1504,6 +1504,34 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, null)
     }.getOrNull()
 
+    /** Choices for single apps: package to "original", "glyph" or "glyph,background" colours. */
+    fun perAppIcons(): Map<String, String> = io.github.highwindbr.aaxp.runtime.GlyphIcons.parsePerApp(runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null)
+    }.getOrNull())
+
+    fun setPerAppIcons(choices: Map<String, String>) = viewModelScope.launch {
+        val saved = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
+            val encoded = io.github.highwindbr.aaxp.runtime.GlyphIcons.encodePerApp(choices)
+            if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, encoded)
+            editor.commit()
+        }.getOrDefault(false) }
+        if (saved) changesWaiting = true
+        mutable.value = mutable.value.copy(message = if (saved) "Icon choices saved. Restart Android Auto to see them."
+            else "Icon choices not saved: LSPosed remote preferences unavailable.")
+    }
+
+    /** Apps with a launcher icon on this phone, as package to name, sorted by name. Nothing leaves the phone. */
+    suspend fun launchableApps(): List<Pair<String, String>> = withContext(Dispatchers.IO) { runCatching {
+        val pm = getApplication<Application>().packageManager
+        val intent = android.content.Intent(android.content.Intent.ACTION_MAIN).addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+        pm.queryIntentActivities(intent, 0).mapNotNull { it.activityInfo }
+            .distinctBy { it.packageName }
+            .map { it.packageName to it.applicationInfo.loadLabel(pm).toString() }
+            .sortedBy { it.second.lowercase() }
+    }.getOrDefault(emptyList()) }
+
     /** The stored size of the glyph figure in percent; 100 when not set. */
     fun glyphIconSize(): Int = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseSize(runCatching {
         ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null)

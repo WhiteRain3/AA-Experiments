@@ -28,6 +28,72 @@ public final class GlyphIcons {
     /** A themed (monochrome) layer or adaptive foreground is used as the app drew it at 100%. */
     public static final float LAYER_FIGURE = 1f;
 
+    /**
+     * Remote preference: choices for single apps, "package=choice;package=choice". A choice is
+     * {@link #ORIGINAL} (always the app's own icon), {@link #GLYPH} (a glyph in the main colours,
+     * or the default colours when glyph icons are off), or "glyph,background" colours of its own.
+     * An app without a choice follows the main setting.
+     */
+    public static final String PER_APP_KEY = "icons.per_app";
+    public static final String ORIGINAL = "original";
+    public static final String GLYPH = "glyph";
+    public static final int MAX_PER_APP = 200;
+
+    /** Parses the per-app choices. Missing, empty or malformed text gives no choices. Never throws. */
+    public static java.util.Map<String, String> parsePerApp(String text) {
+        java.util.Map<String, String> result = new java.util.LinkedHashMap<>();
+        if (text == null || text.isEmpty()) return result;
+        for (String part : text.split(";")) {
+            int equals = part.indexOf('=');
+            if (equals <= 0) return new java.util.LinkedHashMap<>();
+            String app = part.substring(0, equals), choice = part.substring(equals + 1);
+            if (!isPackageName(app) || !isChoice(choice) || result.size() >= MAX_PER_APP) return new java.util.LinkedHashMap<>();
+            result.put(app, choice);
+        }
+        return result;
+    }
+
+    /** The stored form of {@code choices}; null when there are none. Unusable entries are left out. */
+    public static String encodePerApp(java.util.Map<String, String> choices) {
+        if (choices == null) return null;
+        StringBuilder text = new StringBuilder();
+        int count = 0;
+        for (java.util.Map.Entry<String, String> entry : choices.entrySet()) {
+            if (!isPackageName(entry.getKey()) || !isChoice(entry.getValue()) || count >= MAX_PER_APP) continue;
+            if (text.length() > 0) text.append(';');
+            text.append(entry.getKey()).append('=').append(entry.getValue());
+            count++;
+        }
+        return text.length() == 0 ? null : text.toString();
+    }
+
+    public static boolean isChoice(String choice) {
+        return ORIGINAL.equals(choice) || GLYPH.equals(choice) || (choice != null && parseColors(choice) != null);
+    }
+
+    /** Letters, digits, underscores and dots only, so a name can never break the stored format. */
+    public static boolean isPackageName(String name) {
+        if (name == null || name.isEmpty() || name.length() > 255) return false;
+        for (int i = 0; i < name.length(); i++) {
+            char c = name.charAt(i);
+            if (!(c >= 'a' && c <= 'z') && !(c >= 'A' && c <= 'Z') && !(c >= '0' && c <= '9') && c != '_' && c != '.') return false;
+        }
+        return true;
+    }
+
+    /**
+     * The "glyph,background" colours to draw {@code app}'s icon with, or null for the app's own
+     * icon. {@code main} is the main setting (null = glyph icons off); {@code app} is null when
+     * the icon could not be tied to an app, which then follows the main setting.
+     */
+    public static String effectiveColors(String main, java.util.Map<String, String> choices, String app) {
+        String choice = app == null || choices == null ? null : choices.get(app);
+        if (choice == null) return main;
+        if (ORIGINAL.equals(choice)) return null;
+        if (GLYPH.equals(choice)) return main != null ? main : DEFAULT_COLORS;
+        return choice;
+    }
+
     /** The stored size; the default when it is missing, unreadable or out of range. Never throws. */
     public static int parseSize(String value) {
         if (value == null) return DEFAULT_SIZE;

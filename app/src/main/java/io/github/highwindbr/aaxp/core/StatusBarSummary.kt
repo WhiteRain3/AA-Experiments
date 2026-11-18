@@ -19,9 +19,11 @@ object StatusBarSummary {
         }).replace("Default", "Number")
     }
 
-    fun icons(size: Int, defaultSize: Int, colour: Int?): String = join(buildList {
+    fun icons(size: Int, defaultSize: Int, colour: Int?, keepsLowRed: Boolean = false): String = join(buildList {
         if (size != defaultSize) add("$size%")
         if (colour != null) add(ColourLabel.of(colour))
+        // The red warning only means something while an icon colour is set.
+        if (colour != null && keepsLowRed) add("red when low")
     })
 
     fun background(shown: Boolean, colour: Int?, radius: Int?): String = when {

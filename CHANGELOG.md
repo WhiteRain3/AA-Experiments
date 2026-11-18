@@ -145,6 +145,7 @@ instrumented or physical-device acceptance yet.
 - Colours page: "Map border" is now "Focus outlines" with "Map and card outline" (also colours the media card's outline), "Rail and launcher ring" (moved here from Text and backgrounds) and "Map outline width"; the "?" says which is which. Nothing stored changed.
 - Removing the old map border flag override no longer restarts Android Auto (even with "Restart after a change" on) and says what was done: "Removed the old map border flag override; it has no effect in this Android Auto version."
 - Fixed: the "<style> applied. Undo" snackbar disappeared at once (so Undo could not be tapped); it now stays up for a few seconds with Undo. The floating "Changes saved" banner no longer covers the bottom of the System status page.
+- Status bar > Icons: a "Keep the red battery warning when low" switch (shown while an icon colour is set) keeps Android Auto's own red battery icon at 15% and below when not charging.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

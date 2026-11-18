@@ -114,6 +114,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
     var plateColor by remember(stored) { mutableStateOf(stored?.plateColor) }
     var plateRadius by remember(stored) { mutableStateOf(stored?.plateRadius) }
     var iconSize by remember(stored) { mutableStateOf(stored?.iconSize ?: StatusBarTweaks.DEFAULT_ICON_SIZE) }
+    var lowRed by remember(stored) { mutableStateOf(stored?.batteryLowRed ?: false) }
     var byLevel by remember(stored) { mutableStateOf(stored?.batteryByLevel ?: false) }
     var levelHigh by remember(stored) { mutableStateOf(stored?.batteryHigh ?: StatusBarTweaks.DEFAULT_BATTERY_HIGH) }
     var levelLow by remember(stored) { mutableStateOf(stored?.batteryLow ?: StatusBarTweaks.DEFAULT_BATTERY_LOW) }
@@ -133,6 +134,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
         base.batteryPercent = batteryPercent; base.batteryColor = batteryColor; base.batterySize = batterySize
         base.clockSize = clockSize; base.clockBold = clockBold
         base.plateColor = plateColor; base.plateRadius = plateRadius; base.iconSize = iconSize
+        base.batteryLowRed = lowRed && iconColor != null
         base.batteryByLevel = byLevel; base.batteryHigh = levelHigh; base.batteryLow = levelLow
         base.batteryHighColor = highColor; base.batteryLowColor = lowColor
         base.batteryMidColor = midColor; base.batteryChargeColor = chargeColor
@@ -145,7 +147,7 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
             hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false; batteryPercent = false
             batteryColor = null; batterySize = StatusBarTweaks.DEFAULT_BATTERY_SIZE
             clockSize = StatusBarTweaks.DEFAULT_CLOCK_SIZE; clockBold = false
-            plateColor = null; plateRadius = null; iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE
+            plateColor = null; plateRadius = null; iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE; lowRed = false
             byLevel = false; levelHigh = StatusBarTweaks.DEFAULT_BATTERY_HIGH; levelLow = StatusBarTweaks.DEFAULT_BATTERY_LOW
             highColor = StatusBarTweaks.DEFAULT_BATTERY_HIGH_COLOR; lowColor = StatusBarTweaks.DEFAULT_BATTERY_LOW_COLOR
             midColor = null; chargeColor = null
@@ -222,13 +224,19 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
             }
         }
 
-        CollapsibleSection("Icons", io.github.highwindbr.aaxp.core.StatusBarSummary.icons(iconSize, StatusBarTweaks.DEFAULT_ICON_SIZE, iconColor), tip = "The signal and battery icons. Not known whether a larger row is cut off by the background or touches the clock.") {
+        CollapsibleSection("Icons", io.github.highwindbr.aaxp.core.StatusBarSummary.icons(iconSize, StatusBarTweaks.DEFAULT_ICON_SIZE, iconColor, lowRed), tip = "The signal and battery icons. Not known whether a larger row is cut off by the background or touches the clock.") {
             SliderRow("Size", "$iconSize%", iconSize.toFloat(), StatusBarTweaks.MIN_ICON_SIZE.toFloat()..StatusBarTweaks.MAX_ICON_SIZE.toFloat(),
                 onChangeFinished = { iconSize = (it / 5).toInt() * 5; commit() },
                 onReset = if (iconSize != StatusBarTweaks.DEFAULT_ICON_SIZE) ({ iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE; commit() }) else null,
                 enabled = connected)
             RowDivider()
-            ColourRow("Colour", iconColor, { pick("Icon colour", iconColor) { iconColor = it } }, { iconColor = null; commit() }, enabled = connected)
+            ColourRow("Colour", iconColor, { pick("Icon colour", iconColor) { iconColor = it } }, { iconColor = null; lowRed = false; commit() }, enabled = connected)
+            if (iconColor != null) {
+                RowDivider()
+                SwitchRow("Keep the red battery warning when low", lowRed, { lowRed = it; commit() },
+                    tip = "With an icon colour set, the battery icon keeps your colour and turns Android Auto's own red at 15% and below when not charging. " +
+                        "Not covered: battery saver above 15%. Not tried on a head unit or car yet.", enabled = connected)
+            }
         }
 
         CollapsibleSection("Background", io.github.highwindbr.aaxp.core.StatusBarSummary.background(StatusBarView.backgroundShown(noPlate), plateColor, plateRadius)) {

@@ -10,6 +10,12 @@ class StatusBarSummaryTest {
         assertEquals("Default", StatusBarSummary.background(true, null, null))
     }
 
+    @Test fun iconsMentionTheRedWarningOnlyWithAColour() {
+        assertEquals("#00FFFF, red when low", StatusBarSummary.icons(100, 100, 0xFF00FFFF.toInt(), keepsLowRed = true))
+        assertEquals("Default", StatusBarSummary.icons(100, 100, null, keepsLowRed = true))
+        assertEquals("#00FFFF", StatusBarSummary.icons(100, 100, 0xFF00FFFF.toInt()))
+    }
+
     @Test fun clockListsWhatIsSet() =
         assertEquals("140%, bold, #00FFFF", StatusBarSummary.clock(140, 100, true, 0xFF00FFFF.toInt()))
 

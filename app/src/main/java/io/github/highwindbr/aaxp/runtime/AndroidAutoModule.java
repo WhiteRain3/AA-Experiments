@@ -565,7 +565,10 @@ public final class AndroidAutoModule extends XposedModule {
      */
     private void addBatteryPercent(android.view.View root, StatusBarTweaks.Config config) {
         try {
-            if (!(findByName(root, StatusBarTweaks.ICON_ROW) instanceof android.view.ViewGroup row)) return;
+            if (!(findByName(root, StatusBarTweaks.ICON_ROW) instanceof android.view.ViewGroup row)) {
+                eventOnce(Log.WARN, "BATTERY_PERCENT_NO_ROW", "status_bar", "first");
+                return;
+            }
             if (row.findViewWithTag(BATTERY_PERCENT_TAG) != null) return;
             final android.widget.TextView text = new android.widget.TextView(row.getContext());
             text.setTag(BATTERY_PERCENT_TAG);
@@ -632,7 +635,11 @@ public final class AndroidAutoModule extends XposedModule {
             // with no size and no opacity stays out of sight either way.
             target.setAlpha(0f);
             android.view.ViewGroup.LayoutParams params = target.getLayoutParams();
-            if (params != null) {
+            // In a ConstraintLayout a size of 0 means "stretch between constraints", not "no
+            // size", so there the view keeps its size and relies on being gone and transparent.
+            boolean constraintParent = target.getParent() != null
+                    && target.getParent().getClass().getName().contains("ConstraintLayout");
+            if (params != null && !constraintParent) {
                 params.width = 0;
                 params.height = 0;
                 target.setLayoutParams(params);

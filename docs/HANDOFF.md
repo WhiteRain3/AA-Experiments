@@ -175,7 +175,9 @@ button are not themed by either mechanism (probably taken from the album art).
 
 Rail window: `rail_container` > `rail`; hotseat items `hotseat_one`..`hotseat_four` with
 `large_icon_background` and `large_icon`; `assistant_icon`; `launcher_and_dashboard_icon`;
-status bar `status_bar_card_view`, `clock`, `battery_level`, `signal_icon`, `dnd_icon`.
+status bar `status_bar_card_view` > `status_bar_container` (a ConstraintLayout) holding
+`icon_row` (a horizontal LinearLayout with `signal_icon`, a FrameLayout, and `battery_level`,
+an ImageView), `clock`, `notification_count_wrapper` and `dnd_icon`.
 Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`), `GridItemView` rows
 with `grid_item_image` and `grid_item_title`. Focus is handled by `FocusInterceptor` views.
 

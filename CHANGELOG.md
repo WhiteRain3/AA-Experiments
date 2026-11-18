@@ -160,7 +160,7 @@ instrumented or physical-device acceptance yet.
   system's battery broadcast, without a restart. Applying a one-tap style now keeps every
   status bar setting it does not set (plate colour and corners and icon size were dropped
   before). Untested on a car.
-- versionName `1.0.0-wr29`, versionCode unchanged.
+- versionName `1.0.0-wr30`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

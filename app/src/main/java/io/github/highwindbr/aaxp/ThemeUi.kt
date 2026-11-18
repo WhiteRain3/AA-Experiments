@@ -303,7 +303,7 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     var confirmCancel by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<Triple<String, Int, (Int) -> Unit>?>(null) }
-    val edited = roles.toMap() != initialRoles
+    val edited = roles.toMap() != initialRoles || glyphText != initialGlyph
 
     fun load(theme: CarTheme) {
         roles.clear(); roles.putAll(theme.roles)
@@ -352,6 +352,14 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
             }
             // Live mock, pinned above the steps.
             Box(Modifier.padding(horizontal = 16.dp)) { CarScreenMock(roles, glyphText, Modifier.fillMaxWidth()) }
+            // Single-colour icons are set on the App icons page; here they can only be switched on or off.
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(if (glyphText != null) "Single-colour icons: on (colours set on the App icons page)" else "Single-colour icons: off",
+                    Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                androidx.compose.material3.Switch(glyphText != null, { on ->
+                    glyphText = if (on) (initialGlyph ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS) else null
+                })
+            }
             TabRow(tab, Modifier.padding(top = 8.dp)) {
                 listOf("Start", "Colours", "Keep and share").forEachIndexed { index, label ->
                     Tab(tab == index, { tab = index }, text = { Text(label) })

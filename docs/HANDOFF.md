@@ -392,8 +392,9 @@ continue cheaply. Everything a new dispatcher needs is here; do not rely on the 
 
 - Latest release: `1.0.0-wr35` (tag on `c42ce88`). The redesign in `docs/DESIGN_SPEC.md`,
   pieces 1 to 9, is complete and released.
-- Unreleased on the branch: nothing reviewed is waiting. The App worker has three low
-  follow-ups queued (failed-import ordering, Load dialog wording, delete unused `undoThen`).
+- Unreleased on the branch and NOT yet reviewed: the App worker's follow-up commit just before
+  merge `4d7988c` (failed look-file import now changes nothing; Load dialog wording; unused
+  `undoThen` deleted). Send `c42ce88..<tip>` to the Reviewer; it ships with the next batch.
 - `main` is still upstream 1.0.0; all fork work is on `claude/companion-features` (the owner
   asked; no decision yet on merging to `main`).
 

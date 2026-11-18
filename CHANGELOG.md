@@ -127,6 +127,10 @@ instrumented or physical-device acceptance yet.
 - More colours: a row for the knob's focus ring in the launcher (colour resources
   `baseline_palette_p_85` and `dynamic_palette_p_85`). Untested on a car, and it may have no
   effect if Android Auto computes the ring from the Primary role instead.
+- Launcher "icons only": a switch on a new Launcher page (Look tab) hides the app names under
+  the launcher icons. The module finds each launcher item's text container
+  (`grid_item_text_container`) when its layout is inflated and keeps it hidden through list
+  re-binding. Untested on a car; not yet part of look files or Undo.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

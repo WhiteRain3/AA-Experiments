@@ -1333,6 +1333,30 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Extra colours not saved: ${it.message}" }))
     }
 
+    // ---- Launcher (the grid of app icons) ----
+
+    fun launcherConfig(): String? = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null)
+    }.getOrNull()
+
+    fun setLauncherConfig(config: String?) = viewModelScope.launch {
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY)
+            else {
+                require(io.github.highwindbr.aaxp.runtime.LauncherTweaks.parse(config) != null) { "nothing to change" }
+                editor.putString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, config)
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { changesWaiting = !it
+              (if (config == null) "Launcher shows app names again." else "Launcher set to icons only.") +
+                if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Launcher setting not saved: ${it.message}" }))
+    }
+
     // ---- Status bar, crash safe mode and screen layout captures ----
 
     fun statusBarConfig(): String? = runCatching {

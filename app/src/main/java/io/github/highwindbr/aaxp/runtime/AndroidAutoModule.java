@@ -828,6 +828,14 @@ public final class AndroidAutoModule extends XposedModule {
      * with id focus_frame; Android Auto's own is replaced by the same thing (a rectangle outline
      * for the hovered and the focused state, with the theme's colour and corner radius) drawn at
      * the configured width. When the theme's colour cannot be read, nothing is changed.
+     *
+     * The attribute names are those of Android Auto 18.0's own drawable, res/drawable/
+     * minimized_focus.xml, which is the android:foreground of focus_frame in all three layouts
+     * that have it: an inset around a selector whose two items are a rectangle with
+     * stroke width ?attr/templateFocusStrokeWidthHovered (state_window_focused + state_hovered)
+     * or ?attr/templateFocusStrokeWidthFocused (state_focused + state_window_focused),
+     * stroke color ?attr/templateFocusAccentColorInverse and
+     * corners radius ?attr/templateNoContentFocusCornerRadius.
      */
     private void applyMapBorder(android.view.View root, Integer layout, int widthDp) {
         Boolean match = mapBorderLayouts.get(layout);
@@ -947,6 +955,9 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    /** Icon rows whose layout width the module set, so it can be handed back. */
+    private final java.util.Set<android.view.View> widenedRows =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
     private final java.util.Set<android.view.View> fittedContainers =
             java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
 
@@ -1019,24 +1030,40 @@ public final class AndroidAutoModule extends XposedModule {
                 }
             }
             // The widest the container can be: the rail's width less what surrounds the container.
-            int maxContainer = container.getWidth();
-            if (plate != null && plate.getParent() instanceof android.view.View wrapper
-                    && wrapper.getWidth() > 0 && plate.getWidth() >= container.getWidth()) {
-                int around = plate.getWidth() - container.getWidth();
-                maxContainer = wrapper.getWidth() - wrapper.getPaddingLeft() - wrapper.getPaddingRight() - around;
+            // In Android Auto 18.0's layout (rail_statusbar) the container fills the plate
+            // (match_parent) with a margin on each side, so what surrounds it is that margin plus
+            // the plate's own padding. It is taken from the layout parameters, not measured, so
+            // it cannot drift from one layout pass to the next.
+            if (plate != null && plate.getParent() instanceof android.view.View wrapper && wrapper.getWidth() > 0) {
+                int around = plate.getPaddingLeft() + plate.getPaddingRight();
+                if (container.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams margins) {
+                    around += margins.leftMargin + margins.rightMargin;
+                }
+                int maxContainer = wrapper.getWidth() - wrapper.getPaddingLeft() - wrapper.getPaddingRight() - around;
                 StatusBarTweaks.RowFit wanted = StatusBarTweaks.fitRow(needed, StatusBarTweaks.iconScale(config.iconSize), maxContainer);
                 int plateWidth = wanted.containerWidth + around;
-                // Only ever asked to grow: a plate that is already wider (a large clock) stays.
+                // A minimum only: a plate whose content is wider (a large clock) keeps that width.
                 if (plate.getMinimumWidth() != plateWidth) plate.setMinimumWidth(plateWidth);
             }
             // With the number in it the row needs its full width, or the number is squeezed.
-            if (text != null && row.getWidth() < needed) {
-                android.view.ViewGroup.LayoutParams params = row.getLayoutParams();
-                if (params != null && params.width != needed) {
-                    params.width = needed;
+            // Without the number the row goes back to the width Android Auto gave it.
+            boolean number = text != null && text.getVisibility() != android.view.View.GONE && config.batteryPercent;
+            android.view.ViewGroup.LayoutParams params = row.getLayoutParams();
+            if (params != null) {
+                boolean widened = widenedRows.contains(row);
+                if (number && (row.getWidth() < needed || (widened && params.width != needed))) {
+                    if (params.width != needed) {
+                        widenedRows.add(row);
+                        params.width = needed;
+                        row.setLayoutParams(params);
+                        return; // fitted on the layout pass this causes
+                    }
+                } else if (!number && widened) {
+                    widenedRows.remove(row);
+                    params.width = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
                     row.setLayoutParams(params);
+                    return;
                 }
-                return; // fitted on the layout pass this causes
             }
             int width = row.getWidth();
             if (width <= 0 || container.getWidth() <= 0) return;
@@ -1157,7 +1184,9 @@ public final class AndroidAutoModule extends XposedModule {
                     icon.setImageTintList(android.content.res.ColorStateList.valueOf(config.iconColor));
                     // Android Auto's battery icon is a drawable of its own that ignores a tint
                     // but honours a colour filter; the ImageView re-applies the filter whenever
-                    // the drawable is replaced.
+                    // the drawable is replaced. Nothing clears the filter when the icon colour
+                    // is removed: status bar settings are applied only when the bar is built,
+                    // and a newly built bar has no filter to clear.
                     if (StatusBarTweaks.FILTERED_ICONS.contains(name)) {
                         icon.setColorFilter(config.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
                     }

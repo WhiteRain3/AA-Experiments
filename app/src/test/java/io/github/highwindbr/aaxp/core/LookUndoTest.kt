@@ -77,6 +77,14 @@ class LookUndoTest {
         assertEquals(listOf("launcher"), LookUndo.differences(a, LookSnapshot("x", null, null, null, null, null, null, null, null)))
     }
 
+    @Test fun railLookAndGlyphSizeTravelWithTheCopy() {
+        val a = LookSnapshot("x", null, null, null, null, null, null, null, null, "strength=40", "120")
+        val back = LookUndo.decode(LookUndo.encode(a))!!
+        assertEquals("strength=40", back.railLook); assertEquals("120", back.glyphSize)
+        val b = LookSnapshot("x", null, null, null, null, null, null, null, null, null, null)
+        assertEquals(listOf("rail strip", "icon size"), LookUndo.differences(a, b))
+    }
+
     @Test fun messages() {
         assertTrue(LookUndo.restoredMessage(listOf("colours"), "saving a theme").contains("colours"))
         assertTrue(LookUndo.restoredMessage(emptyList(), "saving a theme").startsWith("Nothing to undo"))

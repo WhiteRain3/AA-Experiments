@@ -112,6 +112,7 @@ instrumented or physical-device acceptance yet.
 - Quick switches: turning a switch off never removes values you set by hand (without a record of earlier values it leaves them and says so), and only flags still at the switch's value are put back; a hand edit made while a switch was on is not overwritten.
 - One-tap styles keep your status bar setup (hidden parts, battery number, clock size and bold) and change only its colours and background; the wallpaper's darken and blur are stored only after the car's copy was written, and a refused wallpaper save leaves the editor's settings as they were.
 - The launcher's "icons only" setting is now part of look files and of Undo.
+- The rail strip look and the icon figure size are part of look files and Undo, and a style can carry them (the built-in styles leave your own alone); changing the rail strip keeps an undo copy first.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

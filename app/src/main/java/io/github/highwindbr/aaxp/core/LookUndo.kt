@@ -17,7 +17,9 @@ class LookSnapshot(
     val wallpaperStamp: String?,
     /** Whether a car wallpaper was in use; null in copies made before this was recorded. */
     val wallpaperOn: Boolean? = null,
-    val launcherConfig: String? = null
+    val launcherConfig: String? = null,
+    val railLook: String? = null,
+    val glyphSize: String? = null
 )
 
 object LookUndo {
@@ -29,6 +31,8 @@ object LookUndo {
         s.resourceColors?.let { put("resourceColors", it) }
         s.wallpaperOn?.let { put("wallpaperOn", it) }
         s.launcherConfig?.let { put("launcherConfig", it) }
+        s.railLook?.let { put("railLook", it) }
+        s.glyphSize?.let { put("glyphSize", it) }
         if (s.wallpaperStamp != null && s.wallpaperSettings != null) {
             put("wallpaperSettings", s.wallpaperSettings)
             put("wallpaperStamp", s.wallpaperStamp)
@@ -42,7 +46,8 @@ object LookUndo {
         val stamp = str("wallpaperStamp")
         LookSnapshot(j.optString("label", "a change"), str("themeColors"), str("glyphColors"), str("statusBar"),
             str("resourceColors"), if (stamp != null) j.optJSONObject("wallpaperSettings") else null, stamp,
-            if (j.has("wallpaperOn")) j.optBoolean("wallpaperOn") else null, str("launcherConfig"))
+            if (j.has("wallpaperOn")) j.optBoolean("wallpaperOn") else null, str("launcherConfig"),
+            str("railLook"), str("glyphSize"))
     }.getOrNull()
 
     enum class WallpaperAction { REMOVE, RESTORE, LEAVE }
@@ -84,6 +89,8 @@ object LookUndo {
         if (now.glyphColors != kept.glyphColors) add("single-colour icons")
         if (now.statusBar != kept.statusBar) add("status bar")
         if (now.launcherConfig != kept.launcherConfig) add("launcher")
+        if (now.railLook != kept.railLook) add("rail strip")
+        if (now.glyphSize != kept.glyphSize) add("icon size")
         if (now.wallpaperStamp != kept.wallpaperStamp || now.wallpaperSettings?.toString() != kept.wallpaperSettings?.toString())
             add("wallpaper")
     }

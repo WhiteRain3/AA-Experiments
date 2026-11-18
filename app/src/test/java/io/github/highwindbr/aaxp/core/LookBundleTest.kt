@@ -37,6 +37,16 @@ class LookBundleTest {
         assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).launcherConfig)
     }
 
+    @Test fun carriesTheRailLookAndGlyphSize() {
+        val bundle = LookBundles.decode(LookBundles.encode(LookBundle(railLook = "color=FF112233;strength=40", glyphSize = "120")))
+        assertEquals("color=FF112233;strength=40", bundle.railLook); assertEquals("120", bundle.glyphSize)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(railLook = "nonsense"))) }.isFailure)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(glyphSize = "900"))) }.isFailure)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(glyphSize = "big"))) }.isFailure)
+        val none = LookBundles.decode(LookBundles.encode(LookBundle()))
+        assertNull(none.railLook); assertNull(none.glyphSize)
+    }
+
     @Test fun emptyBundleIsValidAndHasNoParts() {
         val bundle = LookBundles.decode(LookBundles.encode(LookBundle()))
         assertNull(bundle.themeColors); assertNull(bundle.glyphColors); assertNull(bundle.statusBar)

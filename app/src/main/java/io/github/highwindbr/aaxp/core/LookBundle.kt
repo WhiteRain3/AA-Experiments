@@ -19,7 +19,9 @@ class LookBundle(
     val wallpaperSettings: JSONObject? = null,
     val wallpaperImage: ByteArray? = null,
     val resourceColors: String? = null,
-    val launcherConfig: String? = null
+    val launcherConfig: String? = null,
+    val railLook: String? = null,
+    val glyphSize: String? = null
 )
 
 object LookBundles {
@@ -33,6 +35,8 @@ object LookBundles {
         bundle.statusBar?.let { put("statusBar", it) }
         bundle.resourceColors?.let { put("resourceColors", it) }
         bundle.launcherConfig?.let { put("launcherConfig", it) }
+        bundle.railLook?.let { put("railLook", it) }
+        bundle.glyphSize?.let { put("glyphSize", it) }
         bundle.themesJson?.let { put("themes", JSONObject(it)) }
         bundle.presetsJson?.let { put("presets", JSONObject(it)) }
         bundle.wallpaperImage?.let { image ->
@@ -59,6 +63,14 @@ object LookBundles {
         require(launcher == null || io.github.highwindbr.aaxp.runtime.LauncherTweaks.parse(launcher) != null) {
             "The launcher settings in this file are not readable"
         }
+        val railLook = root.optString("railLook").ifEmpty { null }
+        require(railLook == null || io.github.highwindbr.aaxp.runtime.CarWallpaper.encodeRailLook(
+            io.github.highwindbr.aaxp.runtime.CarWallpaper.parseRailLook(railLook)) != null) { "The rail strip settings in this file are not readable" }
+        val glyphSize = root.optString("glyphSize").ifEmpty { null }
+        require(glyphSize == null || glyphSize.trim().toIntOrNull()
+            ?.let { it in io.github.highwindbr.aaxp.runtime.GlyphIcons.MIN_SIZE..io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_SIZE } == true) {
+            "The icon size in this file is not readable"
+        }
         val themes = root.optJSONObject("themes")?.toString()?.also { Themes.decode(it) }
         val presets = root.optJSONObject("presets")?.toString()?.also { Presets.decode(it) }
         val image = root.optString("wallpaperImage").ifEmpty { null }?.let {
@@ -66,6 +78,6 @@ object LookBundles {
             java.util.Base64.getDecoder().decode(it)
         }
         return LookBundle(colors, glyph, statusBar, themes, presets,
-            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors, launcher)
+            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors, launcher, railLook, glyphSize)
     }
 }

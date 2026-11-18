@@ -1296,7 +1296,9 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             presets().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Presets.encode(it) },
             if (image != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(context)) else null, image,
             prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null)))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null)))
     }
 
     /**
@@ -1316,6 +1318,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, bundle.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, bundle.resourceColors)
             put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, bundle.launcherConfig)
+            put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, bundle.railLook)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, bundle.glyphSize)
             val parts = mutableListOf("colours, glyph icons and status bar")
             bundle.wallpaperImage?.let { image ->
                 CarWallpaperStudio.sourceFile(context).writeBytes(image)
@@ -1379,6 +1383,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setRailLook(look: String?) = viewModelScope.launch {
         val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the rail strip")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (look == null) editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY)
             else editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, look)
@@ -1559,7 +1564,9 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             prefs?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
             if (wallpaperStamp != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(getApplication())) else null,
-            wallpaperStamp, carWallpaperEnabled(), prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null))
+            wallpaperStamp, carWallpaperEnabled(), prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null))
     }
 
     /** Copies the wallpaper image in use aside for undo if that has not been done. Blocking: call off Main. */
@@ -1625,6 +1632,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, kept.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, kept.resourceColors)
             put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, kept.launcherConfig)
+            put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, kept.railLook)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, kept.glyphSize)
             val imageKept = kept.wallpaperStamp != null && kept.wallpaperSettings != null && undoImage.isFile &&
                 controlPreferences.getString("undo_image_stamp", null) == kept.wallpaperStamp
             val action = io.github.highwindbr.aaxp.core.LookUndo.wallpaperAction(kept, imageKept)
@@ -1655,10 +1664,10 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.RESTORE -> kept
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.REMOVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, null, null, false, kept.launcherConfig)
+                        kept.resourceColors, null, null, false, kept.launcherConfig, kept.railLook, kept.glyphSize)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.LEAVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig)
+                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig, kept.railLook, kept.glyphSize)
             }
             io.github.highwindbr.aaxp.core.LookUndo.restoredMessage(
                 io.github.highwindbr.aaxp.core.LookUndo.differences(now, effective), kept.label) to restarted
@@ -1692,6 +1701,12 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, plan.glyphColors)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, plan.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, plan.resourceColors)
+            // The rail strip look and icon size are only touched when the style carries them.
+            plan.railLook?.let { editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, it) }
+            plan.glyphSize?.let {
+                if (it == io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_SIZE) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY)
+                else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, it.toString())
+            }
             check(editor.commit()) { "Framework rejected the preference update" }
             // The wallpaper's darken and blur come last, and are only stored once the car's copy has been written.
             if (plan.wallpaperDim != null || plan.wallpaperBlur != null) runCatching {

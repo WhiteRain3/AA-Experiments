@@ -47,6 +47,18 @@ class LookPlanTest {
         assertEquals("hide=clock", LookPlan.of(CarTheme("x", "", emptyMap()), "hide=clock").statusBar)
     }
 
+    @Test fun railLookAndGlyphSizeAreOnlyChangedWhenTheStyleCarriesThem() {
+        val plain = LookPlan.of(Themes.BUILT_IN.first())
+        assertNull(plain.railLook); assertNull(plain.glyphSize)
+        val look = CarTheme("x", "", emptyMap(), railLook = "strength=30", glyphSize = 400)
+        val plan = LookPlan.of(look)
+        assertEquals("strength=30", plan.railLook); assertEquals(150, plan.glyphSize)
+        val back = Themes.decode(Themes.encode(listOf(look.copy(glyphSize = 120)))).single()
+        assertEquals("strength=30", back.railLook); assertEquals(120, back.glyphSize)
+        val bad = Themes.decode("{\"schemaVersion\":1,\"themes\":{\"B\":{\"roles\":{},\"railLook\":\"nonsense\",\"glyphSize\":9}}}").single()
+        assertNull(bad.railLook); assertNull(bad.glyphSize)
+    }
+
     @Test fun aLookWithoutExtrasSwitchesThemOff() {
         val plan = LookPlan.of(CarTheme("Mine", "", mapOf("Primary" to 0xFF112233.toInt())))
         assertNull(plan.glyphColors); assertNull(plan.statusBar); assertNull(plan.resourceColors)

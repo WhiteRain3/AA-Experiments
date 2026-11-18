@@ -18,7 +18,11 @@ data class CarTheme(
     val statusBar: String? = null,
     /** Wallpaper darken (0..80) and blur (0..40, see BlurLevel); null leaves the wallpaper settings alone. */
     val wallpaperDim: Int? = null,
-    val wallpaperBlur: Int? = null
+    val wallpaperBlur: Int? = null,
+    /** Rail strip look in the stored form of runtime/CarWallpaper; null leaves the owner's as it is. */
+    val railLook: String? = null,
+    /** Single-colour icon figure size in percent (50..150); null leaves the owner's as it is. */
+    val glyphSize: Int? = null
 )
 
 object Themes {
@@ -186,6 +190,8 @@ object Themes {
                     theme.statusBar?.let { put("statusBar", it) }
                     theme.wallpaperDim?.let { put("wallpaperDim", it) }
                     theme.wallpaperBlur?.let { put("wallpaperBlur", it) }
+                    theme.railLook?.let { put("railLook", it) }
+                    theme.glyphSize?.let { put("glyphSize", it) }
                     put("roles", JSONObject().apply {
                         theme.roles.forEach { (role, color) -> put(role, "%08X".format(color)) }
                     })
@@ -219,7 +225,13 @@ object Themes {
                 add(CarTheme(name, entry.optString("description"), parsed, glyph,
                     resourceColors = resources.orEmpty(), statusBar = status,
                     wallpaperDim = if (entry.has("wallpaperDim")) entry.optInt("wallpaperDim").coerceIn(0, 80) else null,
-                    wallpaperBlur = if (entry.has("wallpaperBlur")) entry.optInt("wallpaperBlur").coerceIn(0, BlurLevel.MAX) else null))
+                    wallpaperBlur = if (entry.has("wallpaperBlur")) entry.optInt("wallpaperBlur").coerceIn(0, BlurLevel.MAX) else null,
+                    railLook = entry.optString("railLook").takeIf {
+                        it.isNotEmpty() && io.github.highwindbr.aaxp.runtime.CarWallpaper.encodeRailLook(io.github.highwindbr.aaxp.runtime.CarWallpaper.parseRailLook(it)) != null
+                    },
+                    glyphSize = if (entry.has("glyphSize")) entry.optInt("glyphSize").takeIf {
+                        it in io.github.highwindbr.aaxp.runtime.GlyphIcons.MIN_SIZE..io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_SIZE
+                    } else null))
             }
         }.take(Presets.MAX_PRESETS)
     }

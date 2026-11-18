@@ -1329,21 +1329,27 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             // The file's wallpaper is rendered from a temporary copy; the stored source and editor settings are only replaced after the commit.
             val importedSettings = if (bundle.wallpaperImage != null) CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings) else null
             val temporary = java.io.File(context.cacheDir, "look_import_wallpaper")
-            bundle.wallpaperImage?.let { image ->
-                temporary.writeBytes(image)
-                val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderFrom(temporary, checkNotNull(importedSettings))) {
-                    "The wallpaper in this file is not an image"
+            try {
+                bundle.wallpaperImage?.let { image ->
+                    temporary.writeBytes(image)
+                    val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderFrom(temporary, checkNotNull(importedSettings))) {
+                        "The wallpaper in this file is not an image"
+                    }
+                    writeCarWallpaper(editor, rendered, rail)
+                    parts += "wallpaper"
                 }
-                writeCarWallpaper(editor, rendered, rail)
-                parts += "wallpaper"
+                check(editor.commit()) { "Framework rejected the preference update" }
+                // The look is applied from here on; a problem updating the wallpaper editor must not be reported as "nothing changed".
+                if (importedSettings != null) runCatching {
+                    temporary.copyTo(CarWallpaperStudio.sourceFile(context), overwrite = true)
+                    CarWallpaperStudio.save(context, importedSettings)
+                    markWallpaperApplied()
+                }.onFailure { problem ->
+                    parts[parts.indexOf("wallpaper")] = "wallpaper (but the wallpaper editor could not be updated: ${problem.message})"
+                }
+            } finally {
+                temporary.delete()
             }
-            check(editor.commit()) { "Framework rejected the preference update" }
-            if (importedSettings != null) {
-                temporary.copyTo(CarWallpaperStudio.sourceFile(context), overwrite = true)
-                CarWallpaperStudio.save(context, importedSettings)
-                markWallpaperApplied()
-            }
-            temporary.delete()
             bundle.themesJson?.let { json ->
                 val imported = io.github.highwindbr.aaxp.core.Themes.decode(json)
                 val names = imported.map { it.name.lowercase() }.toSet()

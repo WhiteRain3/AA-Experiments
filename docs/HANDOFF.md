@@ -212,9 +212,11 @@ Google's. A session that needs them asks the owner to upload `gearhead-code.zip`
   the review is clean, and the build and tests pass, whoever is running the chain publishes
   the next `wrN` without asking, then tells the owner what is in it and how to test it. A
   serious review finding holds the release until it is fixed.
-- Sessions cannot message each other. Hand-offs between them (plan to worker, worker to
-  reviewer, findings back to worker) are carried by the session that created them, or by the
-  owner. An instruction to "pass this to the reviewer" given to a worker goes nowhere.
+- Hand-offs between sessions (plan to worker, worker to reviewer, findings back to worker)
+  are carried by the session that created them. A session that has the Claude Code Remote
+  `send_message` tool can reply to that session with `session_id` "@parent"; the Reviewer has
+  done so. Do not assume a hand-off happened because the owner asked a worker for it: either
+  send the message yourself and say that you did, or say plainly that you cannot.
 - If a task turns out to need a decision from the owner, stop and ask rather than guess.
 - Do not open pull requests unless the owner asks.
 

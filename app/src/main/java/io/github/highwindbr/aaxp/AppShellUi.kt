@@ -70,6 +70,7 @@ internal enum class FeaturePage(val title: String, val subtitle: String, val ico
     STATUS_BAR("Status bar", "Clock, signal and battery", Icons.Default.Schedule),
     LOOK_FILE("Style packs and backup", "Save or load the whole look as one file", Icons.Default.Inventory2),
     PRESETS("Flag presets", "Named sets of flag overrides", Icons.Default.Bookmarks),
+    QUICK_SWITCHES("Quick switches", "Several flags behind one switch", Icons.Default.Tune),
     CONTROLS("Restart behaviour", "Automatic restart and Desktop Head Unit mode", Icons.Default.Tune),
     UPDATES("Updates", "Get the newest build of this app", Icons.Default.SystemUpdate),
     LAYOUT_CAPTURE("Screen layout capture", "Record how the car screen is built", Icons.Default.GridView),
@@ -192,6 +193,7 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
                 if (modifiedFlags == 0) "None changed" else "$modifiedFlags changed", onFlags)
             GridTile(Modifier.weight(1f), FeaturePage.PRESETS.icon, "Presets", "Saved sets") { onOpen(FeaturePage.PRESETS) }
         } }
+        item { FeatureTile(FeaturePage.QUICK_SWITCHES.icon, FeaturePage.QUICK_SWITCHES.title, FeaturePage.QUICK_SWITCHES.subtitle) { onOpen(FeaturePage.QUICK_SWITCHES) } }
         item { SectionHeading("More") }
         item { FeatureTile(FeaturePage.SYSTEM.icon, FeaturePage.SYSTEM.title, FeaturePage.SYSTEM.subtitle) { onOpen(FeaturePage.SYSTEM) } }
     }

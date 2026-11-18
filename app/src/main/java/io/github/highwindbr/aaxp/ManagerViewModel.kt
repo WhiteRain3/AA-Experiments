@@ -960,6 +960,49 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    // ---- Quick switches: groups of flag overrides behind one switch ----
+
+    /** Whether every flag of [switch] currently has the switch's value. */
+    fun flagSwitchOn(switch: io.github.highwindbr.aaxp.core.FlagSwitch): Boolean =
+        io.github.highwindbr.aaxp.core.FlagSwitches.isOn(switch, currentOverridesSerialized())
+
+    /** Flags of [switch] that the installed Android Auto's catalogue does not contain; null when that is not known yet. */
+    suspend fun flagSwitchMissing(switch: io.github.highwindbr.aaxp.core.FlagSwitch): Set<String>? = withContext(Dispatchers.IO) {
+        runCatching {
+            val build = mutable.value.aa.buildFingerprintSha256 ?: return@runCatching null
+            switch.flags.keys - database.identifiersByKeys(build, switch.flags.keys).keys
+        }.getOrNull()
+    }
+
+    /**
+     * Turns a quick switch on or off by changing its flags one by one through [setDynamicOverride],
+     * the same path as editing a flag by hand. Off restores what each flag was before it was turned on.
+     */
+    fun setFlagSwitch(switch: io.github.highwindbr.aaxp.core.FlagSwitch, on: Boolean) = viewModelScope.launch {
+        val build = mutable.value.aa.buildFingerprintSha256
+        val found = if (build == null) emptyMap() else withContext(Dispatchers.IO) { database.identifiersByKeys(build, switch.flags.keys) }
+        val missing = switch.flags.keys - found.keys
+        if (missing.isNotEmpty()) {
+            mutable.value = mutable.value.copy(message = "${switch.title} not changed: this Android Auto version does not have " +
+                missing.joinToString(", ") + ". Open Flags and refresh the installed Android Auto if that looks wrong.")
+            return@launch
+        }
+        val stored = io.github.highwindbr.aaxp.core.FlagSwitches.decodeBefore(controlPreferences.getString("flag_switch_before_${switch.id}", null))
+        if (on) {
+            val before = io.github.highwindbr.aaxp.core.FlagSwitches.beforeValues(switch, currentOverridesSerialized(), stored)
+            controlPreferences.edit().putString("flag_switch_before_${switch.id}",
+                io.github.highwindbr.aaxp.core.FlagSwitches.encodeBefore(before)).apply()
+        }
+        switch.flags.forEach { (key, target) ->
+            val raw = if (on) target else io.github.highwindbr.aaxp.core.FlagSwitches.valueToRestore(stored, key)
+            setDynamicOverride(found.getValue(key), raw).join()
+        }
+        val ok = flagSwitchOn(switch) == on
+        if (ok && !on) controlPreferences.edit().remove("flag_switch_before_${switch.id}").apply()
+        if (!ok) mutable.value = mutable.value.copy(message = "${switch.title} could not be fully " + (if (on) "turned on" else "turned off") +
+            ". Check the Flags page for the flags involved.")
+    }
+
     // ---- Presets: named sets of normal overrides ----
 
     private val presetPreferences = application.getSharedPreferences("override_presets", Context.MODE_PRIVATE)

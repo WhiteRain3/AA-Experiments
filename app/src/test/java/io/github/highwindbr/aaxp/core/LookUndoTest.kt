@@ -57,6 +57,20 @@ class LookUndoTest {
         assertEquals(listOf("wallpaper"), LookUndo.differences(snap(wallpaper = "1-1"), snap()))
     }
 
+    @Test fun wallpaperIsRemovedOnlyWhenTheCopyRecordsNone() {
+        fun kept(on: Boolean?) = LookSnapshot("x", null, null, null, null, null, null, on)
+        assertEquals(LookUndo.WallpaperAction.REMOVE, LookUndo.wallpaperAction(kept(false), false))
+        assertEquals(LookUndo.WallpaperAction.LEAVE, LookUndo.wallpaperAction(kept(true), false))
+        assertEquals(LookUndo.WallpaperAction.LEAVE, LookUndo.wallpaperAction(kept(null), false))
+        assertEquals(LookUndo.WallpaperAction.RESTORE, LookUndo.wallpaperAction(kept(true), true))
+        assertEquals(LookUndo.WallpaperAction.RESTORE, LookUndo.wallpaperAction(kept(null), true))
+    }
+
+    @Test fun wallpaperOnSurvivesEncoding() {
+        assertEquals(false, LookUndo.decode(LookUndo.encode(LookSnapshot("x", null, null, null, null, null, null, false)))!!.wallpaperOn)
+        assertNull(LookUndo.decode(LookUndo.encode(snap()))!!.wallpaperOn)
+    }
+
     @Test fun messages() {
         assertTrue(LookUndo.restoredMessage(listOf("colours"), "saving a theme").contains("colours"))
         assertTrue(LookUndo.restoredMessage(emptyList(), "saving a theme").startsWith("Nothing to undo"))

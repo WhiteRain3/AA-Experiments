@@ -66,6 +66,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -351,9 +353,15 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
 @Composable internal fun RowDivider() =
     androidx.compose.material3.HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
 
-/** The one reset control: shown only when a row differs from default. */
+/** The width reserved for [ResetIcon] in a row, so rows line up whether or not a value is set. */
+internal val RESET_SLOT = 64.dp
+
+/** The one reset control: a small "Reset" button, shown only when a row differs from default. */
 @Composable internal fun ResetIcon(onReset: () -> Unit) {
-    IconButton(onReset, Modifier.size(48.dp)) { Icon(Icons.Default.Restore, "Back to default", Modifier.size(22.dp)) }
+    TextButton(onReset, Modifier.width(RESET_SLOT).heightIn(min = 48.dp).semantics { contentDescription = "Back to default" },
+        contentPadding = PaddingValues(horizontal = 4.dp)) {
+        Text("Reset", style = MaterialTheme.typography.labelMedium)
+    }
 }
 
 /** Label left, switch right; the whole row toggles. */
@@ -388,7 +396,7 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         // The reset slot is always reserved, so rows line up with or without a value set.
-        if (colour != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))
+        if (colour != null) ResetIcon(onReset) else Spacer(Modifier.width(RESET_SLOT))
     }
 }
 
@@ -407,7 +415,7 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
             if (tip != null) TipIcon(label, tip)
             Spacer(Modifier.weight(1f))
             Text(valueText, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (onReset != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))
+            if (onReset != null) ResetIcon(onReset) else Spacer(Modifier.width(RESET_SLOT))
         }
         androidx.compose.material3.Slider(shown, { shown = it }, valueRange = range, steps = steps, enabled = enabled,
             onValueChangeFinished = { onChangeFinished(shown) })

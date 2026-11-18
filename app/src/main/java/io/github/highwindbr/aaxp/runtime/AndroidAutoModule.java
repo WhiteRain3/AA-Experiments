@@ -670,6 +670,7 @@ public final class AndroidAutoModule extends XposedModule {
     private volatile String launcherRaw;
     private volatile LauncherTweaks.Config launcherParsed;
     private final Map<Integer, Boolean> launcherLayouts = new ConcurrentHashMap<>();
+    private volatile int launcherTextContainerId;
 
     /** Parsed launcher setting, re-parsed only when the stored text changes; null when off. */
     private LauncherTweaks.Config launcher() {
@@ -692,12 +693,17 @@ public final class AndroidAutoModule extends XposedModule {
         if (!config.hideNames) return;
         Boolean match = launcherLayouts.get(layout);
         if (match != null && !match) return;
-        int id = root.getResources().getIdentifier(LauncherTweaks.TEXT_CONTAINER, "id", AA_PACKAGE);
+        // The name-to-id lookup is a string search; do it once. -1 means this build has no such id.
+        int id = launcherTextContainerId;
         if (id == 0) {
-            eventOnce(Log.WARN, "LAUNCHER_NO_ID", LauncherTweaks.TEXT_CONTAINER, "first");
-            launcherLayouts.put(layout, false);
-            return;
+            id = root.getResources().getIdentifier(LauncherTweaks.TEXT_CONTAINER, "id", AA_PACKAGE);
+            if (id == 0) {
+                id = -1;
+                eventOnce(Log.WARN, "LAUNCHER_NO_ID", LauncherTweaks.TEXT_CONTAINER, "first");
+            }
+            launcherTextContainerId = id;
         }
+        if (id == -1) return;
         java.util.List<android.view.View> found = new java.util.ArrayList<>();
         collectById(root, id, found, 0);
         if (match == null) launcherLayouts.put(layout, !found.isEmpty());

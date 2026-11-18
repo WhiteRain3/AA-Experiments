@@ -363,7 +363,9 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
 
 /** What a page's "more" menu holds: the page-wide reset and any page-specific items. */
 internal class PageMenu(
-    val pageName: String, val onReset: (() -> Unit)? = null, val extra: List<Pair<String, () -> Unit>> = emptyList()
+    val pageName: String, val onReset: (() -> Unit)? = null, val extra: List<Pair<String, () -> Unit>> = emptyList(),
+    /** Said in the reset confirmation, for anything the reset leaves alone. */
+    val resetNote: String? = null
 )
 
 /** The frame around a feature's page: back arrow, title, and the app's messages at the bottom. */
@@ -375,6 +377,7 @@ internal class PageMenu(
     var confirmReset by remember { mutableStateOf(false) }
     if (confirmReset && menu?.onReset != null) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmReset = false },
         title = { Text("Put everything on this page back to default?") },
+        text = menu.resetNote?.let { note -> { Text(note) } },
         confirmButton = { TextButton({ confirmReset = false; menu.onReset.invoke() }) { Text("Reset") } },
         dismissButton = { TextButton({ confirmReset = false }) { Text("Cancel") } })
     Scaffold(snackbarHost = { SnackbarHost(messages) }) { padding ->

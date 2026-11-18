@@ -1713,8 +1713,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Puts everything on the Colours page back to default: the colour slots, the extra colours and
-     * the map border width. It writes what the single resets write, with one undo copy for all.
+     * Puts the colour slots and the extra colours back to default, with one undo copy. The map border
+     * width is a flag override that Undo cannot bring back, so it is left alone; it has its own reset.
      */
     fun resetColourPage() = viewModelScope.launch {
         val result = withContext(Dispatchers.IO) { runCatching {
@@ -1727,7 +1727,6 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         } }
         result.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = result.fold({ "Colours are back to default." }, { "Colours not reset: ${it.message}" }))
-        if (mutable.value.dynamicOverrides.containsKey(io.github.highwindbr.aaxp.core.MapBorderFlag.KEY)) setMapBorderWidth(null).join()
     }
 
     // ---- One-tap styles ----

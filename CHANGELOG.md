@@ -116,6 +116,7 @@ instrumented or physical-device acceptance yet.
 - Per-app icon choices are part of look files and Undo (changing them keeps an undo copy first); the built-in styles leave them alone.
 - Redesign, piece 1: shared page components (a "?" tip that opens a short explanation, sections, switch/colour/slider/link rows, one reset icon, a per-page menu); "How this works" is now a "?" tip.
 - Redesign, piece 2: the Colours page is one page instead of four cards: a preview of the saved colours with Edit colours and Default, a row of ready-made styles, "Text and backgrounds", and "Map border" (colour and width); everything applies as soon as it is chosen, explanations are behind "?" tips, and "(experimental)" is gone. The theme editor has Start / Colours / Keep tabs, lists only your saved themes, and its share actions are rows. A page menu offers "Scan again" and "Reset colours to default".
+- Colours page reset no longer touches the map border width (it is a flag override that Undo cannot bring back); the reset confirmation says so.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

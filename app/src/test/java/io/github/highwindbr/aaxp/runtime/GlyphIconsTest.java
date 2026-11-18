@@ -190,4 +190,53 @@ public class GlyphIconsTest {
         org.junit.Assert.assertFalse(GlyphIcons.isPackageName("a=b"));
         org.junit.Assert.assertFalse(GlyphIcons.isPackageName("a;b"));
     }
+
+    /** A layer of {@code size} pixels: a disc of the given radius, with an optional square hole in the middle. */
+    private static int[] disc(int size, int radius, int hole) {
+        int[] alpha = new int[size * size];
+        int c = size / 2;
+        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+            boolean in = (x - c) * (x - c) + (y - c) * (y - c) <= radius * radius;
+            boolean cut = Math.abs(x - c) <= hole && Math.abs(y - c) <= hole && hole > 0;
+            alpha[y * size + x] = in && !cut ? 255 : 0;
+        }
+        return alpha;
+    }
+
+    @Test public void figureCutOutOfADiscBecomesTheGlyph() {
+        int size = 96;
+        int[] mask = GlyphIcons.figureInsidePlate(disc(size, 30, 10), size);
+        org.junit.Assert.assertNotNull(mask);
+        int c = size / 2;
+        org.junit.Assert.assertEquals(255, mask[c * size + c]);          // the hole is the figure
+        org.junit.Assert.assertEquals(0, mask[c * size + c + 20]);       // the plate is not
+        org.junit.Assert.assertEquals(0, mask[0]);                       // nor the outside
+        org.junit.Assert.assertEquals(0, mask[c * size + c + 30]);       // nor the plate's edge
+    }
+
+    @Test public void layersThatAreNotAPlateWithAFigureAreLeftAlone() {
+        int size = 96;
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(disc(size, 30, 0), size));   // solid disc
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(disc(size, 30, 1), size));   // a pinhole
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(disc(size, 12, 4), size));   // too small to be a plate
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(new int[size * size], size)); // empty
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(null, size));
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(new int[5], size));
+        // A ring: nearly all of it is hole, so it is an outline figure, not a plate.
+        int[] ring = disc(size, 30, 0);
+        int c = size / 2;
+        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+            if ((x - c) * (x - c) + (y - c) * (y - c) <= 26 * 26) ring[y * size + x] = 0;
+        }
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(ring, size));
+        // A wide bar with a hole is a figure of its own, not a plate.
+        int[] bar = new int[size * size];
+        for (int y = 38; y < 58; y++) for (int x = 10; x < 86; x++) bar[y * size + x] = 255;
+        for (int y = 44; y < 52; y++) for (int x = 40; x < 56; x++) bar[y * size + x] = 0;
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bar, size));
+        // A notch open to the outside is not a hole.
+        int[] notched = disc(size, 30, 0);
+        for (int y = c - 4; y <= c + 4; y++) for (int x = c; x < size; x++) notched[y * size + x] = 0;
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(notched, size));
+    }
 }

@@ -204,6 +204,84 @@ public final class GlyphIcons {
         return mask;
     }
 
+    /**
+     * Some apps draw their themed (single-colour) layer as a filled disc or rounded square with
+     * the figure cut out of it. Tinted as it is, that gives a plate in the glyph colour with the
+     * figure showing through in the background colour: the reverse of every other icon. For such
+     * a layer this returns the cut-out figure as the glyph mask (one alpha value per pixel);
+     * for anything else it returns null and the layer is used as the app drew it.
+     *
+     * {@code alpha} is the layer's opacity per pixel on a square of {@code size} pixels. A layer
+     * counts as a plate with a cut-out figure when its outline is roughly square, at least 40%
+     * of the layer wide, filled like a disc or fuller once its holes are counted in, and the
+     * holes make up between 3% and 55% of it. A ring, a wide shape, or a solid shape with no
+     * hole is left alone.
+     */
+    public static int[] figureInsidePlate(int[] alpha, int size) {
+        if (alpha == null || size <= 2 || alpha.length != size * size) return null;
+        int total = alpha.length;
+        int minX = size, minY = size, maxX = -1, maxY = -1, opaque = 0;
+        for (int i = 0; i < total; i++) {
+            if (alpha[i] < 128) continue;
+            opaque++;
+            int x = i % size, y = i / size;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        if (opaque == 0) return null;
+        int width = maxX - minX + 1, height = maxY - minY + 1;
+        if (Math.min(width, height) < 0.85f * Math.max(width, height) || Math.max(width, height) < 0.40f * size) return null;
+
+        // Everything see-through that can be reached from the edge of the layer is outside.
+        boolean[] outside = new boolean[total];
+        int[] queue = new int[total];
+        int head = 0, tail = 0;
+        for (int x = 0; x < size; x++) {
+            for (int i : new int[] {x, (size - 1) * size + x, x * size, x * size + size - 1}) {
+                if (alpha[i] < 128 && !outside[i]) {
+                    outside[i] = true;
+                    queue[tail++] = i;
+                }
+            }
+        }
+        while (head < tail) {
+            int i = queue[head++];
+            int x = i % size;
+            if (x > 0) tail = reach(alpha, outside, queue, tail, i - 1);
+            if (x < size - 1) tail = reach(alpha, outside, queue, tail, i + 1);
+            if (i >= size) tail = reach(alpha, outside, queue, tail, i - size);
+            if (i < total - size) tail = reach(alpha, outside, queue, tail, i + size);
+        }
+        int enclosed = 0;
+        for (int i = 0; i < total; i++) if (alpha[i] < 128 && !outside[i]) enclosed++;
+        int solid = opaque + enclosed;
+        if (solid < 0.74f * width * height) return null;
+        if (enclosed < 0.03f * solid || enclosed > 0.55f * solid) return null;
+
+        int[] mask = new int[total];
+        for (int i = 0; i < total; i++) {
+            if (outside[i]) continue;
+            if (alpha[i] >= 128) {
+                // The plate's soft outer edge must not become a faint ring.
+                int x = i % size;
+                if ((x > 0 && outside[i - 1]) || (x < size - 1 && outside[i + 1])
+                        || (i >= size && outside[i - size]) || (i < total - size && outside[i + size])) continue;
+            }
+            mask[i] = 255 - Math.max(0, Math.min(255, alpha[i]));
+        }
+        return mask;
+    }
+
+    private static int reach(int[] alpha, boolean[] outside, int[] queue, int tail, int i) {
+        if (alpha[i] < 128 && !outside[i]) {
+            outside[i] = true;
+            queue[tail++] = i;
+        }
+        return tail;
+    }
+
     /** True for Android Auto's own launcher entries that are drawn as a full square with a figure. */
     public static boolean isOwnLauncherIcon(String resourceEntryName) {
         return resourceEntryName != null && resourceEntryName.startsWith("ic_applauncher_");

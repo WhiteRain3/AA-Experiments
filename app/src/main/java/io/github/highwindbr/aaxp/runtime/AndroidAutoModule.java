@@ -1371,6 +1371,9 @@ public final class AndroidAutoModule extends XposedModule {
             glyph = monochrome.getConstantState() != null
                     ? monochrome.getConstantState().newDrawable().mutate() : monochrome.mutate();
             glyph.setTint(colors[0]);
+            // A themed layer drawn as a plate with the figure cut out would come out reversed.
+            android.graphics.drawable.Drawable figure = figureFromPlate(glyph, colors[0]);
+            if (figure != null) glyph = figure;
         } else {
             // No themed layer: derive a glyph from the icon's own foreground.
             glyph = generatedGlyph(adaptive.getForeground(), colors[0]);
@@ -1408,6 +1411,31 @@ public final class AndroidAutoModule extends XposedModule {
         return new android.graphics.drawable.AdaptiveIconDrawable(
                 new android.graphics.drawable.ColorDrawable(colors[1]),
                 new android.graphics.drawable.InsetDrawable(glyph, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, size)));
+    }
+
+    /** The cut-out figure of a plate-shaped themed layer as a drawable in {@code color}, or null. Never throws. */
+    private static android.graphics.drawable.Drawable figureFromPlate(android.graphics.drawable.Drawable layer, int color) {
+        try {
+            int size = GENERATED_GLYPH_SIZE;
+            android.graphics.Bitmap rendered = android.graphics.Bitmap.createBitmap(
+                    size, size, android.graphics.Bitmap.Config.ARGB_8888);
+            android.graphics.Rect previous = layer.copyBounds();
+            layer.setBounds(0, 0, size, size);
+            layer.draw(new android.graphics.Canvas(rendered));
+            layer.setBounds(previous);
+            int[] pixels = new int[size * size];
+            rendered.getPixels(pixels, 0, size, 0, 0, size, size);
+            for (int i = 0; i < pixels.length; i++) pixels[i] = pixels[i] >>> 24;
+            int[] mask = GlyphIcons.figureInsidePlate(pixels, size);
+            if (mask == null) return null;
+            int rgb = color & 0x00FFFFFF;
+            int opacity = color >>> 24;
+            for (int i = 0; i < mask.length; i++) pixels[i] = ((mask[i] * opacity / 255) << 24) | rgb;
+            rendered.setPixels(pixels, 0, size, 0, 0, size, size);
+            return new android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), rendered);
+        } catch (Throwable t) {
+            return null;
+        }
     }
 
     private static final int GENERATED_GLYPH_SIZE = 216;

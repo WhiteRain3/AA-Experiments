@@ -213,6 +213,10 @@ instrumented or physical-device acceptance yet.
 - Status bar icon colour now reaches the battery icon: Android Auto draws it with a drawable of
   its own that ignores a tint, so it gets a colour filter. Side effect: the icon no longer
   turns red when the battery is low while an icon colour is set.
+- Glyph icons: a few apps (YT Music among them, seen on a head unit) came out reversed, a plate
+  in the glyph colour with the figure showing through. Their themed layer is a filled disc with
+  the figure cut out. The module now recognises such a layer and uses the cut-out figure as the
+  glyph, like every other icon. Untested on a head unit or car.
 - versionName `1.0.0-wr36`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

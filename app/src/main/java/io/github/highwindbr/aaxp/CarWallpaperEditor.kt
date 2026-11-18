@@ -41,6 +41,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -109,9 +110,9 @@ internal object CarWallpaperStudio {
     fun settingsFrom(json: org.json.JSONObject?): Saved {
         val j = json ?: org.json.JSONObject()
         return Saved(
-            CarScreen(j.optInt("width", 800).coerceIn(200, 8000), j.optInt("height", 480).coerceIn(200, 8000),
+            CarScreen(j.optInt("width", 1200).coerceIn(200, 8000), j.optInt("height", 723).coerceIn(200, 8000),
                 runCatching { RailSide.valueOf(j.optString("rail", "LEFT")) }.getOrDefault(RailSide.LEFT),
-                j.optInt("railSize", 72).coerceIn(0, 2000)),
+                j.optInt("railSize", 107).coerceIn(0, 2000)),
             runCatching { WallpaperCoverage.valueOf(j.optString("coverage", "WHOLE_SCREEN")) }.getOrDefault(WallpaperCoverage.WHOLE_SCREEN),
             WallpaperPlacement(j.optDouble("zoom", 1.0).toFloat().coerceIn(0.1f, 8f), j.optDouble("offsetX", 0.0).toFloat(),
                 j.optDouble("offsetY", 0.0).toFloat(), j.optInt("turns", 0).mod(4)),
@@ -175,9 +176,9 @@ internal object CarWallpaperStudio {
     fun load(context: Context): Saved {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         return Saved(
-            CarScreen(p.getInt("width", 800), p.getInt("height", 480),
+            CarScreen(p.getInt("width", 1200), p.getInt("height", 723),
                 runCatching { RailSide.valueOf(p.getString("rail", null) ?: "LEFT") }.getOrDefault(RailSide.LEFT),
-                p.getInt("rail_size", 72)),
+                p.getInt("rail_size", 107)),
             runCatching { WallpaperCoverage.valueOf(p.getString("coverage", null) ?: "WHOLE_SCREEN") }
                 .getOrDefault(WallpaperCoverage.WHOLE_SCREEN),
             WallpaperPlacement(p.getFloat("zoom", 1f), p.getFloat("offset_x", 0f), p.getFloat("offset_y", 0f),
@@ -274,9 +275,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     val shown = blurredPicture.third
 
     val screen = CarScreen(
-        widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 800,
-        heightText.toIntOrNull()?.coerceIn(200, 8000) ?: 480,
-        rail, railSizeText.toIntOrNull()?.coerceIn(0, 2000) ?: 72)
+        widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 1200,
+        heightText.toIntOrNull()?.coerceIn(200, 8000) ?: 723,
+        rail, railSizeText.toIntOrNull()?.coerceIn(0, 2000) ?: 107)
     val spec = WallpaperGeometry.canvas(screen, coverage)
     val separator = WallpaperGeometry.separator(screen, coverage, separatorThickness)
     val separatorColor = WallpaperGeometry.parseColor(separatorColorText)
@@ -302,15 +303,14 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
           Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                Text("Car wallpaper", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Car wallpaper", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                TipIcon("Car wallpaper", "Drag to move, pinch to zoom. The preview is the car screen; the shaded strip is the rail.")
+                Spacer(Modifier.weight(1f))
                 OutlinedButton(onCancel, enabled = !saving) { Text("Cancel") }
                 Button(saveNow, enabled = !saving) { Text(if (saving) "Saving…" else "Save") }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Drag to move, pinch to zoom. The preview is the car screen; the shaded strip is the rail.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-
                 val paint = remember { Paint(Paint.FILTER_BITMAP_FLAG or Paint.ANTI_ALIAS_FLAG) }
                 Canvas(Modifier.fillMaxWidth()
                     .aspectRatio(spec.frameWidth.toFloat() / spec.frameHeight)
@@ -340,6 +340,11 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                         }
                         drawRect(Color.Black.copy(alpha = 0.45f), topLeft, stripSize)
                         drawRect(Color.White.copy(alpha = 0.7f), topLeft, stripSize, style = Stroke(1.dp.toPx()))
+                        if (railShiftX != 0 || railShiftY != 0) {
+                            // Where the picture behind the rail is moved to.
+                            drawRect(Color(0xFFFFD60A), topLeft + Offset(railShiftX * perPixel, railShiftY * perPixel), stripSize,
+                                style = Stroke(2.dp.toPx()))
+                        }
                     }
                     if (separator != null && separatorColor != null) {
                         drawRect(Color(separatorColor), Offset(separator.left * perPixel, separator.top * perPixel),
@@ -358,14 +363,6 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                     OutlinedButton({ placement = placement.copy(quarterTurns = (placement.quarterTurns + 1) % 4) }, Modifier.weight(1f)) { Text("Rotate") }
                 }
 
-                if (coverage == WallpaperCoverage.WHOLE_SCREEN && rail != RailSide.NONE) {
-                    Text("Rail alignment: $railShiftX px across, $railShiftY px down", style = MaterialTheme.typography.labelLarge)
-                    Text("If the picture behind the rail does not line up with the rest, nudge it here. It is not shown in the preview.",
-                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Slider(railShiftX.toFloat(), { railShiftX = it.toInt() }, valueRange = -20f..20f, steps = 39)
-                    Slider(railShiftY.toFloat(), { railShiftY = it.toInt() }, valueRange = -20f..20f, steps = 39)
-                }
-
                 Text(if (dim == 0) "Darken: off" else "Darken: $dim%", style = MaterialTheme.typography.labelLarge)
                 Slider(dim.toFloat(), { dim = it.toInt() }, valueRange = 0f..80f)
                 Text(io.github.highwindbr.aaxp.core.BlurLevel.label(blur), style = MaterialTheme.typography.labelLarge)
@@ -373,53 +370,62 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
 
                 Text("Cover", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(coverage == WallpaperCoverage.WHOLE_SCREEN, { coverage = WallpaperCoverage.WHOLE_SCREEN },
-                        { Text("Whole screen, behind the rail too") })
-                    FilterChip(coverage == WallpaperCoverage.MAIN_AREA, { coverage = WallpaperCoverage.MAIN_AREA },
-                        { Text("Main area only") })
+                    FilterChip(coverage == WallpaperCoverage.WHOLE_SCREEN, { coverage = WallpaperCoverage.WHOLE_SCREEN }, { Text("Whole screen") })
+                    FilterChip(coverage == WallpaperCoverage.MAIN_AREA, { coverage = WallpaperCoverage.MAIN_AREA }, { Text("Main area") })
                 }
 
-                Text(if (separatorThickness == 0) "Rail separation: off" else "Rail separation: $separatorThickness px",
-                    style = MaterialTheme.typography.labelLarge)
-                Text("A line where the main area meets the rail, on whichever side the rail is.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Slider(separatorThickness.toFloat(), { separatorThickness = it.toInt() }, valueRange = 0f..24f, steps = 23,
-                    enabled = rail != RailSide.NONE)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("White" to "#FFFFFF", "Black" to "#000000", "Grey" to "#808080", "Red" to "#D7000F").forEach { (name, hex) ->
-                        FilterChip(separatorColorText.equals(hex, true), { separatorColorText = hex }, { Text(name) })
-                    }
-                }
-                var pickingLine by remember { mutableStateOf(false) }
-                if (pickingLine) ColorPickerDialog("Line colour", separatorColor ?: -1, onDismiss = { pickingLine = false }) {
-                    separatorColorText = "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it); pickingLine = false
-                }
-                OutlinedButton({ pickingLine = true }, Modifier.fillMaxWidth()) { Text("Pick a line colour…") }
-                OutlinedTextField(separatorColorText, { separatorColorText = it.take(9) }, Modifier.fillMaxWidth(),
-                    label = { Text("Line colour (#RRGGBB or #AARRGGBB)") }, singleLine = true,
-                    isError = separatorColor == null,
-                    supportingText = if (separatorColor == null) ({ Text("Not a colour; the line will not be drawn") }) else null)
+                CollapsibleSection("Advanced") {
+                    Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (separatorThickness == 0) "Rail separation: off" else "Rail separation: $separatorThickness px",
+                                style = MaterialTheme.typography.labelLarge)
+                            TipIcon("Rail separation", "A line where the main area meets the rail, on whichever side the rail is.")
+                        }
+                        Slider(separatorThickness.toFloat(), { separatorThickness = it.toInt() }, valueRange = 0f..24f, steps = 23,
+                            enabled = rail != RailSide.NONE)
+                        var pickingLine by remember { mutableStateOf(false) }
+                        if (pickingLine) ColorPickerDialog("Line colour", separatorColor ?: -1, onDismiss = { pickingLine = false }) {
+                            separatorColorText = "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it); pickingLine = false
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            listOf("White" to "#FFFFFF", "Black" to "#000000", "Grey" to "#808080", "Red" to "#D7000F").forEach { (name, hex) ->
+                                FilterChip(separatorColorText.equals(hex, true), { separatorColorText = hex }, { Text(name) })
+                            }
+                            ColorSwatch(separatorColor, onClick = { pickingLine = true })
+                        }
 
-                Text("Car screen", style = MaterialTheme.typography.labelLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(widthText, { widthText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
-                        label = { Text("Width px") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(heightText, { heightText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
-                        label = { Text("Height px") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                    OutlinedTextField(railSizeText, { railSizeText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
-                        label = { Text("Rail px") }, singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    RailSide.values().forEach { side ->
-                        FilterChip(rail == side, { rail = side },
-                            { Text("Rail " + side.name.lowercase().replace("none", "hidden")) })
+                        if (coverage == WallpaperCoverage.WHOLE_SCREEN && rail != RailSide.NONE) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Rail alignment: $railShiftX px across, $railShiftY px down", style = MaterialTheme.typography.labelLarge)
+                                TipIcon("Rail alignment", "If the picture behind the rail does not line up with the rest, nudge it here. The yellow outline in the preview shows where it goes.")
+                            }
+                            Slider(railShiftX.toFloat(), { railShiftX = it.toInt() }, valueRange = -20f..20f, steps = 39)
+                            Slider(railShiftY.toFloat(), { railShiftY = it.toInt() }, valueRange = -20f..20f, steps = 39)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Car screen", style = MaterialTheme.typography.labelLarge)
+                            TipIcon("Car screen", "The size of your car's screen in pixels and where the rail is. The values start from the Audi's 1200 x 723 with a 107 px rail on the left; change them if your car differs.")
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedTextField(widthText, { widthText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
+                                label = { Text("Width px") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            OutlinedTextField(heightText, { heightText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
+                                label = { Text("Height px") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                            OutlinedTextField(railSizeText, { railSizeText = it.filter(Char::isDigit).take(4) }, Modifier.weight(1f),
+                                label = { Text("Rail px") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number))
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            RailSide.values().forEach { side ->
+                                FilterChip(rail == side, { rail = side },
+                                    { Text("Rail " + side.name.lowercase().replace("none", "hidden")) })
+                            }
+                        }
                     }
                 }
-                Text("Defaults match the 800x480 DHU profile with the rail on the left (72 px). Set your car's values if they differ.",
-                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                 // Generous clearance: some devices do not report bar and keyboard insets to dialogs,
                 // and without it the last controls stay under the navigation bar or keyboard.

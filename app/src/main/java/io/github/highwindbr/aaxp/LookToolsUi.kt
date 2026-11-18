@@ -140,33 +140,6 @@ private fun iconChoiceText(choice: String): String = when (choice) {
     }
 }
 
-/** Colour of the rail strip and how strongly the wallpaper shows there. */
-@Composable internal fun RailLookCard(model: ManagerViewModel, connected: Boolean) {
-    val stored = remember(connected) { io.github.highwindbr.aaxp.runtime.CarWallpaper.parseRailLook(if (connected) model.railLook() else null) }
-    var color by remember(stored) { mutableStateOf(stored.color) }
-    var strength by remember(stored) { mutableStateOf(stored.strength) }
-    var picking by remember { mutableStateOf(false) }
-    if (picking) ColorPickerDialog("Rail background", color ?: io.github.highwindbr.aaxp.runtime.CarWallpaper.DEFAULT_RAIL_COLOR,
-        onDismiss = { picking = false }) { color = it; picking = false }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Rail strip", fontWeight = FontWeight.Bold)
-        Text("The strip with the clock and app shortcuts. Pick its background colour, and how strongly the wallpaper shows over that colour when the wallpaper covers the whole screen.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HowThisWorks("Not tried on a real car yet. Android Auto's own launcher shows the wallpaper at 80% over dark grey, which is the starting point here. A colour without a whole-screen wallpaper paints the strip in that colour. Changes show after Android Auto restarts.")
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ColorSwatch(color, onClick = { picking = true })
-            Text("Background colour", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            if (color != null) TextButton({ color = null }) { Text("Default") }
-        }
-        Text("Wallpaper strength: $strength%", style = MaterialTheme.typography.labelLarge)
-        androidx.compose.material3.Slider(strength.toFloat(), { strength = (it / 5).toInt() * 5 }, valueRange = 0f..100f)
-        Button({
-            model.setRailLook(io.github.highwindbr.aaxp.runtime.CarWallpaper.encodeRailLook(
-                io.github.highwindbr.aaxp.runtime.CarWallpaper.RailLook(color, strength)))
-        }, Modifier.fillMaxWidth(), enabled = connected) { Text("Save") }
-    } }
-}
-
 /** Check this fork's GitHub releases for a newer build and install it. */
 @Composable internal fun UpdateCard(model: ManagerViewModel) {
     val installed = remember { model.installedVersionName() }

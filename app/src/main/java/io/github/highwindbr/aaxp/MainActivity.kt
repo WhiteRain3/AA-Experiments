@@ -161,6 +161,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     var coloursRevision by remember { mutableStateOf(0) }
     var statusBarReset by remember { mutableStateOf(0) }
     var iconsReset by remember { mutableStateOf(0) }
+    var wallpaperReset by remember { mutableStateOf(0) }
     val settingsPage = runCatching { SettingsPage.valueOf(settingsPageName) }.getOrDefault(SettingsPage.ROOT)
     val uiContext = LocalContext.current
     val managerPrefs = remember { uiContext.getSharedPreferences("manager_ui", 0) }
@@ -242,16 +243,14 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             menu = if (page == FeaturePage.THEMES) PageMenu("colours", onReset = { model.resetColourPage(); coloursRevision++ },
                 resetNote = "The colour slots and the text and background colours go back to default. The map border width is not changed; it has its own reset arrow.",
                 extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } }))
+                else if (page == FeaturePage.WALLPAPER) PageMenu("wallpaper", onReset = { model.resetWallpaperPage(); wallpaperReset++ })
                 else if (page == FeaturePage.ICONS) PageMenu("app icons", onReset = { model.resetIconsPage(); iconsReset++ })
                 else if (page == FeaturePage.STATUS_BAR) PageMenu("status bar", onReset = { model.setStatusBarConfig(null); statusBarReset++ })
                 else null,
             tip = if (page == FeaturePage.STATUS_BAR) STATUS_BAR_PAGE_TIP else null) {
             when (page) {
                 FeaturePage.THEMES -> ColoursPage(model, state.dynamicOverrides, connected, coloursRevision) { coloursRevision++ }
-                FeaturePage.WALLPAPER -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    CarWallpaperCard(model, connected)
-                    RailLookCard(model, connected)
-                }
+                FeaturePage.WALLPAPER -> WallpaperPage(model, connected, wallpaperReset)
                 FeaturePage.ICONS -> Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     AppIconsPage(model, connected, iconsReset)
                 }
@@ -483,44 +482,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
-    } }
-}
-
-/** A wallpaper for the car screen that is different from the phone's. */
-@Composable private fun CarWallpaperCard(model: ManagerViewModel, connected: Boolean) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var enabled by remember(connected) { mutableStateOf(connected && model.carWallpaperEnabled()) }
-    var hasSource by remember { mutableStateOf(CarWallpaperStudio.sourceFile(context).isFile) }
-    var editing by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
-    fun openEditor() {
-        scope.launch {
-            val bitmap = withContext(Dispatchers.IO) { runCatching { CarWallpaperStudio.loadSource(context) }.getOrNull() }
-            if (bitmap == null) model.reportMessage("That image could not be read.") else editing = bitmap
-        }
-    }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) scope.launch {
-            val imported = withContext(Dispatchers.IO) { model.keepWallpaperImageForUndo(); runCatching { CarWallpaperStudio.importSource(context, uri) }.isSuccess }
-            if (imported) { hasSource = true; openEditor() } else model.reportMessage("That image could not be opened.")
-        }
-    }
-    editing?.let { source ->
-        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered, rail, settings ->
-            model.storeCarWallpaper(rendered, rail, settings) { saved -> if (saved) enabled = true; editing = null }
-        }
-    }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Your own image on the car screen, separate from the phone's wallpaper.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HowThisWorks("Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image instead of the phone's. Changes show after Android Auto restarts. Not yet tried on every car.")
-        Text(if (enabled) "Custom image is set." else "Not set: Android Auto uses the phone's wallpaper.",
-            style = MaterialTheme.typography.bodyMedium)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ picker.launch("image/*") }, Modifier.weight(1f), enabled = connected) { Text(if (hasSource) "New image" else "Choose image") }
-            OutlinedButton({ openEditor() }, Modifier.weight(1f), enabled = connected && hasSource) { Text("Edit") }
-            OutlinedButton({ model.clearCarWallpaper { cleared -> if (cleared) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Remove") }
-        }
     } }
 }
 

@@ -73,7 +73,7 @@ import io.github.highwindbr.aaxp.core.AvailableUpdate
 /** A feature with a page of its own, reachable from Home, Look or Settings. */
 internal enum class FeaturePage(val title: String, val subtitle: String, val icon: ImageVector) {
     THEMES("Colours", "Recolour the car screen", Icons.Default.Palette),
-    WALLPAPER("Car wallpaper", "Your own image on the car screen", Icons.Default.Wallpaper),
+    WALLPAPER("Wallpaper", "Your own image on the car screen", Icons.Default.Wallpaper),
     ICONS("App icons", "Icons on the car screen", Icons.Default.Apps),
     STATUS_BAR("Status bar", "Clock, signal and battery", Icons.Default.Schedule),
     LOOK_FILE("Style packs and backup", "Save or load the whole look as one file", Icons.Default.Inventory2),

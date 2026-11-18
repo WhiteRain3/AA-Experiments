@@ -1754,6 +1754,20 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         mutable.value = mutable.value.copy(message = result.fold({ "App icons are back to default." }, { "App icons not reset: ${it.message}" }))
     }
 
+    /** Puts the Wallpaper page back to default: the car wallpaper off and the rail strip look cleared, with one undo copy. */
+    fun resetWallpaperPage() = viewModelScope.launch {
+        val result = lookWrite { runCatching {
+            captureUndo("resetting the wallpaper")
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY)
+            check(editor.commit()) { "Framework rejected the preference update" }
+        } }
+        result.onSuccess { changesWaiting = true }
+        mutable.value = mutable.value.copy(message = result.fold({ "The wallpaper is back to default." }, { "The wallpaper was not reset: ${it.message}" }))
+    }
+
     // ---- One-tap styles ----
 
     /**

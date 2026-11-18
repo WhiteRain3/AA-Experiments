@@ -579,9 +579,13 @@ public final class AndroidAutoModule extends XposedModule {
             float size = 22f;
             if (findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
                 color = clock.getCurrentTextColor();
-                size = clock.getTextSize() * 0.7f;
+                size = clock.getTextSize();
+            } else {
+                size = 32f;
             }
+            size = size * config.batterySize / 100f;
             if (config.clockColor != null) color = config.clockColor;
+            if (config.batteryColor != null) color = config.batteryColor;
             text.setTextColor(color);
             text.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
             final android.content.BroadcastReceiver receiver = new android.content.BroadcastReceiver() {

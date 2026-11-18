@@ -23,6 +23,10 @@ public final class StatusBarTweaks {
     /** The row holding the signal and battery icons, where the battery number is added. */
     public static final String ICON_ROW = "icon_row";
 
+    public static final int DEFAULT_BATTERY_SIZE = 70;
+    public static final int MIN_BATTERY_SIZE = 50;
+    public static final int MAX_BATTERY_SIZE = 130;
+
     /** Battery level as text, e.g. "74%"; empty when the level is unknown. */
     public static String percentText(int level, int scale) {
         if (level < 0 || scale <= 0) return "";
@@ -40,12 +44,23 @@ public final class StatusBarTweaks {
         public final boolean noPlate;
         /** Show the phone's battery level as a number next to the status icons. */
         public final boolean batteryPercent;
+        /** Colour of the battery number; null follows the clock. */
+        public final Integer batteryColor;
+        /** Size of the battery number as a percentage of the clock's text size. */
+        public final int batterySize;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
         }
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent) {
+            this(hide, clockColor, iconColor, noPlate, batteryPercent, null, DEFAULT_BATTERY_SIZE);
+        }
+
+        public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent,
+                      Integer batteryColor, int batterySize) {
+            this.batteryColor = batteryColor;
+            this.batterySize = Math.max(MIN_BATTERY_SIZE, Math.min(MAX_BATTERY_SIZE, batterySize));
             this.batteryPercent = batteryPercent;
             this.hide = hide;
             this.clockColor = clockColor;
@@ -68,6 +83,8 @@ public final class StatusBarTweaks {
         Set<String> hide = new LinkedHashSet<>();
         Integer clock = null, icons = null;
         boolean noPlate = false, batteryPercent = false;
+        Integer batteryColor = null;
+        int batterySize = DEFAULT_BATTERY_SIZE;
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -95,11 +112,23 @@ public final class StatusBarTweaks {
                     if (!"percent".equals(value)) return null;
                     batteryPercent = true;
                     break;
+                case "battery_color":
+                    batteryColor = color(value);
+                    if (batteryColor == null) return null;
+                    break;
+                case "battery_size":
+                    try {
+                        batterySize = Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (batterySize < MIN_BATTERY_SIZE || batterySize > MAX_BATTERY_SIZE) return null;
+                    break;
                 default:
                     return null;
             }
         }
-        Config config = new Config(hide, clock, icons, noPlate, batteryPercent);
+        Config config = new Config(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize);
         return config.isEmpty() ? null : config;
     }
 
@@ -111,7 +140,12 @@ public final class StatusBarTweaks {
         if (config.clockColor != null) append(text, "clock=" + String.format("%08X", config.clockColor));
         if (config.iconColor != null) append(text, "icons=" + String.format("%08X", config.iconColor));
         if (config.noPlate) append(text, "plate=off");
-        if (config.batteryPercent) append(text, "battery=percent");
+        if (config.batteryPercent) {
+            append(text, "battery=percent");
+            // The number's own colour and size only mean something while the number is shown.
+            if (config.batteryColor != null) append(text, "battery_color=" + String.format("%08X", config.batteryColor));
+            if (config.batterySize != DEFAULT_BATTERY_SIZE) append(text, "battery_size=" + config.batterySize);
+        }
         return text.toString();
     }
 

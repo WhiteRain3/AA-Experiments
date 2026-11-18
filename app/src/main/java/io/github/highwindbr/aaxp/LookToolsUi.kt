@@ -60,6 +60,8 @@ private val STATUS_BAR_PARTS = listOf(
     var iconColor by remember(stored) { mutableStateOf(stored?.iconColor) }
     var noPlate by remember(stored) { mutableStateOf(stored?.noPlate ?: false) }
     var batteryPercent by remember(stored) { mutableStateOf(stored?.batteryPercent ?: false) }
+    var batteryColor by remember(stored) { mutableStateOf(stored?.batteryColor) }
+    var batterySize by remember(stored) { mutableStateOf(stored?.batterySize ?: StatusBarTweaks.DEFAULT_BATTERY_SIZE) }
     var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
     picking?.let { (title, apply) ->
         ColorPickerDialog(title, 0xFFFFFFFF.toInt(), onDismiss = { picking = null }) { apply(it); picking = null }
@@ -87,6 +89,12 @@ private val STATUS_BAR_PARTS = listOf(
             switchRow(label, id in hidden) { hidden = if (it) hidden + id else hidden - id }
         }
         switchRow("Show battery as a percentage", batteryPercent) { batteryPercent = it }
+        if (batteryPercent) {
+            Text("Percentage size: $batterySize% of the clock", style = MaterialTheme.typography.labelLarge)
+            androidx.compose.material3.Slider(batterySize.toFloat(), { batterySize = (it / 5).toInt() * 5 },
+                valueRange = StatusBarTweaks.MIN_BATTERY_SIZE.toFloat()..StatusBarTweaks.MAX_BATTERY_SIZE.toFloat())
+            colorRow("Percentage colour", batteryColor) { batteryColor = it }
+        }
         switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
         colorRow("Clock colour", clockColor) { clockColor = it }
         colorRow("Icon colour", iconColor) { iconColor = it }
@@ -94,10 +102,11 @@ private val STATUS_BAR_PARTS = listOf(
             Button({
                 // Keep the order stable so the stored text does not change needlessly.
                 val hide = LinkedHashSet(StatusBarTweaks.HIDEABLE.filter { it in hidden })
-                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate, batteryPercent)))
+                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate, batteryPercent, batteryColor, batterySize)))
             }, Modifier.weight(1f), enabled = connected) { Text("Save") }
             OutlinedButton({
                 hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false; batteryPercent = false
+                batteryColor = null; batterySize = StatusBarTweaks.DEFAULT_BATTERY_SIZE
                 model.setStatusBarConfig(null)
             }, Modifier.weight(1f), enabled = connected && stored != null) { Text("Turn off") }
         }

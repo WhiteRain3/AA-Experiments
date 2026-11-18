@@ -65,6 +65,7 @@ instrumented or physical-device acceptance yet.
   app start if switched on), sends nothing about the user, takes APKs only from this
   repository's release downloads, and refuses a build signed with a different key. A workflow
   publishes a release when the version name changes on the fork's branch.
+- Status bar: the battery percentage has its own size (50 to 130% of the clock) and colour.
 - Status bar: battery level as a percentage next to the status icons; hidden parts are now also
   given no size and no opacity, and a second way Android Auto can re-show a view is covered,
   because hiding the battery icon did not work on the owner's car. The likely cause: ImageView

@@ -204,6 +204,7 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
                     overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY),
+                    overrideSnapshot.get(GlyphIcons.SIZE_KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -874,11 +875,12 @@ public final class AndroidAutoModule extends XposedModule {
                             String setting = overrideSnapshot.get(GlyphIcons.KEY);
                             if (setting == null) return original;
                             try {
-                                Object glyph = toGlyph(original, setting);
+                                int size = GlyphIcons.parseSize(overrideSnapshot.get(GlyphIcons.SIZE_KEY));
+                                Object glyph = toGlyph(original, setting, size);
                                 if (glyph == original && original instanceof android.graphics.drawable.Drawable plain
                                         && chain.getThisObject() instanceof android.content.res.Resources resources
                                         && chain.getArg(0) instanceof Integer resourceId) {
-                                    glyph = legacyGlyph(plain, resources, resourceId, setting);
+                                    glyph = legacyGlyph(plain, resources, resourceId, setting, size);
                                 }
                                 if (glyph != original) eventOnce(Log.INFO, "GLYPH_ICON_SERVED", name, setting);
                                 return glyph;
@@ -900,7 +902,7 @@ public final class AndroidAutoModule extends XposedModule {
     }
 
     /** Returns a one-colour adaptive icon built from the monochrome layer, or the input unchanged. */
-    private static Object toGlyph(Object icon, String setting) {
+    private static Object toGlyph(Object icon, String setting, int size) {
         if (!(icon instanceof android.graphics.drawable.AdaptiveIconDrawable adaptive)) return icon;
         android.graphics.drawable.Drawable monochrome = adaptive.getMonochrome();
         int[] colors = GlyphIcons.parseColors(setting);
@@ -915,6 +917,11 @@ public final class AndroidAutoModule extends XposedModule {
             glyph = generatedGlyph(adaptive.getForeground(), colors[0]);
             if (glyph == null) return icon;
         }
+        // At the default size the layer is used exactly as before; otherwise it is inset
+        // (smaller) or given bounds beyond the layer (larger, clipped by the layer).
+        if (size != GlyphIcons.DEFAULT_SIZE) {
+            glyph = new android.graphics.drawable.InsetDrawable(glyph, GlyphIcons.insetFraction(GlyphIcons.LAYER_FIGURE, size));
+        }
         return new android.graphics.drawable.AdaptiveIconDrawable(
                 new android.graphics.drawable.ColorDrawable(colors[1]), glyph);
     }
@@ -925,7 +932,7 @@ public final class AndroidAutoModule extends XposedModule {
      * in the visible centre of the adaptive icon it is wrapped in.
      */
     private static Object legacyGlyph(android.graphics.drawable.Drawable icon,
-            android.content.res.Resources resources, int resourceId, String setting) {
+            android.content.res.Resources resources, int resourceId, String setting, int size) {
         if (icon instanceof android.graphics.drawable.AdaptiveIconDrawable) return icon;
         int[] colors = GlyphIcons.parseColors(setting);
         if (colors == null) return icon;
@@ -941,7 +948,7 @@ public final class AndroidAutoModule extends XposedModule {
         if (glyph == null) return icon;
         return new android.graphics.drawable.AdaptiveIconDrawable(
                 new android.graphics.drawable.ColorDrawable(colors[1]),
-                new android.graphics.drawable.InsetDrawable(glyph, 1f / 6f));
+                new android.graphics.drawable.InsetDrawable(glyph, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, size)));
     }
 
     private static final int GENERATED_GLYPH_SIZE = 216;

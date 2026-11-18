@@ -15,6 +15,43 @@ public final class GlyphIcons {
     public static final String KEY = "icons.glyph_colors";
     public static final String DEFAULT_COLORS = "FFFFFF,000000";
 
+    /**
+     * Remote preference: size of the figure inside its plate, as a percentage of the size the
+     * module draws it at by default; absent = 100.
+     */
+    public static final String SIZE_KEY = "icons.glyph_size";
+    public static final int DEFAULT_SIZE = 100;
+    public static final int MIN_SIZE = 50;
+    public static final int MAX_SIZE = 150;
+    /** Share of the icon layer a glyph made from a non-adaptive icon fills at 100% (an inset of one sixth). */
+    public static final float LEGACY_FIGURE = 2f / 3f;
+    /** A themed (monochrome) layer or adaptive foreground is used as the app drew it at 100%. */
+    public static final float LAYER_FIGURE = 1f;
+
+    /** The stored size; the default when it is missing, unreadable or out of range. Never throws. */
+    public static int parseSize(String value) {
+        if (value == null) return DEFAULT_SIZE;
+        try {
+            int size = Integer.parseInt(value.trim());
+            return size < MIN_SIZE || size > MAX_SIZE ? DEFAULT_SIZE : size;
+        } catch (NumberFormatException invalid) {
+            return DEFAULT_SIZE;
+        }
+    }
+
+    /**
+     * The inset, as a fraction of the layer's edge on each side, that makes a figure which fills
+     * {@code baseFigure} of the layer at 100% fill {@code baseFigure * percent / 100} of it,
+     * centred. Negative when the figure is to be drawn larger than the layer (the layer clips
+     * it). Kept within what an inset can express: under half the edge, and at most a quarter
+     * beyond it.
+     */
+    public static float insetFraction(float baseFigure, int percent) {
+        int clamped = Math.max(MIN_SIZE, Math.min(MAX_SIZE, percent));
+        float figure = baseFigure * clamped / 100f;
+        return Math.max(-0.25f, Math.min(0.45f, (1f - figure) / 2f));
+    }
+
     private GlyphIcons() { }
 
     /** True for the platform icon-loading methods worth intercepting: they return a Drawable. */

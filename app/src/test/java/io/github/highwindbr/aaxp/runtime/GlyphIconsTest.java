@@ -97,4 +97,45 @@ public class GlyphIconsTest {
         assertNull(GlyphIcons.parseColors("FFFFFF,xyz123"));
         assertNull(GlyphIcons.parseColors("FFF,000"));
     }
+
+    @Test public void figureSizeSetting() {
+        org.junit.Assert.assertEquals(100, GlyphIcons.parseSize(null));
+        org.junit.Assert.assertEquals(120, GlyphIcons.parseSize("120"));
+        org.junit.Assert.assertEquals(50, GlyphIcons.parseSize(" 50 "));
+        org.junit.Assert.assertEquals(150, GlyphIcons.parseSize("150"));
+        org.junit.Assert.assertEquals(100, GlyphIcons.parseSize("49"));
+        org.junit.Assert.assertEquals(100, GlyphIcons.parseSize("151"));
+        org.junit.Assert.assertEquals(100, GlyphIcons.parseSize("big"));
+        org.junit.Assert.assertEquals(100, GlyphIcons.parseSize(""));
+    }
+
+    @Test public void legacyInsetIsOneSixthAtTheDefaultSize() {
+        org.junit.Assert.assertEquals(1f / 6f, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, 100), 0.0001f);
+        // 150% fills the layer exactly; 50% leaves a third on each side.
+        org.junit.Assert.assertEquals(0f, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, 150), 0.0001f);
+        org.junit.Assert.assertEquals(1f / 3f, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, 50), 0.0001f);
+    }
+
+    @Test public void layerInsetIsZeroAtTheDefaultSizeAndNegativeWhenLarger() {
+        org.junit.Assert.assertEquals(0f, GlyphIcons.insetFraction(GlyphIcons.LAYER_FIGURE, 100), 0.0001f);
+        org.junit.Assert.assertEquals(0.25f, GlyphIcons.insetFraction(GlyphIcons.LAYER_FIGURE, 50), 0.0001f);
+        org.junit.Assert.assertEquals(-0.25f, GlyphIcons.insetFraction(GlyphIcons.LAYER_FIGURE, 150), 0.0001f);
+        org.junit.Assert.assertEquals(-0.1f, GlyphIcons.insetFraction(GlyphIcons.LAYER_FIGURE, 120), 0.0001f);
+    }
+
+    @Test public void insetStaysWithinWhatAnInsetCanExpress() {
+        for (int percent = -100; percent <= 400; percent += 25) {
+            for (float base : new float[] {GlyphIcons.LEGACY_FIGURE, GlyphIcons.LAYER_FIGURE}) {
+                float inset = GlyphIcons.insetFraction(base, percent);
+                org.junit.Assert.assertTrue(inset >= -0.25f && inset <= 0.45f);
+            }
+        }
+        // A bigger percentage never gives a bigger inset.
+        float previous = 1f;
+        for (int percent = GlyphIcons.MIN_SIZE; percent <= GlyphIcons.MAX_SIZE; percent += 5) {
+            float inset = GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, percent);
+            org.junit.Assert.assertTrue(inset <= previous);
+            previous = inset;
+        }
+    }
 }

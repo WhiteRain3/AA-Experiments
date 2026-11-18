@@ -1460,13 +1460,23 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, null)
     }.getOrNull()
 
-    fun setGlyphIcons(colors: String?, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
+    /** The stored size of the glyph figure in percent; 100 when not set. */
+    fun glyphIconSize(): Int = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseSize(runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null)
+    }.getOrNull())
+
+    /** [size] is the figure size in percent; null leaves the stored size as it is. */
+    fun setGlyphIcons(colors: String?, size: Int? = null, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val valid = colors == null || io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
         val saved = valid && withContext(Dispatchers.IO) { runCatching {
             captureUndo("changing the icons")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             if (colors == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
             else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, colors)
+            if (size != null) {
+                if (size == io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_SIZE) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY)
+                else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, size.toString())
+            }
             editor.commit()
         }.getOrDefault(false) }
         if (saved) changesWaiting = true

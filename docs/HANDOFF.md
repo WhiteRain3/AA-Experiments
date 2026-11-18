@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 422 tests and none fail.
+At the time of writing there are 426 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -144,6 +144,10 @@ Built and unit-tested, not yet confirmed on the device:
   focus ring row that may do nothing).
 - Rail strip colour and wallpaper strength (`wallpaper.rail_look`, "color=AARRGGBB;strength=80",
   parsed by `CarWallpaper.parseRailLook`). Not in look files or Undo yet.
+- Glyph figure size (`icons.glyph_size`, 50 to 150, `GlyphIcons.insetFraction`). Above 100% a
+  themed layer gets an InsetDrawable with a negative fraction (bounds beyond the layer, clipped
+  by it); that this draws as intended is read from the platform source, not seen. Not in look
+  files or Undo yet.
 - Launcher "icons only" (`runtime/LauncherTweaks.java`, key `launcher.config`, value
   `names=off`): hides `grid_item_text_container` in each launcher item after inflation, through
   the same inflate hook and keep-hidden set as the status bar. Not in look files or Undo yet

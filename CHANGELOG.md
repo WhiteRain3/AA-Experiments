@@ -137,6 +137,10 @@ instrumented or physical-device acceptance yet.
   100%) are settings on the Car wallpaper page, instead of a fixed 80% over `#252626`. A colour
   alone, without a whole-screen wallpaper, paints the strip. Untested on a car; not yet part of
   look files or Undo.
+- Glyph icons: a figure size slider (50 to 150%) on the App icons page. The fixed inset of one
+  sixth for glyphs made from non-adaptive icons is now computed from the size; themed layers
+  are inset or enlarged the same way. 100% draws exactly what was drawn before. Untested on a
+  car; not yet part of look files or Undo.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

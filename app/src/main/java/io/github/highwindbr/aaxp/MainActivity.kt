@@ -518,6 +518,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     }
     var glyph by remember(connected) { mutableStateOf(start[0]) }
     var background by remember(connected) { mutableStateOf(start[1]) }
+    var figureSize by remember(connected) { mutableStateOf(if (connected) model.glyphIconSize() else io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_SIZE) }
     var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
     picking?.let { (title, apply) ->
         ColorPickerDialog(title, if (title.startsWith("Glyph")) glyph else background, onDismiss = { picking = null }) { apply(it); picking = null }
@@ -535,8 +536,13 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
         Text("Tap a colour to change it. Opacity 0% on the background shows the glyph alone.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Figure size: $figureSize%", style = MaterialTheme.typography.labelLarge)
+        Slider(figureSize.toFloat(), { figureSize = (it / 5).toInt() * 5 },
+            valueRange = io.github.highwindbr.aaxp.runtime.GlyphIcons.MIN_SIZE.toFloat()..io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_SIZE.toFloat())
+        Text("How big the figure is inside its plate. Not tried on a car yet: above 100% parts of some figures may be cut off at the plate's edge.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ model.setGlyphIcons(colors) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }
+            Button({ model.setGlyphIcons(colors, figureSize) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }
             OutlinedButton({ model.setGlyphIcons(null) { saved -> if (saved) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Turn off") }
         }
     } }

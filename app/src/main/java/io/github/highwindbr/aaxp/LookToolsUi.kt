@@ -197,6 +197,13 @@ private fun iconChoiceText(choice: String): String = when (choice) {
 }
 
 /** Save the whole look to one file, or load one: a style pack to share and a backup in one. */
+/** The name of the file a document was saved as, for the message after saving. */
+private fun savedFileName(context: android.content.Context, uri: android.net.Uri): String = runCatching {
+    context.contentResolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
+        if (it.moveToFirst()) it.getString(0) else null
+    }
+}.getOrNull() ?: uri.lastPathSegment ?: "the file you chose"
+
 @Composable internal fun LookFileCard(model: ManagerViewModel, connected: Boolean) {
     val context = LocalContext.current
     var pending by remember { mutableStateOf<String?>(null) }
@@ -205,7 +212,7 @@ private fun iconChoiceText(choice: String): String = when (choice) {
             context.contentResolver.openOutputStream(uri).use { out ->
                 checkNotNull(out) { "Cannot write the file" }.write(model.exportLook().toByteArray(Charsets.UTF_8))
             }
-        }.fold({ model.reportMessage("Look saved to file.") }, { model.reportMessage("Look not saved: ${it.message}") })
+        }.fold({ model.reportMessage("Look saved to ${savedFileName(context, uri)}.") }, { model.reportMessage("Look not saved: ${it.message}") })
     }
     val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) runCatching {
@@ -225,7 +232,8 @@ private fun iconChoiceText(choice: String): String = when (choice) {
             dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
     }
     SettingsSection("Look file", tip = "One file with the whole look: colours, glyph icons, status bar changes, the car wallpaper with its placement, " +
-        "your themes and your flag presets. Use it as a backup or to pass a style on.") {
+        "your themes and your flag presets. Use it as a backup or to pass a style on. It does not carry your flag overrides or the Quick switches, " +
+        "and a wallpaper image over 12 MB is left out.") {
         LinkRow("Save look to file", onClick = { if (connected) saver.launch("aa-look.json") })
         RowDivider()
         LinkRow("Load a look", onClick = { if (connected) opener.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })

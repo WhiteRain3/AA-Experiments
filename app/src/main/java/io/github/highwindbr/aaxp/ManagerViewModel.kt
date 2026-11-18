@@ -953,8 +953,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             result.getOrThrow() == ProfileMutationCoordinator.Outcome.PUBLISHED -> {
                 val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
                 mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = if (restarted)
-                    "Override saved and runtime profile published. Android Auto was asked to restart."
-                else "Override saved and runtime profile published. Restart Android Auto to apply.")
+                    "Saved. Restarting Android Auto."
+                else "Saved. Restart Android Auto to see it.")
             }
             else -> mutable.value = mutable.value.copy(saveState = SaveState.FAILED,
                 message = "Override saved, but runtime profile was NOT published. Check LSPosed and retry publication.")
@@ -1403,9 +1403,9 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             false // the changes-waiting banner offers the restart
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
-            { (if (colors.isEmpty()) "Extra colours removed." else "Extra colours saved.") +
+            { (if (colors.isEmpty()) "Colours removed." else "Colours saved.") +
                 if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
-            { "Extra colours not saved: ${it.message}" }))
+            { "Colours not saved: ${it.message}" }))
     }
 
     // ---- Rail strip: background colour and wallpaper strength ----

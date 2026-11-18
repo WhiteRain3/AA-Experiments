@@ -78,6 +78,7 @@ import io.github.highwindbr.aaxp.core.CarPreviewColors
 import io.github.highwindbr.aaxp.core.CarTheme
 import io.github.highwindbr.aaxp.core.ColorMath
 import io.github.highwindbr.aaxp.core.Presets
+import io.github.highwindbr.aaxp.core.RecentColours
 import io.github.highwindbr.aaxp.core.Themes
 
 private val QUICK_COLORS = listOf(
@@ -113,6 +114,8 @@ internal fun ColorPickerDialog(
     var value by remember(initial) { mutableStateOf(start[2]) }
     var alpha by remember(initial) { mutableStateOf(if (allowAlpha) ColorMath.alpha(initial) else 255) }
     val color = ColorMath.hsvToColor(hue, saturation, value, alpha)
+    val recentPrefs = androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("manager_ui", Context.MODE_PRIVATE)
+    val recent = remember { RecentColours.decode(recentPrefs.getString("recent_colours", null)) }
     var hex by remember(initial) { mutableStateOf(ColorMath.toHex(color)) }
     fun fromColor(picked: Int) {
         val hsv = ColorMath.colorToHsv(picked)
@@ -162,7 +165,12 @@ internal fun ColorPickerDialog(
                 Slider(alpha.toFloat(), { alpha = it.toInt(); syncHex() }, valueRange = 0f..255f)
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                ColorSwatch(color, Modifier.size(48.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ColorSwatch(initial, Modifier.size(48.dp)); Text("Before", style = MaterialTheme.typography.labelSmall)
+                }
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ColorSwatch(color, Modifier.size(48.dp)); Text("Now", style = MaterialTheme.typography.labelSmall)
+                }
                 OutlinedTextField(hex, { typed ->
                     hex = typed.take(9)
                     ColorMath.parseHex(hex)?.let { parsed ->
@@ -170,15 +178,25 @@ internal fun ColorPickerDialog(
                         hue = hsv[0]; saturation = hsv[1]; value = hsv[2]
                         alpha = if (allowAlpha) ColorMath.alpha(parsed) else 255
                     }
-                }, Modifier.weight(1f), label = { Text(if (allowAlpha) "RRGGBB or AARRGGBB" else "RRGGBB") },
+                }, Modifier.weight(1f), label = { Text("Hex colour") },
+                    supportingText = { Text(if (allowAlpha) "RRGGBB or AARRGGBB" else "RRGGBB") },
                     singleLine = true, isError = ColorMath.parseHex(hex) == null,
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
+            }
+            if (recent.isNotEmpty()) {
+                Text("Recently used", style = MaterialTheme.typography.labelMedium)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    recent.forEach { used -> ColorSwatch(used, onClick = { fromColor(if (allowAlpha) used else ColorMath.withAlpha(used, 255)) }) }
+                }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 QUICK_COLORS.forEach { quick -> ColorSwatch(quick, onClick = { fromColor(ColorMath.withAlpha(quick, alpha)) }) }
             }
         } },
-        confirmButton = { TextButton({ onPick(color) }) { Text("Use colour") } },
+        confirmButton = { TextButton({
+            recentPrefs.edit().putString("recent_colours", RecentColours.encode(RecentColours.push(recent, color))).apply()
+            onPick(color)
+        }) { Text("Use colour") } },
         dismissButton = { TextButton(onDismiss) { Text("Cancel") } })
 }
 

@@ -74,9 +74,8 @@ import io.github.highwindbr.aaxp.core.AvailableUpdate
 internal enum class FeaturePage(val title: String, val subtitle: String, val icon: ImageVector) {
     THEMES("Colours", "Recolour the car screen", Icons.Default.Palette),
     WALLPAPER("Car wallpaper", "Your own image on the car screen", Icons.Default.Wallpaper),
-    ICONS("App icons", "Single-colour glyph icons", Icons.Default.Apps),
+    ICONS("App icons", "Icons on the car screen", Icons.Default.Apps),
     STATUS_BAR("Status bar", "Clock, signal and battery", Icons.Default.Schedule),
-    LAUNCHER("Launcher", "The grid of app icons", Icons.Default.ViewModule),
     LOOK_FILE("Style packs and backup", "Save or load the whole look as one file", Icons.Default.Inventory2),
     PRESETS("Flag presets", "Named sets of flag overrides", Icons.Default.Bookmarks),
     QUICK_SWITCHES("Quick switches", "Several flags behind one switch", Icons.Default.Tune),
@@ -139,8 +138,6 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
     fun wallpaperText() = if (wallpaper) "On" else "Off"
     fun icons() = if (glyphs) "Glyph icons on" else "Normal icons"
     fun statusBarText() = if (statusBar) "Changed" else "Android Auto's own"
-    val launcher = connected && model.launcherConfig() != null
-    fun launcherText() = if (launcher) "Icons only" else "Icons with names"
 }
 
 /**
@@ -224,7 +221,6 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
         item { FeatureTile(FeaturePage.WALLPAPER.icon, FeaturePage.WALLPAPER.title, look.wallpaperText()) { onOpen(FeaturePage.WALLPAPER) } }
         item { FeatureTile(FeaturePage.ICONS.icon, FeaturePage.ICONS.title, look.icons()) { onOpen(FeaturePage.ICONS) } }
         item { FeatureTile(FeaturePage.STATUS_BAR.icon, FeaturePage.STATUS_BAR.title, look.statusBarText()) { onOpen(FeaturePage.STATUS_BAR) } }
-        item { FeatureTile(FeaturePage.LAUNCHER.icon, FeaturePage.LAUNCHER.title, look.launcherText()) { onOpen(FeaturePage.LAUNCHER) } }
         item { SectionHeading("Share and keep") }
         item { FeatureTile(FeaturePage.LOOK_FILE.icon, FeaturePage.LOOK_FILE.title, FeaturePage.LOOK_FILE.subtitle) { onOpen(FeaturePage.LOOK_FILE) } }
     }

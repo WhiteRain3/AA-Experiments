@@ -2,10 +2,12 @@ package io.github.highwindbr.aaxp
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Button
@@ -50,13 +52,15 @@ import kotlinx.coroutines.delay
 
 private fun iconChoiceText(choice: String): String = when (choice) {
     io.github.highwindbr.aaxp.runtime.GlyphIcons.ORIGINAL -> "Its own icon"
-    io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH -> "Glyph, main colours"
+    io.github.highwindbr.aaxp.runtime.GlyphIcons.GLYPH -> "Glyph"
     else -> "Glyph, own colours"
 }
 
 /** A different icon choice for single apps: its own icon, a glyph, or a glyph in colours of its own. */
-@Composable internal fun PerAppIconsCard(model: ManagerViewModel, connected: Boolean) {
+@Composable internal fun PerAppIconsCard(model: ManagerViewModel, connected: Boolean, resetSignal: Int = 0) {
     var choices by remember(connected) { mutableStateOf(if (connected) model.perAppIcons() else emptyMap()) }
+    // The page menu's reset has already written the default; this only brings the rows back to it.
+    LaunchedEffect(resetSignal) { if (resetSignal != 0) choices = emptyMap() }
     var apps by remember { mutableStateOf<List<Pair<String, String>>>(emptyList()) }
     LaunchedEffect(Unit) { apps = model.launchableApps() }
     val names = remember(apps) { apps.toMap() }
@@ -117,24 +121,23 @@ private fun iconChoiceText(choice: String): String = when (choice) {
                 }
             } })
     }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Single apps", fontWeight = FontWeight.Bold)
-        Text("Give one app a different icon from the rest: its own icon, a glyph, or a glyph in colours of its own. This works with glyph icons on or off.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HowThisWorks("Not tried on a real car yet. It applies to app icons in the launcher, the rail and on cards; small icons inside notifications are not covered. Phone, calendar and settings shortcuts belong to the phone's own dialer, calendar and settings apps, so choose those. Changes show after Android Auto restarts.")
+    SettingsSection("Single apps", tip = "Give one app a different icon from the rest: its own icon, a glyph, or a glyph in colours of its own. " +
+        "This works with single-colour icons on or off. It applies to app icons in the launcher, the rail and on cards; small icons inside " +
+        "notifications are not covered. Phone, calendar and settings shortcuts belong to the phone's own dialer, calendar and settings apps, " +
+        "so choose those. Not tried on a real car yet.") {
         choices.forEach { (pkg, choice) ->
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = connected) { editing = pkg },
+                verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(names[pkg] ?: pkg, style = MaterialTheme.typography.bodyMedium)
+                    Text(names[pkg] ?: pkg, style = MaterialTheme.typography.bodyLarge)
                     Text(iconChoiceText(choice), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                TextButton({ editing = pkg }, enabled = connected) { Text("Change") }
-                TextButton({ store(choices - pkg) }, enabled = connected) { Text("Remove") }
+                ResetIcon { store(choices - pkg) }
             }
+            RowDivider()
         }
-        OutlinedButton({ adding = true }, Modifier.fillMaxWidth(),
-            enabled = connected && choices.size < io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_PER_APP) { Text("Add an app") }
-    } }
+        LinkRow("Add an app", onClick = { if (connected && choices.size < io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_PER_APP) adding = true })
+    }
 }
 
 /** Colour of the rail strip and how strongly the wallpaper shows there. */
@@ -161,27 +164,6 @@ private fun iconChoiceText(choice: String): String = when (choice) {
             model.setRailLook(io.github.highwindbr.aaxp.runtime.CarWallpaper.encodeRailLook(
                 io.github.highwindbr.aaxp.runtime.CarWallpaper.RailLook(color, strength)))
         }, Modifier.fillMaxWidth(), enabled = connected) { Text("Save") }
-    } }
-}
-
-/** Changes to the launcher, the grid of app icons. */
-@Composable internal fun LauncherCard(model: ManagerViewModel, connected: Boolean) {
-    val stored = remember(connected) {
-        if (connected) io.github.highwindbr.aaxp.runtime.LauncherTweaks.parse(model.launcherConfig()) else null
-    }
-    var hideNames by remember(stored) { mutableStateOf(stored?.hideNames ?: false) }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Show only the icons in the launcher, without the app names under them.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        HowThisWorks("Not tried on a real car yet. The names are hidden, not removed; whether the rows of icons move closer together or keep an empty gap where the names were is not known until it is seen on the car. Changes show after Android Auto restarts.")
-        Row(Modifier.fillMaxWidth().toggleable(value = hideNames, enabled = connected, role = Role.Switch, onValueChange = {
-            hideNames = it
-            model.setLauncherConfig(io.github.highwindbr.aaxp.runtime.LauncherTweaks.encode(
-                io.github.highwindbr.aaxp.runtime.LauncherTweaks.Config(it)))
-        }), verticalAlignment = Alignment.CenterVertically) {
-            Text("Icons only (hide app names)", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            Switch(checked = hideNames, onCheckedChange = null, enabled = connected)
-        }
     } }
 }
 

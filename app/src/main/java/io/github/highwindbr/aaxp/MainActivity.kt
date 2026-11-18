@@ -160,6 +160,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     var settingsPageName by rememberSaveable { mutableStateOf(SettingsPage.ROOT.name) }
     var coloursRevision by remember { mutableStateOf(0) }
     var statusBarReset by remember { mutableStateOf(0) }
+    var iconsReset by remember { mutableStateOf(0) }
     val settingsPage = runCatching { SettingsPage.valueOf(settingsPageName) }.getOrDefault(SettingsPage.ROOT)
     val uiContext = LocalContext.current
     val managerPrefs = remember { uiContext.getSharedPreferences("manager_ui", 0) }
@@ -241,6 +242,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             menu = if (page == FeaturePage.THEMES) PageMenu("colours", onReset = { model.resetColourPage(); coloursRevision++ },
                 resetNote = "The colour slots and the text and background colours go back to default. The map border width is not changed; it has its own reset arrow.",
                 extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } }))
+                else if (page == FeaturePage.ICONS) PageMenu("app icons", onReset = { model.resetIconsPage(); iconsReset++ })
                 else if (page == FeaturePage.STATUS_BAR) PageMenu("status bar", onReset = { model.setStatusBarConfig(null); statusBarReset++ })
                 else null,
             tip = if (page == FeaturePage.STATUS_BAR) STATUS_BAR_PAGE_TIP else null) {
@@ -250,12 +252,10 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                     CarWallpaperCard(model, connected)
                     RailLookCard(model, connected)
                 }
-                FeaturePage.ICONS -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    GlyphIconsCard(model, connected)
-                    PerAppIconsCard(model, connected)
+                FeaturePage.ICONS -> Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                    AppIconsPage(model, connected, iconsReset)
                 }
                 FeaturePage.STATUS_BAR -> StatusBarPage(model, connected, statusBarReset)
-                FeaturePage.LAUNCHER -> LauncherCard(model, connected)
                 FeaturePage.LOOK_FILE -> LookFileCard(model, connected)
                 FeaturePage.PRESETS -> PresetsCard(model, state.dynamicOverrides, connected)
                 FeaturePage.QUICK_SWITCHES -> QuickSwitchesCard(model, state.dynamicOverrides, connected)
@@ -483,46 +483,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
-    } }
-}
-
-/** One-colour app icons on the car screen, built from each app's own monochrome icon layer. */
-@Composable private fun GlyphIconsCard(model: ManagerViewModel, connected: Boolean) {
-    val stored = remember(connected) { if (connected) model.glyphIconColors() else null }
-    var enabled by remember(connected) { mutableStateOf(stored != null) }
-    val start = remember(connected) {
-        io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(stored ?: io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_COLORS)
-            ?: intArrayOf(-1, 0)
-    }
-    var glyph by remember(connected) { mutableStateOf(start[0]) }
-    var background by remember(connected) { mutableStateOf(start[1]) }
-    var figureSize by remember(connected) { mutableStateOf(if (connected) model.glyphIconSize() else io.github.highwindbr.aaxp.runtime.GlyphIcons.DEFAULT_SIZE) }
-    var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
-    picking?.let { (title, apply) ->
-        ColorPickerDialog(title, if (title.startsWith("Glyph")) glyph else background, onDismiss = { picking = null }) { apply(it); picking = null }
-    }
-    val colors = "${io.github.highwindbr.aaxp.core.ColorMath.toHex(glyph)},${io.github.highwindbr.aaxp.core.ColorMath.toHex(background)}"
-    val valid = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Show apps as single-colour icons. Apps without a themed icon keep their normal one.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ColorSwatch(glyph, onClick = { picking = "Glyph colour" to { picked -> glyph = picked } })
-            Text("Glyph", Modifier.weight(1f))
-            ColorSwatch(background, onClick = { picking = "Background colour" to { picked -> background = picked } })
-            Text("Background", Modifier.weight(1f))
-        }
-        Text("Tap a colour to change it. Opacity 0% on the background shows the glyph alone.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text("Figure size: $figureSize%", style = MaterialTheme.typography.labelLarge)
-        Slider(figureSize.toFloat(), { figureSize = (it / 5).toInt() * 5 },
-            valueRange = io.github.highwindbr.aaxp.runtime.GlyphIcons.MIN_SIZE.toFloat()..io.github.highwindbr.aaxp.runtime.GlyphIcons.MAX_SIZE.toFloat())
-        Text("How big the figure is inside its plate. Not tried on a car yet: above 100% parts of some figures may be cut off at the plate's edge.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button({ model.setGlyphIcons(colors, figureSize) { saved -> if (saved) enabled = true } }, Modifier.weight(1f), enabled = connected && valid) { Text(if (enabled) "Update" else "Turn on") }
-            OutlinedButton({ model.setGlyphIcons(null) { saved -> if (saved) enabled = false } }, Modifier.weight(1f), enabled = connected && enabled) { Text("Turn off") }
-        }
     } }
 }
 

@@ -1729,6 +1729,25 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         mutable.value = mutable.value.copy(message = result.fold({ "Colours are back to default." }, { "Colours not reset: ${it.message}" }))
     }
 
+    /**
+     * Puts the App icons page back to default: single-colour icons off with their size, the icon
+     * choices for single apps, and the launcher's app names. One undo copy for all.
+     */
+    fun resetIconsPage() = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("resetting the app icons")
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY)
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        result.onSuccess { changesWaiting = !it }
+        mutable.value = mutable.value.copy(message = result.fold({ "App icons are back to default." }, { "App icons not reset: ${it.message}" }))
+    }
+
     // ---- One-tap styles ----
 
     /**

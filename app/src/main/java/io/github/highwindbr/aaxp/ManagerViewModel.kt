@@ -1309,8 +1309,10 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * saved ones, and presets are not applied; the wallpaper is replaced only when the file has one.
      */
     fun importLook(text: String, onDone: () -> Unit = {}) = viewModelScope.launch {
-        val result = withContext(Dispatchers.IO) { runCatching {
+        val result = lookWrite { runCatching {
             val bundle = io.github.highwindbr.aaxp.core.LookBundles.decode(text)
+            // The undo copy is taken inside the same lock as the write, so nothing can slip in between.
+            captureUndo("loading a look file")
             val context = getApplication<Application>()
             val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
             val editor = prefs.edit()
@@ -1332,6 +1334,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 parts += "wallpaper"
             }
             check(editor.commit()) { "Framework rejected the preference update" }
+            if (bundle.wallpaperImage != null) markWallpaperApplied()
             bundle.themesJson?.let { json ->
                 val imported = io.github.highwindbr.aaxp.core.Themes.decode(json)
                 val names = imported.map { it.name.lowercase() }.toSet()
@@ -1655,14 +1658,6 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     /** Remembers that the current wallpaper source file is the image the car uses. */
     fun markWallpaperApplied() {
         if (carWallpaperEnabled()) controlPreferences.edit().putString("wallpaper_applied_stamp", wallpaperSourceStamp()).apply()
-    }
-
-    /** The wallpaper source file's stamp now; compare before and after a change made elsewhere. */
-    fun wallpaperStampNow(): String? = wallpaperSourceStamp()
-
-    /** Records the source file as applied only if it changed since [before], so a failed change is not mistaken for an applied one. */
-    fun markWallpaperAppliedIfChanged(before: String?) {
-        if (wallpaperSourceStamp() != before) markWallpaperApplied()
     }
 
     /** Puts back the look kept before the last change. */

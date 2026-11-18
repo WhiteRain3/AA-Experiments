@@ -478,7 +478,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             Button({ model.requestAndroidAutoControl(restart = true, headUnit = dhuMode) }, Modifier.weight(1f), enabled = connected) { Text("Restart") }
             if (dhuMode) OutlinedButton({ model.requestAndroidAutoControl(restart = false, headUnit = true) }, Modifier.weight(1f), enabled = connected) { Text("Head unit server") }
         }
-        switchRow("Restart automatically after a change", "Restarts Android Auto each time a flag override or preset is applied. Changes to the look use the Restart button in the banner instead", autoRestart) {
+        switchRow("Restart automatically after a change", "Restarts Android Auto each time a flag override, preset or look file is applied. Other changes to the look use the Restart button in the banner instead", autoRestart) {
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }

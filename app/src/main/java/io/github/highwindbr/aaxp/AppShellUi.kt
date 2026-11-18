@@ -333,16 +333,22 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
 /** The old collapsed note, now a "?" like every other explanation. */
 @Composable internal fun HowThisWorks(text: String) = TipIcon("How this works", text)
 
+/** A section heading: the same height with or without a "?", 24dp above and 8dp below. */
+@Composable internal fun SectionHeader(title: String, tip: String? = null, trailing: @Composable () -> Unit = {}) {
+    Row(Modifier.fillMaxWidth().padding(top = 24.dp, bottom = 8.dp).height(40.dp).padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary)
+        if (tip != null) TipIcon(title, tip)
+        trailing()
+    }
+}
+
 /** A heading with an optional "?" and one card holding its rows. */
 @Composable internal fun SettingsSection(
     title: String, tip: String? = null, content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(Modifier.fillMaxWidth().padding(top = 20.dp)) {
-        Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
-            if (tip != null) TipIcon(title, tip)
-        }
+    Column(Modifier.fillMaxWidth()) {
+        SectionHeader(title, tip)
         Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
             Column(Modifier.padding(horizontal = 16.dp)) { content() }
         }

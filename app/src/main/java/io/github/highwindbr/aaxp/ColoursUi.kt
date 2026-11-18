@@ -93,11 +93,7 @@ internal fun ColoursPage(
         }
 
         // 2. Styles.
-        Row(Modifier.padding(start = 4.dp, top = 20.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Styles", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
-            TipIcon("Styles", STYLES_TIP)
-        }
+        SectionHeader("Styles", STYLES_TIP)
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Themes.BUILT_IN.forEach { look ->
                 Card(Modifier.width(220.dp)) {

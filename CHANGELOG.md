@@ -134,6 +134,7 @@ instrumented or physical-device acceptance yet.
 - Map border width now uses the module's own setting (0 to 16 dp, Android Auto's own is 6) instead of the Coolwalk flag, which does nothing in Android Auto 18.0; an old override of that flag is removed once. The width is part of look files, Undo and "Reset colours to default".
 - Colour rows put the value under the label in one cell, with the reset slot always reserved, so labels wrap only at spaces and all rows line up; "00FFFFFF" reads "Transparent".
 - The reset control is a small "Reset" text button (it looked like an undo arrow), in a slot that is always reserved.
+- Section headings on every page have the same height (with or without a "?"), 24dp above and 8dp below.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

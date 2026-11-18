@@ -127,12 +127,8 @@ internal fun WallpaperPage(model: ManagerViewModel, connected: Boolean, resetSig
     }
 
     Column {
-        Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text("Car wallpaper", Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary)
-            TipIcon("Car wallpaper", "Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image " +
-                "instead of the phone's. Not yet tried on every car.")
-        }
+        SectionHeader("Car wallpaper", "Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image " +
+            "instead of the phone's. Not yet tried on every car.")
         PreviewCard {
             val shown = thumbnail
             if (enabled && shown != null) WallpaperThumbnail(shown.first, shown.second)

@@ -141,6 +141,7 @@ instrumented or physical-device acceptance yet.
 - Applying a style shows a snackbar "<name> applied." with an Undo action (the same undo as Home), and the style's card says "Applied" instead of Apply until the colours change.
 - The App icons preview draws the sample icons on the background colour as set, with a checkerboard behind a see-through background.
 - Plainer messages: "Saved. Restart Android Auto to see it." (or "Saved. Restarting Android Auto.") after a flag change, and "Colours saved"; saving a look file says which file it was saved to; the look file's "?" says what the file does not carry (flag overrides, Quick switches, wallpapers over 12 MB).
+- Every page's top right is the three-dot menu (no decorative badge); a page's own explanation is "About this page" in that menu.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

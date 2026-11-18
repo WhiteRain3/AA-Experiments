@@ -321,11 +321,17 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
     IconButton({ open = true }, Modifier.size(48.dp)) {
         Icon(Icons.AutoMirrored.Filled.HelpOutline, "About $title", Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    if (open) ModalBottomSheet({ open = false }) {
+    if (open) TipSheet(title, text) { open = false }
+}
+
+/** The bottom sheet a tip opens: the title, the text and "Got it". */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable internal fun TipSheet(title: String, text: String, onDismiss: () -> Unit) {
+    ModalBottomSheet(onDismiss) {
         Column(Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Text(text, style = MaterialTheme.typography.bodyMedium)
-            TextButton({ open = false }, Modifier.align(Alignment.End)) { Text("Got it") }
+            TextButton(onDismiss, Modifier.align(Alignment.End)) { Text("Got it") }
         }
     }
 }
@@ -461,6 +467,8 @@ internal class PageMenu(
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
+    var showAbout by remember { mutableStateOf(false) }
+    if (showAbout && tip != null) TipSheet("About ${page.title}", tip) { showAbout = false }
     if (confirmReset && menu?.onReset != null) androidx.compose.material3.AlertDialog(onDismissRequest = { confirmReset = false },
         title = { Text("Put everything on this page back to default?") },
         text = menu.resetNote?.let { note -> { Text(note) } },
@@ -472,22 +480,22 @@ internal class PageMenu(
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 Spacer(Modifier.width(4.dp))
                 Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(page.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                        if (tip != null) TipIcon(page.title, tip)
-                    }
+                    Text(page.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(page.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                if (menu != null) Box {
+                // The same top-right slot on every page: the three-dot menu, or empty space when a page has nothing to put in it.
+                if (menu != null || tip != null) Box {
                     IconButton({ menuOpen = true }, Modifier.size(48.dp)) { Icon(Icons.Default.MoreVert, "More") }
                     androidx.compose.material3.DropdownMenu(menuOpen, { menuOpen = false }) {
-                        menu.extra.forEach { (label, action) ->
+                        menu?.extra?.forEach { (label, action) ->
                             androidx.compose.material3.DropdownMenuItem({ Text(label) }, { menuOpen = false; action() })
                         }
-                        if (menu.onReset != null) androidx.compose.material3.DropdownMenuItem(
+                        if (tip != null) androidx.compose.material3.DropdownMenuItem(
+                            { Text("About this page") }, { menuOpen = false; showAbout = true })
+                        if (menu?.onReset != null) androidx.compose.material3.DropdownMenuItem(
                             { Text("Reset ${menu.pageName} to default") }, { menuOpen = false; confirmReset = true })
                     }
-                } else IconBadge(page.icon, 40)
+                } else Spacer(Modifier.size(48.dp))
             }
             // The restart banner floats at the bottom instead of sitting above the content, so it appearing never moves what is on screen.
             Box(Modifier.fillMaxSize()) {

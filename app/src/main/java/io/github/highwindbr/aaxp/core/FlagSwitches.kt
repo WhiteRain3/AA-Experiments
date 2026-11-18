@@ -15,7 +15,15 @@ object FlagSwitches {
         "CradleFeature__all_app_launcher_enabled" to "true",
         "CradleFeature__allow_video_apps" to "true"))
 
-    val ALL: List<FlagSwitch> = listOf(PARKED_APPS)
+    /**
+     * Lower quantisation numbers (QP) mean a sharper picture and more data. Android Auto's own
+     * values are 15 and 30; these are lower. The best values for a given adapter are not known.
+     */
+    val SHARP_PICTURE = FlagSwitch("sharp_picture", "Sharp picture", linkedMapOf(
+        "VideoEncoderParams__max_qp_wireless" to "22",
+        "VideoEncoderParams__min_qp_wireless" to "10"))
+
+    val ALL: List<FlagSwitch> = listOf(PARKED_APPS, SHARP_PICTURE)
 
     /** True when every flag of [switch] currently has the switch's value. [current] maps flag key to a serialized override. */
     fun isOn(switch: FlagSwitch, current: Map<String, String>): Boolean =

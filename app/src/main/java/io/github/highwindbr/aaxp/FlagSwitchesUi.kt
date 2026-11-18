@@ -47,6 +47,9 @@ internal fun QuickSwitchesCard(model: ManagerViewModel, overrides: Map<String, T
             FlagSwitchRow(model, overrides, connected, FlagSwitches.PARKED_APPS,
                 "Asks Android Auto to show phone apps and allow video apps while parked. Needs an Android Auto restart. " +
                     "Not known whether Android Auto 18.0 honours this, or whether your car reports \"parked\" through the wireless adapter.")
+            FlagSwitchRow(model, overrides, connected, FlagSwitches.SHARP_PICTURE,
+                "Asks the wireless video for a sharper picture. It may use more Wi-Fi bandwidth and may stutter. " +
+                    "The best values for your adapter are not known. Turning it off puts your earlier values back. Needs an Android Auto restart.")
         }
     }
 }

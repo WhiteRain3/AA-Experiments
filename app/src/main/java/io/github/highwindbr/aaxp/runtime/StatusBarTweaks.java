@@ -7,7 +7,8 @@ import java.util.Set;
 
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
- * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off"; every part is optional.
+ * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent"; every
+ * part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
 public final class StatusBarTweaks {
@@ -19,6 +20,14 @@ public final class StatusBarTweaks {
             "cell_signal", "cell_info_overlay", "battery_level", "dnd_icon");
     public static final String CLOCK = "clock";
     public static final String PLATE = "status_bar_card_view";
+    /** The row holding the signal and battery icons, where the battery number is added. */
+    public static final String ICON_ROW = "icon_row";
+
+    /** Battery level as text, e.g. "74%"; empty when the level is unknown. */
+    public static String percentText(int level, int scale) {
+        if (level < 0 || scale <= 0) return "";
+        return Math.min(100, Math.round(level * 100f / scale)) + "%";
+    }
     private static final List<String> LAYOUTS = Arrays.asList(
             "rail_statusbar", "rail_statusbar_rhd", "vertical_rail_statusbar", "hero_vertical_rail_statusbar");
 
@@ -29,8 +38,15 @@ public final class StatusBarTweaks {
         public final Integer clockColor;
         public final Integer iconColor;
         public final boolean noPlate;
+        /** Show the phone's battery level as a number next to the status icons. */
+        public final boolean batteryPercent;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
+            this(hide, clockColor, iconColor, noPlate, false);
+        }
+
+        public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent) {
+            this.batteryPercent = batteryPercent;
             this.hide = hide;
             this.clockColor = clockColor;
             this.iconColor = iconColor;
@@ -38,7 +54,7 @@ public final class StatusBarTweaks {
         }
 
         public boolean isEmpty() {
-            return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate;
+            return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate && !batteryPercent;
         }
     }
 
@@ -51,7 +67,7 @@ public final class StatusBarTweaks {
         if (text == null || text.isEmpty()) return null;
         Set<String> hide = new LinkedHashSet<>();
         Integer clock = null, icons = null;
-        boolean noPlate = false;
+        boolean noPlate = false, batteryPercent = false;
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -75,11 +91,15 @@ public final class StatusBarTweaks {
                     if (!"off".equals(value)) return null;
                     noPlate = true;
                     break;
+                case "battery":
+                    if (!"percent".equals(value)) return null;
+                    batteryPercent = true;
+                    break;
                 default:
                     return null;
             }
         }
-        Config config = new Config(hide, clock, icons, noPlate);
+        Config config = new Config(hide, clock, icons, noPlate, batteryPercent);
         return config.isEmpty() ? null : config;
     }
 
@@ -91,6 +111,7 @@ public final class StatusBarTweaks {
         if (config.clockColor != null) append(text, "clock=" + String.format("%08X", config.clockColor));
         if (config.iconColor != null) append(text, "icons=" + String.format("%08X", config.iconColor));
         if (config.noPlate) append(text, "plate=off");
+        if (config.batteryPercent) append(text, "battery=percent");
         return text.toString();
     }
 

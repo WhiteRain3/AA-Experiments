@@ -33,6 +33,20 @@ public class StatusBarTweaksTest {
         assertNull(StatusBarTweaks.encode(new StatusBarTweaks.Config(new LinkedHashSet<>(), null, null, false)));
     }
 
+    @Test public void batteryPercent() {
+        StatusBarTweaks.Config config = StatusBarTweaks.parse("hide=battery_level;battery=percent");
+        assertTrue(config.batteryPercent);
+        assertEquals("hide=battery_level;battery=percent", StatusBarTweaks.encode(config));
+        assertTrue(StatusBarTweaks.parse("battery=percent").batteryPercent);
+        assertNull(StatusBarTweaks.parse("battery=icon"));
+        assertFalse(StatusBarTweaks.parse("plate=off").batteryPercent);
+        assertEquals("74%", StatusBarTweaks.percentText(74, 100));
+        assertEquals("50%", StatusBarTweaks.percentText(100, 200));
+        assertEquals("100%", StatusBarTweaks.percentText(101, 100));
+        assertEquals("", StatusBarTweaks.percentText(-1, 100));
+        assertEquals("", StatusBarTweaks.percentText(50, 0));
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

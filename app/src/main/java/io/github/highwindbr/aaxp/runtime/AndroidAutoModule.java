@@ -367,6 +367,18 @@ public final class AndroidAutoModule extends XposedModule {
                     }
                     return chain.proceed();
                 });
+                try {
+                    Method transition = android.view.View.class.getDeclaredMethod("setTransitionVisibility", int.class);
+                    hook(transition).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                        if (anyHiddenViews && !Integer.valueOf(android.view.View.GONE).equals(chain.getArg(0))
+                                && hiddenViews.contains(chain.getThisObject())) {
+                            return chain.proceed(new Object[] {android.view.View.GONE});
+                        }
+                        return chain.proceed();
+                    });
+                } catch (Throwable unavailable) {
+                    event(Log.INFO, "STATUS_BAR_TRANSITION_HOOK_SKIPPED", null, "error", unavailable.getClass().getSimpleName());
+                }
             }
             event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart == null ? 0 : atStart.hide.size()),
                     "rail", String.valueOf(railAtStart));
@@ -515,6 +527,64 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private static final String BATTERY_PERCENT_TAG = "aax_battery_percent";
+
+    /**
+     * Adds the phone's battery level as a number to the status bar's icon row. The text follows
+     * the clock's colour and updates from the system's battery broadcast while it is on screen.
+     */
+    private void addBatteryPercent(android.view.View root, StatusBarTweaks.Config config) {
+        try {
+            if (!(findByName(root, StatusBarTweaks.ICON_ROW) instanceof android.view.ViewGroup row)) return;
+            if (row.findViewWithTag(BATTERY_PERCENT_TAG) != null) return;
+            final android.widget.TextView text = new android.widget.TextView(row.getContext());
+            text.setTag(BATTERY_PERCENT_TAG);
+            text.setSingleLine(true);
+            text.setIncludeFontPadding(false);
+            text.setGravity(android.view.Gravity.CENTER);
+            int color = 0xFFF2F0F0;
+            float size = 22f;
+            if (findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
+                color = clock.getCurrentTextColor();
+                size = clock.getTextSize() * 0.7f;
+            }
+            if (config.clockColor != null) color = config.clockColor;
+            text.setTextColor(color);
+            text.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
+            final android.content.BroadcastReceiver receiver = new android.content.BroadcastReceiver() {
+                @Override public void onReceive(android.content.Context context, Intent intent) {
+                    text.setText(StatusBarTweaks.percentText(
+                            intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1),
+                            intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)));
+                }
+            };
+            text.addOnAttachStateChangeListener(new android.view.View.OnAttachStateChangeListener() {
+                @Override public void onViewAttachedToWindow(android.view.View view) {
+                    try {
+                        android.content.IntentFilter filter = new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                        Intent sticky = android.os.Build.VERSION.SDK_INT >= 33
+                                ? view.getContext().getApplicationContext().registerReceiver(receiver, filter,
+                                        android.content.Context.RECEIVER_NOT_EXPORTED)
+                                : view.getContext().getApplicationContext().registerReceiver(receiver, filter);
+                        if (sticky != null) receiver.onReceive(view.getContext(), sticky);
+                    } catch (Throwable t) {
+                        eventOnce(Log.WARN, "BATTERY_PERCENT_FAILED", "register", t.getClass().getSimpleName());
+                    }
+                }
+                @Override public void onViewDetachedFromWindow(android.view.View view) {
+                    try {
+                        view.getContext().getApplicationContext().unregisterReceiver(receiver);
+                    } catch (Throwable ignored) { }
+                }
+            });
+            row.addView(text, new android.view.ViewGroup.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+            eventOnce(Log.INFO, "BATTERY_PERCENT_ADDED", "status_bar", "first");
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "BATTERY_PERCENT_FAILED", "add", t.getClass().getSimpleName());
+        }
+    }
+
     private static android.view.View findByName(android.view.View root, String idName) {
         int id = root.getResources().getIdentifier(idName, "id", AA_PACKAGE);
         return id == 0 ? null : root.findViewById(id);
@@ -527,7 +597,17 @@ public final class AndroidAutoModule extends XposedModule {
             hiddenViews.add(target);
             anyHiddenViews = true;
             target.setVisibility(android.view.View.GONE);
+            // Android Auto can show a view again without going through setVisibility; a view
+            // with no size and no opacity stays out of sight either way.
+            target.setAlpha(0f);
+            android.view.ViewGroup.LayoutParams params = target.getLayoutParams();
+            if (params != null) {
+                params.width = 0;
+                params.height = 0;
+                target.setLayoutParams(params);
+            }
         }
+        if (config.batteryPercent) addBatteryPercent(root, config);
         if (config.clockColor != null && findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
             clock.setTextColor(config.clockColor);
         }

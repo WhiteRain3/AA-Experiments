@@ -59,6 +59,7 @@ private val STATUS_BAR_PARTS = listOf(
     var clockColor by remember(stored) { mutableStateOf(stored?.clockColor) }
     var iconColor by remember(stored) { mutableStateOf(stored?.iconColor) }
     var noPlate by remember(stored) { mutableStateOf(stored?.noPlate ?: false) }
+    var batteryPercent by remember(stored) { mutableStateOf(stored?.batteryPercent ?: false) }
     var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
     picking?.let { (title, apply) ->
         ColorPickerDialog(title, 0xFFFFFFFF.toInt(), onDismiss = { picking = null }) { apply(it); picking = null }
@@ -85,6 +86,7 @@ private val STATUS_BAR_PARTS = listOf(
         STATUS_BAR_PARTS.forEach { (id, label) ->
             switchRow(label, id in hidden) { hidden = if (it) hidden + id else hidden - id }
         }
+        switchRow("Show battery as a percentage", batteryPercent) { batteryPercent = it }
         switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
         colorRow("Clock colour", clockColor) { clockColor = it }
         colorRow("Icon colour", iconColor) { iconColor = it }
@@ -92,10 +94,10 @@ private val STATUS_BAR_PARTS = listOf(
             Button({
                 // Keep the order stable so the stored text does not change needlessly.
                 val hide = LinkedHashSet(StatusBarTweaks.HIDEABLE.filter { it in hidden })
-                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate)))
+                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate, batteryPercent)))
             }, Modifier.weight(1f), enabled = connected) { Text("Save") }
             OutlinedButton({
-                hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false
+                hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false; batteryPercent = false
                 model.setStatusBarConfig(null)
             }, Modifier.weight(1f), enabled = connected && stored != null) { Text("Turn off") }
         }

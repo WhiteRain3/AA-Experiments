@@ -142,6 +142,14 @@ Built and unit-tested, not yet confirmed on the device:
   offers roundness with a colour. Unknown until seen: whether the card's own foreground (stroke,
   ripple) still shows the old shape. The same applies to "remove the plate", which ends up in
   `setBackgroundColor(0)`. New status bar settings go in `StatusBarTweaks.Builder`.
+- Battery number coloured by level (`battery_level=high,low` plus optional
+  `battery_high_color`, `battery_mid_color`, `battery_low_color`, `battery_charge_color`;
+  `StatusBarTweaks.levelColor`). Set in the battery broadcast receiver, so it is the one status
+  bar change that updates while Android Auto runs. `StatusBarStyle.merge` starts from
+  `Config.toBuilder()`; build status bar settings that way so new fields are never dropped.
+- Status bar icon size (`icon_size`): `icon_row` is scaled with scaleX/scaleY and its two
+  nearest parents get `clipChildren=false`. Unknown until seen: whether a larger row is cut off
+  by the plate (a card clips to its rounded outline) or touches the clock.
 - Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
   until seen: whether Android Auto resets the text size or typeface later (for example on a
   day/night switch), and whether 140% is clipped by the 107 px rail.

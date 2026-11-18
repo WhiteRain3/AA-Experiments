@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 487 tests and none fail.
+At the time of writing there are 489 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -208,16 +208,18 @@ says the hook works; it does not say the car's screen, knob or sensors behave th
   when both icons are shown.
 - Rail strip colour works. Glyph figure size 150% works and figures are cut by the round plate,
   as the tip warns. With an icon background colour, three launcher icons came out inverted
-  (coloured figure on a white plate), YT Music among them: not looked into yet.
+  (a plate in the glyph colour, figure in the background colour), YT Music among them. Cause
+  as read from the screenshot, not from the apps themselves: their themed (monochrome) layer
+  is a filled disc with the figure cut out. `GlyphIcons.figureInsidePlate` now turns such a
+  layer into its cut-out figure; a wrongly recognised icon would show only its holes, so a
+  report of an icon that became unrecognisable points there.
 - Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
   bit, the focus box shrinks to fit.
 - Day and night: the head unit's `day` / `night` command changed no colour the module had set
   and caused no repaint. So on the head unit Android Auto stayed dark; whether the car's sensor
   does more is not known.
-- The knob lost focus several times until the head unit was reconnected, also with the
-  Tester's own unchanged look. No hook of the module touches focus (hidden views are GONE and
-  were not focusable targets; `FocusInterceptor` views are not touched), so no cause is known
-  in the module; it may be the head unit.
+- The Tester saw the knob lose focus on the head unit several times. The owner puts that down
+  to using the PC while the head unit ran (window focus). Not a bug of this app.
 
 ### Colour roles confirmed on the car (Android Auto 18.0)
 

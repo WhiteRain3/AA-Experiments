@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 508 tests and none fail.
+At the time of writing there are 516 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -231,7 +231,10 @@ says the hook works; it does not say the car's screen, knob or sensors behave th
   island has a hole of its own: in the screenshot YT Music's ring is cut all the way round,
   leaving an island with the play triangle cut out of it; without that exception it would stay
   reversed. Layers are judged once each (cache by ConstantState) on a
-  108 px render.
+  108 px render. The figure is then enlarged to the plate's extent
+  (`GlyphIcons.enlargeFigureToPlate`, capped at 2.5 times, re-rendered at 216 px), because on
+  its own it was a small leftover (head unit, wr37). With a see-through icon background
+  (`GlyphIcons.flipsPlates`) such layers are left as the app drew them.
 - Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
   bit, the focus box shrinks to fit.
 - Day and night: the head unit's `day` / `night` command changed no colour the module had set
@@ -384,6 +387,20 @@ Per-app choices are stored in `icons.per_app` (`GlyphIcons.parsePerApp`, `effect
 - So a wallpaper on the dashboard can only be an image inside the Dashboard window: visible in
   the gaps between cards and at their corners, or through the cards if the `Surface` role is
   given some transparency. Nothing can be shown behind the map.
+
+### "The first restart after an update ran the old module" (head unit, wr37; cause not ours)
+
+Seen once by the Tester: with wr37 installed, the first Android Auto restart of the round still
+behaved like the previous build (old glyph shapes, no `MAP_BORDER_APPLIED`); from the second
+restart on it was wr37. Checked in our code: a restart makes every Android Auto process end
+itself, the new processes load the module afresh, the settings snapshot is read before any hook
+is installed, and a setting saved before the restart request is in that snapshot (remote
+preferences are committed to the framework's service before the request is written). Nothing in
+the module defers or caches code across a restart. Which module build a new process gets is
+decided by the LSPosed-type framework, not by us; the likely explanation is that it handed the
+first new process the build it had cached. To prove it either way, `MODULE_LOADED` now logs
+`version` (BuildConfig.VERSION_NAME): after the next update, read that line after the first
+restart. Until then tell the owner: after updating the app, restart Android Auto twice.
 
 ## Reverse-engineering material
 

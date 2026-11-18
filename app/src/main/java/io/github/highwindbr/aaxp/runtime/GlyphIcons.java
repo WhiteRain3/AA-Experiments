@@ -309,6 +309,70 @@ public final class GlyphIcons {
         return mask;
     }
 
+    /**
+     * A figure cut out of a plate is smaller than the plate was, so on its own it looks tiny
+     * next to other glyphs. This enlarges the figure in {@code mask} (as returned by
+     * {@link #figureInsidePlate}) about the plate's centre until it is as large as the plate
+     * drawn in {@code alpha} was, which is the size the app chose for its icon. Returns a new
+     * mask; the input when there is nothing to enlarge. The enlargement is capped at
+     * {@link #MAX_FIGURE_ENLARGE} so a tiny cut-out does not become a blur.
+     */
+    public static int[] enlargeFigureToPlate(int[] mask, int[] alpha, int size) {
+        if (mask == null || alpha == null || size <= 0 || mask.length != size * size || alpha.length != mask.length) return mask;
+        int[] plate = bounds(alpha, size), figure = bounds(mask, size);
+        if (plate == null || figure == null) return mask;
+        float plateW = plate[2] - plate[0] + 1, plateH = plate[3] - plate[1] + 1;
+        float figureW = figure[2] - figure[0] + 1, figureH = figure[3] - figure[1] + 1;
+        float factor = Math.min(MAX_FIGURE_ENLARGE, Math.min(plateW / figureW, plateH / figureH));
+        if (factor <= 1.02f) return mask;
+        float fromX = (figure[0] + figure[2]) / 2f, fromY = (figure[1] + figure[3]) / 2f;
+        float toX = (plate[0] + plate[2]) / 2f, toY = (plate[1] + plate[3]) / 2f;
+        int[] out = new int[mask.length];
+        for (int y = 0; y < size; y++) {
+            float sy = (y - toY) / factor + fromY;
+            int y0 = (int) Math.floor(sy);
+            float fy = sy - y0;
+            for (int x = 0; x < size; x++) {
+                float sx = (x - toX) / factor + fromX;
+                int x0 = (int) Math.floor(sx);
+                float fx = sx - x0;
+                float value = at(mask, size, x0, y0) * (1 - fx) * (1 - fy) + at(mask, size, x0 + 1, y0) * fx * (1 - fy)
+                        + at(mask, size, x0, y0 + 1) * (1 - fx) * fy + at(mask, size, x0 + 1, y0 + 1) * fx * fy;
+                out[y * size + x] = Math.max(0, Math.min(255, Math.round(value)));
+            }
+        }
+        return out;
+    }
+
+    public static final float MAX_FIGURE_ENLARGE = 2.5f;
+
+    /**
+     * Whether plate-shaped themed layers are turned into their cut-out figure at all. On a
+     * see-through background there is no second plate behind the icon, and the app's own filled
+     * shape is easier to recognise than a bare figure, so it is left as the app drew it.
+     */
+    public static boolean flipsPlates(int backgroundColor) {
+        return (backgroundColor >>> 24) >= 0x33;
+    }
+
+    private static int at(int[] values, int size, int x, int y) {
+        return x < 0 || y < 0 || x >= size || y >= size ? 0 : values[y * size + x];
+    }
+
+    /** Left, top, right, bottom of the pixels at 128 or more; null when there are none. */
+    private static int[] bounds(int[] values, int size) {
+        int minX = size, minY = size, maxX = -1, maxY = -1;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] < 128) continue;
+            int x = i % size, y = i / size;
+            if (x < minX) minX = x;
+            if (x > maxX) maxX = x;
+            if (y < minY) minY = y;
+            if (y > maxY) maxY = y;
+        }
+        return maxX < 0 ? null : new int[] {minX, minY, maxX, maxY};
+    }
+
     /** Share of the whole plate the outer piece must have when the plate is in more than one piece. */
     public static final float PLATE_RIM_SHARE = 0.40f;
     /** Largest share of holes for a plate in more than one piece. */

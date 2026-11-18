@@ -244,6 +244,12 @@ instrumented or physical-device acceptance yet.
   size slider look as if it did nothing. Icons and number are only drawn smaller when the three
   lines are taller than the plate, by the same share, and never below 60%; the clock keeps its
   size. With both icons hidden the number stays where it was. Untested on a head unit or car.
+- Glyph icons: a figure cut out of a plate-shaped themed icon (YT Music, Messenger) is enlarged
+  to the size the plate had, so it is as big as other glyphs instead of a small leftover; the
+  Figure size setting applies on top as for any icon. On a see-through icon background such
+  icons are no longer changed at all: the app's own filled shape is easier to recognise there.
+- The module log's `MODULE_LOADED` line now carries the module's version, to settle whether the
+  first Android Auto restart after an app update already runs the new module.
 - versionName `1.0.0-wr37`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

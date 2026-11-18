@@ -89,7 +89,10 @@ public final class AndroidAutoModule extends XposedModule {
 
     @Override public void onModuleLoaded(XposedModuleInterface.ModuleLoadedParam param) {
         moduleProcessName = param.getProcessName();
-        event(Log.INFO, "MODULE_LOADED", null, "process", moduleProcessName, "api", String.valueOf(getApiVersion()));
+        // The version of the module code this process really runs: after an app update the first
+        // restart of Android Auto has been seen behaving like the previous build.
+        event(Log.INFO, "MODULE_LOADED", null, "process", moduleProcessName, "api", String.valueOf(getApiVersion()),
+                "version", io.github.highwindbr.aaxp.BuildConfig.VERSION_NAME);
         try {
             remotePreferences = getRemotePreferences(PREF_GROUP);
             refreshSnapshot(remotePreferences);
@@ -1491,11 +1494,18 @@ public final class AndroidAutoModule extends XposedModule {
             // A themed layer drawn as a plate with the figure cut out would come out reversed.
             // Whether a layer is such a plate is remembered per layer, so only the few that are
             // get rendered again.
+            // On a see-through background the app's own filled shape is kept: it reads better
+            // than a bare figure and there is no plate behind it to clash with.
             Object layerKey = monochrome.getConstantState();
-            if (layerKey == null || !Boolean.FALSE.equals(PLATE_LAYERS.get(layerKey))) {
-                android.graphics.drawable.Drawable figure = figureFromPlate(glyph, colors[0]);
+            if (GlyphIcons.flipsPlates(colors[1])
+                    && (layerKey == null || !Boolean.FALSE.equals(PLATE_LAYERS.get(layerKey)))) {
+                android.graphics.drawable.Drawable figure = figureFromPlate(glyph, colors[0], PLATE_CHECK_SIZE);
                 if (layerKey != null) PLATE_LAYERS.put(layerKey, figure != null);
-                if (figure != null) glyph = figure;
+                if (figure != null) {
+                    // Judged small; drawn again at full size, because the figure is enlarged.
+                    android.graphics.drawable.Drawable sharp = figureFromPlate(glyph, colors[0], GENERATED_GLYPH_SIZE);
+                    glyph = sharp != null ? sharp : figure;
+                }
             }
         } else {
             // No themed layer: derive a glyph from the icon's own foreground.
@@ -1543,11 +1553,10 @@ public final class AndroidAutoModule extends XposedModule {
     private static final int PLATE_CHECK_SIZE = 108;
 
     /** The cut-out figure of a plate-shaped themed layer as a drawable in {@code color}, or null. Never throws. */
-    private static android.graphics.drawable.Drawable figureFromPlate(android.graphics.drawable.Drawable layer, int color) {
+    private static android.graphics.drawable.Drawable figureFromPlate(android.graphics.drawable.Drawable layer, int color, int size) {
         android.graphics.Bitmap rendered = null;
         boolean used = false;
         try {
-            int size = PLATE_CHECK_SIZE;
             rendered = android.graphics.Bitmap.createBitmap(
                     size, size, android.graphics.Bitmap.Config.ARGB_8888);
             android.graphics.Rect previous = layer.copyBounds();
@@ -1559,6 +1568,8 @@ public final class AndroidAutoModule extends XposedModule {
             for (int i = 0; i < pixels.length; i++) pixels[i] = pixels[i] >>> 24;
             int[] mask = GlyphIcons.figureInsidePlate(pixels, size);
             if (mask == null) return null;
+            // The figure alone is smaller than the plate was: bring it up to the plate's size.
+            mask = GlyphIcons.enlargeFigureToPlate(mask, pixels, size);
             int rgb = color & 0x00FFFFFF;
             int opacity = color >>> 24;
             for (int i = 0; i < mask.length; i++) pixels[i] = ((mask[i] * opacity / 255) << 24) | rgb;

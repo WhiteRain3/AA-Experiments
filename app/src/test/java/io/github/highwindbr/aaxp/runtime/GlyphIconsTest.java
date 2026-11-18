@@ -284,4 +284,49 @@ public class GlyphIconsTest {
         org.junit.Assert.assertEquals(0, mask[c * size + c + 15]);     // the island is plate
         org.junit.Assert.assertEquals(0, mask[c * size + c + 35]);     // so is the rim
     }
+
+    private static int[] extent(int[] values, int size) {
+        int minX = size, maxX = -1, minY = size, maxY = -1;
+        for (int i = 0; i < values.length; i++) {
+            if (values[i] < 128) continue;
+            minX = Math.min(minX, i % size); maxX = Math.max(maxX, i % size);
+            minY = Math.min(minY, i / size); maxY = Math.max(maxY, i / size);
+        }
+        return new int[] {minX, minY, maxX, maxY};
+    }
+
+    @Test public void cutOutFigureIsEnlargedToThePlatesSize() {
+        int size = 108;
+        int[] alpha = disc(size, 36, 12);            // plate 73 px across, square hole 25 px across
+        int[] mask = GlyphIcons.figureInsidePlate(alpha, size);
+        org.junit.Assert.assertNotNull(mask);
+        int[] before = extent(mask, size);
+        org.junit.Assert.assertEquals(25, before[2] - before[0] + 1);
+        int[] grown = GlyphIcons.enlargeFigureToPlate(mask, alpha, size);
+        int[] after = extent(grown, size);
+        // 73 / 25 is more than the cap, so the figure grows by the cap: 2.5 times.
+        org.junit.Assert.assertEquals(25 * GlyphIcons.MAX_FIGURE_ENLARGE, after[2] - after[0] + 1, 3f);
+        org.junit.Assert.assertEquals(after[2] - after[0], after[3] - after[1], 1f);
+        // Still centred on the plate.
+        org.junit.Assert.assertEquals(size / 2f, (after[0] + after[2]) / 2f, 1.5f);
+        org.junit.Assert.assertEquals(255, grown[(size / 2) * size + size / 2]);
+        org.junit.Assert.assertEquals(0, grown[0]);
+    }
+
+    @Test public void figureAsLargeAsThePlateIsLeftAlone() {
+        int size = 108;
+        int[] alpha = disc(size, 36, 0);
+        int[] figure = disc(size, 36, 0);
+        org.junit.Assert.assertSame(figure, GlyphIcons.enlargeFigureToPlate(figure, alpha, size));
+        org.junit.Assert.assertNull(GlyphIcons.enlargeFigureToPlate(null, alpha, size));
+        int[] empty = new int[size * size];
+        org.junit.Assert.assertSame(empty, GlyphIcons.enlargeFigureToPlate(empty, alpha, size));
+    }
+
+    @Test public void platesAreOnlyFlippedOnAVisibleBackground() {
+        org.junit.Assert.assertFalse(GlyphIcons.flipsPlates(0x00000000));
+        org.junit.Assert.assertFalse(GlyphIcons.flipsPlates(0x20123456));
+        org.junit.Assert.assertTrue(GlyphIcons.flipsPlates(0x80123456));
+        org.junit.Assert.assertTrue(GlyphIcons.flipsPlates(0xFF0044CC));
+    }
 }

@@ -117,7 +117,8 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
 
     // Writes the whole page's state; called after a switch, a slider release or a colour pick.
     fun commit() {
-        val base = (stored ?: StatusBarTweaks.Config(LinkedHashSet<String>(), null, null, false)).toBuilder()
+        // Starts from what is stored right now, so settings this page does not manage are kept.
+        val base = (StatusBarTweaks.parse(model.statusBarConfig()) ?: StatusBarTweaks.Config(LinkedHashSet<String>(), null, null, false)).toBuilder()
         // Keep the order stable so the stored text does not change needlessly.
         base.hide = LinkedHashSet(StatusBarTweaks.HIDEABLE.filter { it in hidden })
         base.clockColor = clockColor; base.iconColor = iconColor; base.noPlate = noPlate
@@ -130,8 +131,9 @@ internal fun StatusBarPage(model: ManagerViewModel, connected: Boolean, resetSig
         model.setStatusBarConfig(StatusBarTweaks.encode(base.build()))
     }
     // The page menu's reset has already written the default; this only brings the rows back to it.
+    val resetWatcher = remember { io.github.highwindbr.aaxp.core.ResetWatcher(resetSignal) }
     LaunchedEffect(resetSignal) {
-        if (resetSignal != 0) {
+        if (resetWatcher.changed(resetSignal)) {
             hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false; batteryPercent = false
             batteryColor = null; batterySize = StatusBarTweaks.DEFAULT_BATTERY_SIZE
             clockSize = StatusBarTweaks.DEFAULT_CLOCK_SIZE; clockBold = false

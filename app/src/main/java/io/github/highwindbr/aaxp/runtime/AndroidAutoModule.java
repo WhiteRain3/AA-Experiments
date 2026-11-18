@@ -203,7 +203,7 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(ThemeColors.COLORS_KEY), overrideSnapshot.get(GlyphIcons.KEY),
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
-                    overrideSnapshot.get(SafeMode.EPOCH_KEY));
+                    overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
             String stored = null;
@@ -333,7 +333,8 @@ public final class AndroidAutoModule extends XposedModule {
     private void installStatusBarHooks() {
         final StatusBarTweaks.Config atStart = statusBar();
         final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY));
-        if (atStart == null && !railAtStart) return;
+        final LauncherTweaks.Config launcherAtStart = launcher();
+        if (atStart == null && !railAtStart && launcherAtStart == null) return;
         try {
             Method inflate = android.view.LayoutInflater.class.getDeclaredMethod(
                     "inflate", int.class, android.view.ViewGroup.class, boolean.class);
@@ -356,9 +357,15 @@ public final class AndroidAutoModule extends XposedModule {
                 } catch (Throwable t) {
                     eventOnce(Log.WARN, "STATUS_BAR_FAILED", "inflate", t.getClass().getSimpleName());
                 }
+                try {
+                    LauncherTweaks.Config config = launcher();
+                    if (config != null && result instanceof android.view.View view) applyLauncher(view, (Integer) chain.getArg(0), config);
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "LAUNCHER_FAILED", "inflate", t.getClass().getSimpleName());
+                }
                 return result;
             });
-            if (atStart != null && !atStart.hide.isEmpty()) {
+            if ((atStart != null && !atStart.hide.isEmpty()) || (launcherAtStart != null && launcherAtStart.hideNames)) {
                 Method setVisibility = android.view.View.class.getDeclaredMethod("setVisibility", int.class);
                 hook(setVisibility).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                     if (anyHiddenViews && !Integer.valueOf(android.view.View.GONE).equals(chain.getArg(0))
@@ -381,7 +388,7 @@ public final class AndroidAutoModule extends XposedModule {
                 }
             }
             event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart == null ? 0 : atStart.hide.size()),
-                    "rail", String.valueOf(railAtStart));
+                    "rail", String.valueOf(railAtStart), "launcher", String.valueOf(launcherAtStart != null));
         } catch (Throwable t) {
             event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
@@ -627,27 +634,83 @@ public final class AndroidAutoModule extends XposedModule {
         return id == 0 ? null : root.findViewById(id);
     }
 
+    /** Hides {@code target} and keeps it hidden when Android Auto later tries to show it. */
+    private void hideForGood(android.view.View target) {
+        hiddenViews.add(target);
+        anyHiddenViews = true;
+        hookOwnVisibilitySetters(target.getClass());
+        target.setVisibility(android.view.View.GONE);
+        // Android Auto can show a view again without going through setVisibility; a view
+        // with no size and no opacity stays out of sight either way.
+        target.setAlpha(0f);
+        android.view.ViewGroup.LayoutParams params = target.getLayoutParams();
+        // In a ConstraintLayout a size of 0 means "stretch between constraints", not "no
+        // size", so there the view keeps its size and relies on being gone and transparent.
+        boolean constraintParent = target.getParent() != null
+                && target.getParent().getClass().getName().contains("ConstraintLayout");
+        if (params != null && !constraintParent) {
+            params.width = 0;
+            params.height = 0;
+            target.setLayoutParams(params);
+        }
+    }
+
+    private volatile String launcherRaw;
+    private volatile LauncherTweaks.Config launcherParsed;
+    private final Map<Integer, Boolean> launcherLayouts = new ConcurrentHashMap<>();
+
+    /** Parsed launcher setting, re-parsed only when the stored text changes; null when off. */
+    private LauncherTweaks.Config launcher() {
+        String raw = overrideSnapshot.get(LauncherTweaks.KEY);
+        if (raw == null) return null;
+        if (!raw.equals(launcherRaw)) {
+            launcherParsed = LauncherTweaks.parse(raw);
+            launcherRaw = raw;
+        }
+        return launcherParsed;
+    }
+
+    /**
+     * Launcher "icons only". A launcher item is recognised by the view id of its text container
+     * in the tree a layout was inflated into; whether a layout produces one is remembered per
+     * layout, so other layouts cost one map lookup. The container stays in the hidden set for
+     * as long as the view lives, so the list re-binding a recycled item cannot show it again.
+     */
+    private void applyLauncher(android.view.View root, Integer layout, LauncherTweaks.Config config) {
+        if (!config.hideNames) return;
+        Boolean match = launcherLayouts.get(layout);
+        if (match != null && !match) return;
+        int id = root.getResources().getIdentifier(LauncherTweaks.TEXT_CONTAINER, "id", AA_PACKAGE);
+        if (id == 0) {
+            eventOnce(Log.WARN, "LAUNCHER_NO_ID", LauncherTweaks.TEXT_CONTAINER, "first");
+            launcherLayouts.put(layout, false);
+            return;
+        }
+        java.util.List<android.view.View> found = new java.util.ArrayList<>();
+        collectById(root, id, found, 0);
+        if (match == null) launcherLayouts.put(layout, !found.isEmpty());
+        for (android.view.View container : found) {
+            if (!hiddenViews.contains(container)) hideForGood(container);
+        }
+        if (!found.isEmpty()) eventOnce(Log.INFO, "LAUNCHER_NAMES_HIDDEN", "launcher", "first");
+    }
+
+    /** Every view with {@code id} under {@code view}; a layout can hold several launcher items. */
+    private static void collectById(android.view.View view, int id, java.util.List<android.view.View> into, int depth) {
+        if (view.getId() == id) {
+            into.add(view);
+            return;
+        }
+        if (depth < 12 && view instanceof android.view.ViewGroup group) {
+            for (int i = 0; i < group.getChildCount(); i++) collectById(group.getChildAt(i), id, into, depth + 1);
+        }
+    }
+
     private void applyStatusBar(android.view.View root, StatusBarTweaks.Config config) {
         for (String name : config.hide) {
             android.view.View target = findByName(root, name);
             if (target == null) continue;
-            hiddenViews.add(target);
-            anyHiddenViews = true;
-            hookOwnVisibilitySetters(target.getClass());
-            target.setVisibility(android.view.View.GONE);
-            // Android Auto can show a view again without going through setVisibility; a view
-            // with no size and no opacity stays out of sight either way.
-            target.setAlpha(0f);
-            android.view.ViewGroup.LayoutParams params = target.getLayoutParams();
-            // In a ConstraintLayout a size of 0 means "stretch between constraints", not "no
-            // size", so there the view keeps its size and relies on being gone and transparent.
-            boolean constraintParent = target.getParent() != null
-                    && target.getParent().getClass().getName().contains("ConstraintLayout");
-            if (params != null && !constraintParent) {
-                params.width = 0;
-                params.height = 0;
-                target.setLayoutParams(params);
-            }
+            hideForGood(target);
         }
         if (config.batteryPercent) addBatteryPercent(root, config);
         if (config.clockColor != null && findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {

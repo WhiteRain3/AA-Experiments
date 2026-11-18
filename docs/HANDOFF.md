@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 387 tests and none fail.
+At the time of writing there are 407 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -137,7 +137,15 @@ Built and unit-tested, not yet confirmed on the device:
 - Update check through the release page redirect (wr21).
 - Wallpaper darken and blur, seed colour from the wallpaper, theme copy and paste, the
   quick settings tile, rail alignment nudges.
-- "More colours" (labels, clock, rail icons, launcher background, map focus border).
+- "More colours" (labels, clock, rail icons, launcher background, map focus border, and a
+  focus ring row that may do nothing).
+- Launcher "icons only" (`runtime/LauncherTweaks.java`, key `launcher.config`, value
+  `names=off`): hides `grid_item_text_container` in each launcher item after inflation, through
+  the same inflate hook and keep-hidden set as the status bar. Not in look files or Undo yet
+  (`core/LookBundles.kt`, `core/LookUndo.kt` are the App worker's). Unknown until seen: whether
+  rows close up or leave a gap, and whether the item layout goes through
+  `LayoutInflater.inflate(int, ViewGroup, boolean)` at all (event `LAUNCHER_NAMES_HIDDEN` in the
+  module log says it did).
 
 ### Colour roles confirmed on the car (Android Auto 18.0)
 
@@ -182,8 +190,10 @@ Rail window: `rail_container` > `rail`; hotseat items `hotseat_one`..`hotseat_fo
 status bar `status_bar_card_view` > `status_bar_container` (a ConstraintLayout) holding
 `icon_row` (a horizontal LinearLayout with `signal_icon`, a FrameLayout, and `battery_level`,
 an ImageView), `clock`, `notification_count_wrapper` and `dnd_icon`.
-Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`), `GridItemView` rows
-with `grid_item_image` and `grid_item_title`. Focus is handled by `FocusInterceptor` views.
+Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`); `AutoTunedRecyclerView`
+`tuned_recycler_view` > `GridRowContainerView` (four items) > `GridItemView`, each holding
+`grid_item_image_container` (117x117 `grid_item_image`) and `grid_item_text_container` (173x52,
+with CarTextViews `grid_item_title` and `grid_item_text`). Focus is handled by `FocusInterceptor` views.
 
 ## Reverse-engineering material
 

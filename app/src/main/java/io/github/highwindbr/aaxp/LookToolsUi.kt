@@ -113,6 +113,27 @@ private val STATUS_BAR_PARTS = listOf(
     } }
 }
 
+/** Changes to the launcher, the grid of app icons. */
+@Composable internal fun LauncherCard(model: ManagerViewModel, connected: Boolean) {
+    val stored = remember(connected) {
+        if (connected) io.github.highwindbr.aaxp.runtime.LauncherTweaks.parse(model.launcherConfig()) else null
+    }
+    var hideNames by remember(stored) { mutableStateOf(stored?.hideNames ?: false) }
+    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Show only the icons in the launcher, without the app names under them.",
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        HowThisWorks("Not tried on a real car yet. The names are hidden, not removed; whether the rows of icons move closer together or keep an empty gap where the names were is not known until it is seen on the car. Changes show after Android Auto restarts.")
+        Row(Modifier.fillMaxWidth().toggleable(value = hideNames, enabled = connected, role = Role.Switch, onValueChange = {
+            hideNames = it
+            model.setLauncherConfig(io.github.highwindbr.aaxp.runtime.LauncherTweaks.encode(
+                io.github.highwindbr.aaxp.runtime.LauncherTweaks.Config(it)))
+        }), verticalAlignment = Alignment.CenterVertically) {
+            Text("Icons only (hide app names)", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+            Switch(checked = hideNames, onCheckedChange = null, enabled = connected)
+        }
+    } }
+}
+
 private val EXTRA_COLOURS = listOf(
     io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to "Labels, clock and rail icons",
     io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to "Launcher background",

@@ -244,6 +244,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                 FeaturePage.WALLPAPER -> CarWallpaperCard(model, connected)
                 FeaturePage.ICONS -> GlyphIconsCard(model, connected)
                 FeaturePage.STATUS_BAR -> StatusBarCard(model, connected)
+                FeaturePage.LAUNCHER -> LauncherCard(model, connected)
                 FeaturePage.LOOK_FILE -> LookFileCard(model, connected)
                 FeaturePage.PRESETS -> PresetsCard(model, state.dynamicOverrides, connected)
                 FeaturePage.QUICK_SWITCHES -> QuickSwitchesCard(model, state.dynamicOverrides, connected)

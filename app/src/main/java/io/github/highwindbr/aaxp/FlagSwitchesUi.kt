@@ -5,7 +5,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -50,6 +55,38 @@ internal fun QuickSwitchesCard(model: ManagerViewModel, overrides: Map<String, T
             FlagSwitchRow(model, overrides, connected, FlagSwitches.SHARP_PICTURE,
                 "Asks the wireless video for a sharper picture. It may use more Wi-Fi bandwidth and may stutter. " +
                     "The best values for your adapter are not known. Turning it off puts your earlier values back. Needs an Android Auto restart.")
+        }
+    }
+}
+
+/** Width of the border around the navigation window, through the normal flag override path. */
+@Composable
+internal fun MapBorderCard(model: ManagerViewModel, overrides: Map<String, TypedOverride>, connected: Boolean) {
+    val status by produceState(io.github.highwindbr.aaxp.core.MapBorderFlag.Status.UNKNOWN, connected) { value = model.mapBorderStatus() }
+    val current = io.github.highwindbr.aaxp.core.MapBorderFlag.current(overrides.mapValues { DynamicOverrideCodec.serialize(it.value) })
+    var width by remember(current) { mutableStateOf((current ?: 0).toFloat()) }
+    val usable = status == io.github.highwindbr.aaxp.core.MapBorderFlag.Status.OK
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Map border width (experimental)", fontWeight = FontWeight.Bold)
+            Text("A border around the navigation window. Not tried on a car yet, and the unit is not known (it may not be dp). Needs an Android Auto restart.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Now: " + io.github.highwindbr.aaxp.core.MapBorderFlag.label(current), style = MaterialTheme.typography.bodyMedium)
+            when (status) {
+                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.MISSING -> Text("This Android Auto version does not have the setting.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.NOT_INTEGER -> Text("The setting is not a whole number in this Android Auto version, so it cannot be changed here.", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.UNKNOWN -> Text("Checking the installed Android Auto…", style = MaterialTheme.typography.bodySmall)
+                else -> Unit
+            }
+            if (usable) {
+                Text("Width: ${width.toInt()}", style = MaterialTheme.typography.labelLarge)
+                Slider(width, { width = it }, valueRange = io.github.highwindbr.aaxp.core.MapBorderFlag.MIN.toFloat()..io.github.highwindbr.aaxp.core.MapBorderFlag.MAX.toFloat(),
+                    steps = io.github.highwindbr.aaxp.core.MapBorderFlag.MAX - 1)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button({ model.setMapBorderWidth(width.toInt()) }, Modifier.weight(1f), enabled = connected) { Text("Apply") }
+                    OutlinedButton({ model.setMapBorderWidth(null) }, Modifier.weight(1f), enabled = connected && current != null) { Text("Android Auto's own") }
+                }
+            }
         }
     }
 }

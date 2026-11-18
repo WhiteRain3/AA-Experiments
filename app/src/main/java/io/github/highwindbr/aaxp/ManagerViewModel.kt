@@ -1003,6 +1003,38 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             ". Check the Flags page for the flags involved.")
     }
 
+    // ---- Map border width ----
+
+    /** Whether the installed Android Auto has the border width flag and whether it is an integer. */
+    suspend fun mapBorderStatus(): io.github.highwindbr.aaxp.core.MapBorderFlag.Status = withContext(Dispatchers.IO) {
+        runCatching {
+            val build = mutable.value.aa.buildFingerprintSha256
+            if (build == null) io.github.highwindbr.aaxp.core.MapBorderFlag.status(null, null)
+            else {
+                val key = io.github.highwindbr.aaxp.core.MapBorderFlag.KEY
+                val found = database.identifiersByKeys(build, setOf(key))[key]
+                io.github.highwindbr.aaxp.core.MapBorderFlag.status(found != null, found?.inferredType)
+            }
+        }.getOrDefault(io.github.highwindbr.aaxp.core.MapBorderFlag.Status.UNKNOWN)
+    }
+
+    /** Sets the border width (or removes the override when [width] is null) through the normal flag override path. */
+    fun setMapBorderWidth(width: Int?) = viewModelScope.launch {
+        val key = io.github.highwindbr.aaxp.core.MapBorderFlag.KEY
+        val build = mutable.value.aa.buildFingerprintSha256
+        val found = if (build == null) null else withContext(Dispatchers.IO) { database.identifiersByKeys(build, setOf(key))[key] }
+        val status = io.github.highwindbr.aaxp.core.MapBorderFlag.status(if (build == null) null else found != null, found?.inferredType)
+        if (status != io.github.highwindbr.aaxp.core.MapBorderFlag.Status.OK) {
+            mutable.value = mutable.value.copy(message = when (status) {
+                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.MISSING -> "Map border not changed: this Android Auto version does not have $key."
+                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.NOT_INTEGER -> "Map border not changed: $key is not a whole number in this Android Auto version."
+                else -> "Map border not changed: the installed Android Auto has not been read yet."
+            })
+            return@launch
+        }
+        setDynamicOverride(checkNotNull(found), width?.let { io.github.highwindbr.aaxp.core.MapBorderFlag.clamp(it).toString() }).join()
+    }
+
     // ---- Presets: named sets of normal overrides ----
 
     private val presetPreferences = application.getSharedPreferences("override_presets", Context.MODE_PRIVATE)

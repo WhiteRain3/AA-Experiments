@@ -252,7 +252,7 @@ instrumented or physical-device acceptance yet.
   icons are no longer changed at all: the app's own filled shape is easier to recognise there.
 - The module log's `MODULE_LOADED` line now carries the module's version, to settle whether the
   first Android Auto restart after an app update already runs the new module.
-- versionName `1.0.0-wr37`, versionCode unchanged.
+- versionName `1.0.0-wr38`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

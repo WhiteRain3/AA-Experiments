@@ -419,8 +419,10 @@ public final class AndroidAutoModule extends XposedModule {
                 hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                     Map<Integer, Integer> colors = resourceColors();
                     if (!colors.isEmpty() && chain.getThisObject() instanceof android.content.res.TypedArray array) {
-                        Integer color = colors.get(array.getResourceId((Integer) chain.getArg(0), 0));
-                        if (color != null) {
+                        int id = array.getResourceId((Integer) chain.getArg(0), 0);
+                        Integer color = colors.get(id);
+                        // Other apps' resources share the same id range; only Android Auto's own count.
+                        if (color != null && isAndroidAutoResource(array.getResources(), id)) {
                             eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", "layout", "first");
                             return list ? android.content.res.ColorStateList.valueOf(color) : (Object) color;
                         }
@@ -437,8 +439,10 @@ public final class AndroidAutoModule extends XposedModule {
                 hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
                     Map<Integer, Integer> colors = resourceColors();
                     if (!colors.isEmpty()) {
-                        Integer color = colors.get((Integer) chain.getArg(0));
-                        if (color != null) {
+                        int id = (Integer) chain.getArg(0);
+                        Integer color = colors.get(id);
+                        if (color != null && chain.getThisObject() instanceof android.content.res.Resources resources
+                                && isAndroidAutoResource(resources, id)) {
                             eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", "code", "first");
                             return list ? android.content.res.ColorStateList.valueOf(color) : (Object) color;
                         }
@@ -451,6 +455,15 @@ public final class AndroidAutoModule extends XposedModule {
             event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
         event(Log.INFO, "RESOURCE_COLOR_HOOKS", null, "installed", String.valueOf(installed));
+    }
+
+    /** True when {@code id} in {@code resources} belongs to Android Auto and not to another app it is reading. */
+    private static boolean isAndroidAutoResource(android.content.res.Resources resources, int id) {
+        try {
+            return AA_PACKAGE.equals(resources.getResourcePackageName(id));
+        } catch (Throwable notFound) {
+            return false;
+        }
     }
 
     private final Map<Integer, Boolean> railLayouts = new ConcurrentHashMap<>();

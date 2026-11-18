@@ -6,8 +6,8 @@ import io.github.highwindbr.aaxp.runtime.ThemeColors
 import org.json.JSONObject
 
 /**
- * Everything that makes up a look, in one file: the colours in use, glyph icon colours, status
- * bar changes, saved themes, flag presets and, optionally, the car wallpaper with its editor
+ * Everything that makes up a look, in one file: the colours in use (roles and the extra
+ * resource colours), glyph icon colours, status bar changes, saved themes, flag presets and, optionally, the car wallpaper with its editor
  * settings. Used both as a style pack to share and as a backup. A part that is null is absent.
  */
 class LookBundle(
@@ -17,7 +17,8 @@ class LookBundle(
     val themesJson: String? = null,
     val presetsJson: String? = null,
     val wallpaperSettings: JSONObject? = null,
-    val wallpaperImage: ByteArray? = null
+    val wallpaperImage: ByteArray? = null,
+    val resourceColors: String? = null
 )
 
 object LookBundles {
@@ -29,6 +30,7 @@ object LookBundles {
         bundle.themeColors?.let { put("themeColors", it) }
         bundle.glyphColors?.let { put("glyphColors", it) }
         bundle.statusBar?.let { put("statusBar", it) }
+        bundle.resourceColors?.let { put("resourceColors", it) }
         bundle.themesJson?.let { put("themes", JSONObject(it)) }
         bundle.presetsJson?.let { put("presets", JSONObject(it)) }
         bundle.wallpaperImage?.let { image ->
@@ -47,6 +49,10 @@ object LookBundles {
         require(glyph == null || GlyphIcons.parseColors(glyph) != null) { "The glyph colours in this file are not readable" }
         val statusBar = root.optString("statusBar").ifEmpty { null }
         require(statusBar == null || StatusBarTweaks.parse(statusBar) != null) { "The status bar settings in this file are not readable" }
+        val resourceColors = root.optString("resourceColors").ifEmpty { null }
+        require(resourceColors == null || io.github.highwindbr.aaxp.runtime.ResourceColors.parse(resourceColors) != null) {
+            "The extra colours in this file are not readable"
+        }
         val themes = root.optJSONObject("themes")?.toString()?.also { Themes.decode(it) }
         val presets = root.optJSONObject("presets")?.toString()?.also { Presets.decode(it) }
         val image = root.optString("wallpaperImage").ifEmpty { null }?.let {
@@ -54,6 +60,6 @@ object LookBundles {
             java.util.Base64.getDecoder().decode(it)
         }
         return LookBundle(colors, glyph, statusBar, themes, presets,
-            if (image != null) root.optJSONObject("wallpaperSettings") else null, image)
+            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors)
     }
 }

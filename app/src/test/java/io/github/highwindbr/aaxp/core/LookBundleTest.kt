@@ -23,6 +23,13 @@ class LookBundleTest {
         assertArrayEquals(image, bundle.wallpaperImage)
     }
 
+    @Test fun carriesTheExtraResourceColours() {
+        val bundle = LookBundles.decode(LookBundles.encode(LookBundle(resourceColors = "text=FFFFFFFF;map_focus=FFFF2D95")))
+        assertEquals("text=FFFFFFFF;map_focus=FFFF2D95", bundle.resourceColors)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(resourceColors = "nonsense"))) }.isFailure)
+        assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).resourceColors)
+    }
+
     @Test fun emptyBundleIsValidAndHasNoParts() {
         val bundle = LookBundles.decode(LookBundles.encode(LookBundle()))
         assertNull(bundle.themeColors); assertNull(bundle.glyphColors); assertNull(bundle.statusBar)

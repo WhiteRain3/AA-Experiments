@@ -1213,7 +1213,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             prefs?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null),
             carThemes().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Themes.encode(it) },
             presets().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Presets.encode(it) },
-            if (image != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(context)) else null, image))
+            if (image != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(context)) else null, image,
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null)))
     }
 
     /**
@@ -1231,6 +1232,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, bundle.themeColors)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, bundle.glyphColors)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, bundle.statusBar)
+            put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, bundle.resourceColors)
             val parts = mutableListOf("colours, glyph icons and status bar")
             bundle.wallpaperImage?.let { image ->
                 CarWallpaperStudio.sourceFile(context).writeBytes(image)

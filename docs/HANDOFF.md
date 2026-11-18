@@ -47,7 +47,7 @@ The first build in a fresh session downloads the libraries. One of them comes fr
 on the first try, run the command again before treating it as a code problem.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 362 tests and none fail.
+At the time of writing there are 372 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs

@@ -1,0 +1,113 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Direction 3: Inspector</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:940px;height:980px;background:#16181d;font-family:system-ui,"Liberation Sans","DejaVu Sans",sans-serif;color:#e8eaf0;padding:24px 30px}
+h1{font-size:22px;font-weight:700}.sub{font-size:13px;color:#8a90a0;margin:2px 0 18px}
+.row{display:flex;gap:30px}
+.phone{width:390px;height:850px;border-radius:30px;background:#1d2027;border:1px solid #2e323c;overflow:hidden;position:relative}
+svg{display:block}
+.pin{background:#12141a;border-bottom:1px solid #2e323c;padding:14px 16px 12px}
+.pin .car{height:74px;border-radius:12px;background:linear-gradient(135deg,#243b6b,#4b2f78);position:relative;overflow:hidden}
+.pin .sb{position:absolute;left:10px;right:10px;top:22px;height:30px;border-radius:15px;background:rgba(8,10,16,.65);display:flex;align-items:center;padding:0 12px;font-size:13px;font-weight:600;gap:10px}
+.pin .sb .sp{flex:1}
+.pin .sb svg{width:15px;height:15px}
+.pin .lbl{font-size:10px;letter-spacing:.1em;color:#7d8393;margin-top:7px;display:flex;justify-content:space-between}
+.live{color:#5fd39a}
+.search{margin:12px 16px;height:40px;border-radius:10px;background:#12141a;border:1px solid #2e323c;display:flex;align-items:center;gap:8px;padding:0 12px;color:#7d8393;font-size:14px}
+.search svg{width:16px;height:16px}
+.list{margin:0 16px;border:1px solid #2e323c;border-radius:12px;overflow:hidden}
+.li{height:50px;display:flex;align-items:center;gap:12px;padding:0 14px;border-bottom:1px solid #2e323c;background:#1d2027;font-size:15px}
+.li:last-child{border-bottom:0}
+.li svg.i{width:20px;height:20px;color:#9aa2b5}
+.li .v{margin-left:auto;display:flex;align-items:center;gap:8px;color:#8a90a0;font-size:12.5px;font-family:ui-monospace,"DejaVu Sans Mono",monospace}
+.li .v svg{width:14px;height:14px}
+.li.act{background:#233042}.li.act svg.i{color:#6fb4ff}
+.hdr{font-size:11px;letter-spacing:.1em;color:#7d8393;margin:16px 18px 8px}
+/* battery */
+.tabs{display:flex;gap:6px;padding:12px 16px 0;overflow:hidden}
+.tab{padding:8px 14px;border-radius:9px 9px 0 0;font-size:13px;color:#8a90a0;background:#16181d;display:flex;gap:6px;align-items:center;white-space:nowrap}
+.tab svg{width:15px;height:15px}
+.tab.on{background:#1d2027;color:#fff;border:1px solid #2e323c;border-bottom:0}
+.panel{border-top:1px solid #2e323c;margin-top:-1px;padding:14px 16px}
+.sect{font-size:11px;letter-spacing:.1em;color:#7d8393;margin:4px 0 8px;display:flex;justify-content:space-between}
+.tokens{display:flex;gap:8px;align-items:stretch;margin-bottom:6px}
+.tk{flex:1;height:70px;border-radius:12px;border:1.5px solid #2e323c;background:#16181d;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative;color:#7d8393}
+.tk .g{font-size:24px;font-weight:700;height:26px;display:flex;align-items:center}
+.tk svg{width:26px;height:26px}
+.tk small{font-size:10.5px}
+.tk.on{border-color:#6fb4ff;color:#fff;background:#1c2a3d}
+.tk .dr{position:absolute;top:4px;left:4px;width:14px;height:14px;color:#556}
+.note{font-size:12px;color:#7d8393;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.seg{display:flex;background:#16181d;border:1px solid #2e323c;border-radius:10px;overflow:hidden;margin-bottom:12px}
+.seg div{flex:1;text-align:center;padding:9px 0;font-size:13px;color:#8a90a0}.seg .on{background:#2d4a70;color:#fff}
+.field{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:#aab0c0}
+.field .n{width:92px}
+.sl{flex:1;height:6px;background:#2e323c;border-radius:3px;position:relative}.sl i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:#6fb4ff;display:block}.sl b{position:absolute;top:-6px;width:18px;height:18px;border-radius:50%;background:#fff;transform:translateX(-50%)}
+.num{width:58px;height:30px;border-radius:7px;background:#16181d;border:1px solid #2e323c;text-align:center;font-family:ui-monospace,"DejaVu Sans Mono",monospace;font-size:12.5px;display:grid;place-items:center;color:#e8eaf0}
+.sw{width:22px;height:22px;border-radius:6px;border:1px solid #475;display:block}
+.hex{flex:1;height:30px;border-radius:7px;background:#16181d;border:1px solid #2e323c;padding:0 10px;display:flex;align-items:center;font-family:ui-monospace,"DejaVu Sans Mono",monospace;font-size:12.5px}
+.range{position:relative;height:46px;margin:4px 0 6px}
+.range .tr{position:absolute;left:0;right:0;top:14px;height:12px;border-radius:6px;background:linear-gradient(90deg,#ff6b6b 0 20%,#ffcb5c 20% 80%,#5fd39a 80%)}
+.range .h{position:absolute;top:6px;width:4px;height:28px;border-radius:2px;background:#fff;transform:translateX(-50%)}
+.range .h em{position:absolute;top:30px;left:50%;transform:translateX(-50%);font-size:11px;font-style:normal;font-family:ui-monospace,"DejaVu Sans Mono",monospace;color:#cfd4e2}
+.lvrow{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:6px}
+.lvrow .c{display:flex;align-items:center;gap:8px;background:#16181d;border:1px solid #2e323c;border-radius:9px;padding:6px 8px;font-size:12px}
+.foot{position:absolute;left:0;right:0;bottom:0;height:54px;border-top:1px solid #2e323c;background:#12141a;display:flex;align-items:center;justify-content:space-between;padding:0 16px;font-size:13px;color:#8a90a0}
+.foot .r{background:#2d4a70;color:#fff;padding:8px 14px;border-radius:9px;font-weight:600}
+.st{display:flex;align-items:center;gap:8px;padding:12px 16px 0}.st b{font-size:17px}.st .bk{width:30px;height:30px;border-radius:8px;background:#16181d;display:grid;place-items:center;border:1px solid #2e323c}.st .bk svg{width:16px;height:16px}
+</style></head><body>
+<!--SPRITE-->
+<h1>Direction 3: Inspector</h1>
+<div class="sub">A live strip of the car's top bar stays pinned while you work. Each part (battery, clock, signal...) is a tab with a compact, exact property panel, like a design tool.</div>
+<div class="row">
+
+<div class="phone">
+  <div class="pin"><div class="car"><div class="sb"><span>12:34</span><span class="sp"></span><svg><use href="#signal"/></svg><span class="live" style="display:flex;gap:4px;align-items:center"><svg><use href="#battery"/></svg>87%</span></div></div><div class="lbl"><span>LIVE PREVIEW</span><span>TOP BAR</span></div></div>
+  <div class="search"><svg><use href="#search"/></svg>Search settings</div>
+  <div class="hdr">TOP BAR</div>
+  <div class="list">
+    <div class="li act"><svg class="i"><use href="#battery"/></svg>Battery<span class="v">icon · 87 · %<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#clock"/></svg>Clock<span class="v">140% · bold<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#signal"/></svg>Signal<span class="v">shown<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#bell"/></svg>Notifications<span class="v">shown<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#plate"/></svg>Background<span class="v">#1E3A8A<svg><use href="#chev"/></svg></span></div>
+  </div>
+  <div class="hdr">LOOK</div>
+  <div class="list">
+    <div class="li"><svg class="i"><use href="#palette"/></svg>Colours<span class="v">46 set<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#image"/></svg>Wallpaper<span class="v">on<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#grid"/></svg>App icons<span class="v">glyph<svg><use href="#chev"/></svg></span></div>
+    <div class="li"><svg class="i"><use href="#launcher"/></svg>Launcher<span class="v">names on<svg><use href="#chev"/></svg></span></div>
+  </div>
+  <div class="foot"><span>Saved</span><span class="r">Restart Android Auto</span></div>
+</div>
+
+<div class="phone">
+  <div class="pin"><div class="car"><div class="sb"><span>12:34</span><span class="sp"></span><svg><use href="#signal"/></svg><span class="live" style="display:flex;gap:4px;align-items:center"><svg><use href="#battery"/></svg>87%</span></div></div><div class="lbl"><span>LIVE PREVIEW</span><span class="live">UPDATES AS YOU TYPE</span></div></div>
+  <div class="tabs"><div class="tab on"><svg><use href="#battery"/></svg>Battery</div><div class="tab"><svg><use href="#clock"/></svg>Clock</div><div class="tab"><svg><use href="#signal"/></svg>Signal</div><div class="tab"><svg><use href="#plate"/></svg>Background</div></div>
+  <div class="panel">
+    <div class="sect"><span>WHAT TO SHOW · TAP TO TOGGLE</span></div>
+    <div class="tokens">
+      <div class="tk on"><svg class="dr"><use href="#drag"/></svg><span class="g"><svg><use href="#battery"/></svg></span><small>icon</small></div>
+      <div class="tk on"><svg class="dr"><use href="#drag"/></svg><span class="g">87</span><small>number</small></div>
+      <div class="tk on"><svg class="dr"><use href="#drag"/></svg><span class="g">%</span><small>sign</small></div>
+    </div>
+    <div class="note">Shows: battery icon, 87, %. Drag the handles to change the order.</div>
+    <div class="sect"><span>SIZE</span></div>
+    <div class="seg"><div>Small</div><div class="on">Same as clock</div><div>Large</div></div>
+    <div class="field"><span class="n">Number size</span><div class="sl"><i style="width:45%"></i><b style="left:45%"></b></div><div class="num">100%</div></div>
+    <div class="sect"><span>COLOUR</span></div>
+    <div class="field"><span class="sw" style="background:#5fd39a"></span><div class="hex">#5FD39A</div><div class="num" style="width:auto;padding:0 10px">Default</div></div>
+    <div class="sect"><span>COLOUR BY LEVEL</span><span class="live">ON</span></div>
+    <div class="range"><div class="tr"></div><div class="h" style="left:20%"><em>20%</em></div><div class="h" style="left:80%"><em>80%</em></div></div>
+    <div class="lvrow">
+      <div class="c"><span class="sw" style="background:#ff6b6b;width:16px;height:16px"></span>Low #FF6B6B</div>
+      <div class="c"><span class="sw" style="background:#ffcb5c;width:16px;height:16px"></span>Mid #FFCB5C</div>
+      <div class="c"><span class="sw" style="background:#5fd39a;width:16px;height:16px"></span>High #5FD39A</div>
+      <div class="c"><svg style="width:16px;height:16px;color:#6fb4ff"><use href="#bolt"/></svg>Charging #6FB4FF</div>
+    </div>
+  </div>
+  <div class="foot"><span>Reset battery</span><span class="r">Restart Android Auto</span></div>
+</div>
+
+</div></body></html>

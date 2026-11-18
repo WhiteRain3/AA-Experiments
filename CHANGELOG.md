@@ -228,6 +228,9 @@ instrumented or physical-device acceptance yet.
   in the glyph colour with the figure showing through. Their themed layer is a filled disc with
   the figure cut out. The module now recognises such a layer and uses the cut-out figure as the
   glyph, like every other icon. Untested on a head unit or car.
+- Status bar row fitting, review fixes: the space around the icon row's container comes from the
+  layout parameters instead of being measured each pass, and the row's width is handed back
+  when the battery number is not shown.
 - versionName `1.0.0-wr36`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

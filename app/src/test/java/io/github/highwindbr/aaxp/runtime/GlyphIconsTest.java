@@ -239,4 +239,49 @@ public class GlyphIconsTest {
         for (int y = c - 4; y <= c + 4; y++) for (int x = c; x < size; x++) notched[y * size + x] = 0;
         org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(notched, size));
     }
+
+    /** Opaque where the distance from the centre is within any of the given [from, to] bands. */
+    private static int[] bands(int size, int... fromTo) {
+        int[] alpha = new int[size * size];
+        int c = size / 2;
+        for (int y = 0; y < size; y++) for (int x = 0; x < size; x++) {
+            int d2 = (x - c) * (x - c) + (y - c) * (y - c);
+            for (int b = 0; b < fromTo.length; b += 2) {
+                if (d2 >= fromTo[b] * fromTo[b] && d2 <= fromTo[b + 1] * fromTo[b + 1]) alpha[y * size + x] = 255;
+            }
+        }
+        return alpha;
+    }
+
+    @Test public void anOutlineAroundASolidFigureIsNotFlipped() {
+        // The reviewer's case: a ring (68 to 80) around a solid disc (40) on a 216 px layer.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(216, 68, 80, 0, 40), 216));
+        // The same drawing at the size the module renders at.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 34, 40, 0, 20), 108));
+        // A thin outline with a large figure close inside it: the gap is small, the rim is thin.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 37, 40, 0, 33), 108));
+        // Thick outlines around a solid disc (the reviewer's second set, on 108 px).
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 28, 40, 0, 20), 108));
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 24), 108));
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 26, 40, 0, 22), 108));
+        // A disc with a ring cut all the way round but a SOLID island: nothing says plate.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 26), 108));
+        // A thick rim, but the gap is wide: still an outline with a dot.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 8), 108));
+    }
+
+    @Test public void aDiscWithARingCutRoundAnIslandThatHasItsOwnHoleIsAPlate() {
+        // A disc of radius 40 with a thin ring (26 to 30) cut out, and a square cut out of the
+        // island in the middle, as a play triangle would be.
+        int size = 108;
+        int[] alpha = bands(size, 30, 40, 0, 26);
+        int c = size / 2;
+        for (int y = c - 8; y <= c + 8; y++) for (int x = c - 8; x <= c + 8; x++) alpha[y * size + x] = 0;
+        int[] mask = GlyphIcons.figureInsidePlate(alpha, size);
+        org.junit.Assert.assertNotNull(mask);
+        org.junit.Assert.assertEquals(255, mask[c * size + c + 28]);   // the cut ring is figure
+        org.junit.Assert.assertEquals(255, mask[c * size + c]);        // so is the island's hole
+        org.junit.Assert.assertEquals(0, mask[c * size + c + 15]);     // the island is plate
+        org.junit.Assert.assertEquals(0, mask[c * size + c + 35]);     // so is the rim
+    }
 }

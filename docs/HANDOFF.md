@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 489 tests and none fail.
+At the time of writing there are 498 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -156,7 +156,10 @@ Built and unit-tested, not yet confirmed on the device:
   Now the plate's minimum width is set to what the scaled row needs (capped by the rail), the
   row gets an explicit full width when the number is in it, and the row is drawn at the wanted
   scale or as large as fits (`StatusBarTweaks.fitRow`), pivot at its left edge, centred by
-  translation. Not yet seen on a head unit or car.
+  translation. The space around the container is read from the layout parameters (in 18.0 the
+  container is `match_parent` in the plate with a 4dp margin), never measured, so the plate
+  cannot creep wider. The row's explicit width is handed back (`wrap_content`) when the number
+  is no longer in it. Not yet seen on a head unit or car.
 - Battery icon colour: `battery_level` shows a custom drawable (class `onr` in 18.0) with its own
   paints; it ignores `setImageTintList` but implements `setColorFilter`, so the module also sets
   a colour filter on that ImageView. The drawable paints itself red at low level; a filter
@@ -212,7 +215,12 @@ says the hook works; it does not say the car's screen, knob or sensors behave th
   as read from the screenshot, not from the apps themselves: their themed (monochrome) layer
   is a filled disc with the figure cut out. `GlyphIcons.figureInsidePlate` now turns such a
   layer into its cut-out figure; a wrongly recognised icon would show only its holes, so a
-  report of an icon that became unrecognisable points there.
+  report of an icon that became unrecognisable points there. It refuses an outline around a
+  solid figure (more than one opaque piece), except a thick rim around small holes whose
+  island has a hole of its own: in the screenshot YT Music's ring is cut all the way round,
+  leaving an island with the play triangle cut out of it; without that exception it would stay
+  reversed. Layers are judged once each (cache by ConstantState) on a
+  108 px render.
 - Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
   bit, the focus box shrinks to fit.
 - Day and night: the head unit's `day` / `night` command changed no colour the module had set

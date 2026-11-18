@@ -216,6 +216,15 @@ public final class GlyphIcons {
      * of the layer wide, filled like a disc or fuller once its holes are counted in, and the
      * holes make up between 3% and 55% of it. A ring, a wide shape, or a solid shape with no
      * hole is left alone.
+     *
+     * The opposite drawing must not be mistaken for it: an outline (a ring, a speech bubble)
+     * with a solid figure inside, where flipping would erase the figure. A plate with a cut-out
+     * is one connected piece, so normally more than one piece means "leave alone". The one
+     * exception is a cut-out that goes all the way round (a ring cut into a disc, as some music
+     * apps draw it), which leaves an island in the middle: that is still taken as a plate, but
+     * only when the outer piece is a thick rim (at least {@link #PLATE_RIM_SHARE} of the whole),
+     * the holes are small (at most {@link #PLATE_ISLAND_HOLES}), and the island has a hole of
+     * its own (the play triangle). A solid figure inside an outline, thick or thin, has none.
      */
     public static int[] figureInsidePlate(int[] alpha, int size) {
         if (alpha == null || size <= 2 || alpha.length != size * size) return null;
@@ -260,6 +269,32 @@ public final class GlyphIcons {
         if (solid < 0.74f * width * height) return null;
         if (enclosed < 0.03f * solid || enclosed > 0.55f * solid) return null;
 
+        // Connected opaque pieces, starting with the one the topmost opaque pixel belongs to:
+        // on a plate that is the outer piece.
+        boolean[] seen = new boolean[total];
+        int outer = -1;
+        for (int i = 0; i < total && outer < 0; i++) if (alpha[i] >= 128) outer = i;
+        head = 0;
+        tail = 0;
+        seen[outer] = true;
+        queue[tail++] = outer;
+        while (head < tail) {
+            int i = queue[head++];
+            int x = i % size;
+            if (x > 0) tail = join(alpha, seen, queue, tail, i - 1);
+            if (x < size - 1) tail = join(alpha, seen, queue, tail, i + 1);
+            if (i >= size) tail = join(alpha, seen, queue, tail, i - size);
+            if (i < total - size) tail = join(alpha, seen, queue, tail, i + size);
+        }
+        int outerPiece = tail;
+        if (outerPiece < 0.95f * opaque) {
+            // More than one piece. Only a thick rim around small holes is still a plate.
+            if (outerPiece < PLATE_RIM_SHARE * solid || enclosed > PLATE_ISLAND_HOLES * solid) return null;
+            // And only when an inner piece has a hole of its own (the play triangle inside the
+            // island). A solid figure inside an outline has none, however thick the outline.
+            if (!innerPieceHasHole(alpha, size, outside, seen, queue)) return null;
+        }
+
         int[] mask = new int[total];
         for (int i = 0; i < total; i++) {
             if (outside[i]) continue;
@@ -272,6 +307,54 @@ public final class GlyphIcons {
             mask[i] = 255 - Math.max(0, Math.min(255, alpha[i]));
         }
         return mask;
+    }
+
+    /** Share of the whole plate the outer piece must have when the plate is in more than one piece. */
+    public static final float PLATE_RIM_SHARE = 0.40f;
+    /** Largest share of holes for a plate in more than one piece. */
+    public static final float PLATE_ISLAND_HOLES = 0.35f;
+
+    /**
+     * True when some enclosed see-through region touches only opaque pixels that are not part of
+     * the outer piece ({@code outerPiece} marks that piece): a hole inside an island.
+     */
+    private static boolean innerPieceHasHole(int[] alpha, int size, boolean[] outside, boolean[] outerPiece, int[] queue) {
+        int total = alpha.length;
+        boolean[] visited = new boolean[total];
+        for (int start = 0; start < total; start++) {
+            if (alpha[start] >= 128 || outside[start] || visited[start]) continue;
+            boolean touchesOuter = false, touchesInner = false;
+            int head = 0, tail = 0;
+            visited[start] = true;
+            queue[tail++] = start;
+            while (head < tail) {
+                int i = queue[head++];
+                int x = i % size;
+                for (int step = 0; step < 4; step++) {
+                    int next;
+                    if (step == 0) { if (x == 0) continue; next = i - 1; }
+                    else if (step == 1) { if (x == size - 1) continue; next = i + 1; }
+                    else if (step == 2) { if (i < size) continue; next = i - size; }
+                    else { if (i >= total - size) continue; next = i + size; }
+                    if (alpha[next] >= 128) {
+                        if (outerPiece[next]) touchesOuter = true; else touchesInner = true;
+                    } else if (!visited[next] && !outside[next]) {
+                        visited[next] = true;
+                        queue[tail++] = next;
+                    }
+                }
+            }
+            if (touchesInner && !touchesOuter) return true;
+        }
+        return false;
+    }
+
+    private static int join(int[] alpha, boolean[] seen, int[] queue, int tail, int i) {
+        if (alpha[i] >= 128 && !seen[i]) {
+            seen[i] = true;
+            queue[tail++] = i;
+        }
+        return tail;
     }
 
     private static int reach(int[] alpha, boolean[] outside, int[] queue, int tail, int i) {

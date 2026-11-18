@@ -118,6 +118,17 @@ public class ResourceColorsTest {
         assertEquals(0, ResourceColors.rewrite(table(0x1d, 1, 5), null, true));
     }
 
+    @Test public void tableLayoutOnlyFromAndroid10AndOnlyWithSevenEntries() {
+        assertTrue(ResourceColors.tableLayoutSupported(29, 7));
+        assertTrue(ResourceColors.tableLayoutSupported(36, 7));
+        assertTrue(ResourceColors.tableLayoutSupported(36, null)); // count unreadable: the version decides
+        assertTrue(!ResourceColors.tableLayoutSupported(28, 6));
+        assertTrue(!ResourceColors.tableLayoutSupported(28, null));
+        assertTrue(!ResourceColors.tableLayoutSupported(27, 7));
+        assertTrue(!ResourceColors.tableLayoutSupported(36, 8)); // a future layout is left alone
+        assertTrue(!ResourceColors.tableLayoutSupported(36, 6));
+    }
+
     @Test public void colourTypes() {
         assertTrue(ResourceColors.isColorType(0x1c));
         assertTrue(ResourceColors.isColorType(0x1f));

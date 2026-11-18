@@ -178,6 +178,9 @@ instrumented or physical-device acceptance yet.
   entering a hooked method. The module now also replaces the colour where it is resolved: in
   the table of a freshly filled `TypedArray`, and in a `TypedValue` from
   `Theme.resolveAttribute` or `Resources.getValue`. Untested on a car.
+- More colours: the colour table rewrite is only used where the platform's table has the
+  expected layout (Android 10 and later, seven numbers per attribute); elsewhere it is skipped
+  and logged.
 - versionName `1.0.0-wr31`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

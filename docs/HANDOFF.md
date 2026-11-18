@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 470 tests and none fail.
+At the time of writing there are 471 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -212,7 +212,8 @@ colour without entering a hooked method (the same lesson as `View.setVisibility`
 (falling back to `Resources.Theme.obtainStyledAttributes`) and `Resources.obtainAttributes`,
 and the TypedValue from `Theme.resolveAttribute` and `Resources.getValue`
 (`ResourceColors.rewrite`). Log events: `RESOURCE_COLOR_HOOKS` (`tables` = how many of these
-were installed), `RESOURCE_COLOR_TABLE_UNAVAILABLE` (the hidden field could not be reached),
+were installed), `RESOURCE_COLOR_TABLE_UNAVAILABLE` (the hidden field could not be reached, or
+the table does not have seven numbers per attribute: before Android 10 it had six),
 `RESOURCE_COLOR_SERVED` with key `table`, `attribute`, `value`, `layout` or `code` for the
 route that served a colour. Not confirmed on the car. Still open: the launcher label's style
 says `@color/template_white` (#FFFFFF) but the view shows `#FFF2F0F0`, so something sets it
@@ -232,6 +233,14 @@ Rail window: `rail_container` > `rail`; hotseat items `hotseat_one`..`hotseat_fo
 status bar `status_bar_card_view` > `status_bar_container` (a ConstraintLayout) holding
 `icon_row` (a horizontal LinearLayout with `signal_icon`, a FrameLayout, and `battery_level`,
 an ImageView), `clock`, `notification_count_wrapper` and `dnd_icon`.
+Positions on the owner's car (captures on wr31, with the module's status bar changes on): the
+plate `status_bar_card_view` is at [11,14] 85x110, `status_bar_container` [11,25] 85x88,
+`icon_row` [19,25] 69x40, `clock` [17,73] 74x40; the module's battery number sits in `icon_row`
+at [24,25] 64x40 with text size 32. Focus: a focused launcher `GridItemView` reports FOCUSED
+with a RippleDrawable background and there is no separate ring view; on the rail the
+`FocusInterceptor` `launcher_and_dashboard_icon_container` takes focus; `focus_frame` [0,13]
+662x697 with an InsetDrawable foreground is the map's frame on the dashboard. The Dashboard
+window is 405x697 with no view ids (`rpk > oct #content > laj > dcy > ddu`).
 Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`); `AutoTunedRecyclerView`
 `tuned_recycler_view` > `GridRowContainerView` (four items) > `GridItemView`, each holding
 `grid_item_image_container` (117x117 `grid_item_image`) and `grid_item_text_container` (173x52,

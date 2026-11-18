@@ -229,6 +229,14 @@ Google's. A session that needs them asks the owner to upload `gearhead-code.zip`
 
 ## Roles
 
+The session that created the others is the **dispatcher**. The owner was explicit about this
+(2026-11-18): it hands every piece of work to the right session and looks after the chain. It
+does not write code, plans, ideas or designs itself. Its own work is limited to: routing and
+relaying, checking results, the release step after a clean review, and keeping this file
+current. If the right session cannot do a task (for example the Hooks worker lacks the
+reverse-engineering material), it says so to the owner instead of quietly doing the task.
+
+
 - **Manager**: talks with the owner, keeps this file and the backlog current, writes briefs
   for the other sessions, checks their results.
 - **Planner**: turns an idea into a short ordered task list with what each task touches and

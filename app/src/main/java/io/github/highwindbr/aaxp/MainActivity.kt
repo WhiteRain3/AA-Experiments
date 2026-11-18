@@ -238,6 +238,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM) {
             when (page) {
                 FeaturePage.THEMES -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    StylesCard(model, connected)
                     ThemeColorsCard(model, connected)
                     ExtraColorsCard(model, connected)
                 }

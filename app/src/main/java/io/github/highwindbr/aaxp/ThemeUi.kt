@@ -204,7 +204,7 @@ private fun ThemeStrip(roles: Map<String, Int>) {
  * (and the icon colours when single-colour icons are on) change it; everything else is fixed.
  */
 @Composable
-internal fun CarScreenMock(roles: Map<String, Int>, glyphColors: String?, modifier: Modifier = Modifier) {
+internal fun CarScreenMock(roles: Map<String, Int>, glyphColors: String?, modifier: Modifier = Modifier, showCaption: Boolean = true) {
     val k = remember(roles.toMap(), glyphColors) { CarPreviewColors.resolve(roles, glyphColors) }
     fun col(v: Int) = Color(v)
     val offWhite = col(CarPreviewColors.RAIL_FIXED_ICON)
@@ -259,7 +259,7 @@ internal fun CarScreenMock(roles: Map<String, Int>, glyphColors: String?, modifi
                 }
             }
         }
-        Text("Shows the seven colour slots confirmed so far. Other slots have not been seen in use yet." +
+        if (showCaption) Text("Shows the seven colour slots confirmed so far. Other slots have not been seen in use yet." +
             if (k.usesApproximation) " Slots you have not set are approximate." else "",
             style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

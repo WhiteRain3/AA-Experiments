@@ -1531,6 +1531,39 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Nothing was undone: ${it.message}" }))
     }
 
+    // ---- One-tap styles ----
+
+    /**
+     * Applies a whole look in one go: palette colours, extra colours, single-colour icons, status
+     * bar changes and, when the look has them, the wallpaper's darken and blur. A part the look
+     * does not have is switched off. An undo copy is kept first.
+     */
+    fun applyLook(look: io.github.highwindbr.aaxp.core.CarTheme) = viewModelScope.launch {
+        val plan = io.github.highwindbr.aaxp.core.LookPlan.of(look)
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("applying ${look.name}")
+            val context = getApplication<Application>()
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            fun put(key: String, value: String?) { if (value == null) editor.remove(key) else editor.putString(key, value) }
+            put(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, plan.themeColors)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, plan.glyphColors)
+            put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, plan.statusBar)
+            put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, plan.resourceColors)
+            if (plan.wallpaperDim != null || plan.wallpaperBlur != null) {
+                val current = CarWallpaperStudio.load(context)
+                CarWallpaperStudio.save(context, current.copy(dim = plan.wallpaperDim ?: current.dim,
+                    blurLevel = plan.wallpaperBlur ?: current.blurLevel))
+                if (carWallpaperEnabled()) CarWallpaperStudio.renderSaved(context)?.let { (rendered, rail) -> writeCarWallpaper(editor, rendered, rail) }
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        restarted.onSuccess { changesWaiting = !it }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { "${look.name} applied. " + if (it) "Android Auto was asked to restart." else "Restart Android Auto to see it." },
+            { "${look.name} not applied: ${it.message}" }))
+    }
+
     // ---- Car wallpaper ----
 
     fun carWallpaperEnabled(): Boolean = runCatching {

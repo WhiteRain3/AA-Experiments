@@ -11,7 +11,14 @@ data class CarTheme(
     val description: String,
     val roles: Map<String, Int>,
     val glyphColors: String? = null,
-    val builtIn: Boolean = false
+    val builtIn: Boolean = false,
+    /** "More colours": resource colour group to colour (see runtime/ResourceColors). */
+    val resourceColors: Map<String, Int> = emptyMap(),
+    /** Status bar changes in the stored form of runtime/StatusBarTweaks, or null for none. */
+    val statusBar: String? = null,
+    /** Wallpaper darken (0..80) and blur (0..40, see BlurLevel); null leaves the wallpaper settings alone. */
+    val wallpaperDim: Int? = null,
+    val wallpaperBlur: Int? = null
 )
 
 object Themes {
@@ -99,6 +106,10 @@ object Themes {
 
     private fun c(hex: Long): Int = hex.toInt()
 
+    /** Status bar changes for a look: clock and icon colours, and no background behind the bar. */
+    private fun status(clock: Int, icons: Int): String? = io.github.highwindbr.aaxp.runtime.StatusBarTweaks.encode(
+        io.github.highwindbr.aaxp.runtime.StatusBarTweaks.Config(java.util.LinkedHashSet<String>(), clock, icons, true))
+
     /** Looks shipped with the app. They are original palettes; no third-party artwork is included. */
     val BUILT_IN: List<CarTheme> = listOf(
         CarTheme("Neon Sunset", "Hot pink and orange on deep purple, with teal highlights",
@@ -106,30 +117,48 @@ object Themes {
                 "Secondary" to c(0xFFFF8A3D), "SecondaryContainer" to c(0xFF7A3A12), "OnSecondaryContainer" to c(0xFFFFD9BF),
                 "Tertiary" to c(0xFF2DE2E6), "TertiaryContainer" to c(0xFF0B5C5E), "OnTertiaryContainer" to c(0xFFBDF7F8),
                 "OutlineVariant" to c(0x66FF2D95)),
-            glyphColors = "FF8AC6,00000000", builtIn = true),
+            glyphColors = "FF8AC6,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFFFE9F5), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF1A0B2E),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFFFF2D95), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFFFF8A3D)),
+            statusBar = status(c(0xFFFFE9F5), c(0xFFFF8AC6)), wallpaperDim = 25, wallpaperBlur = 6),
         CarTheme("Motorsport", "Racing red on near-black with silver accents",
             generate(c(0xFFE10600), neutralSaturation = 0.03f) + mapOf(
                 "Secondary" to c(0xFFC4C8D0), "SecondaryContainer" to c(0xFF3A3D42), "OnSecondaryContainer" to c(0xFFE6E8EC),
                 "Tertiary" to c(0xFFFFFFFF), "OutlineVariant" to c(0x80E10600)),
-            glyphColors = "FFFFFF,00000000", builtIn = true),
+            glyphColors = "FFFFFF,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFF2F2F2), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF0B0B0C),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFFE10600), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFFE10600)),
+            statusBar = status(c(0xFFFFFFFF), c(0xFFC4C8D0)), wallpaperDim = 35, wallpaperBlur = 4),
         CarTheme("Minimal Mono", "Black, white and grey, nothing else",
             generate(c(0xFFFFFFFF), neutralSaturation = 0f) + mapOf(
                 "Primary" to c(0xFFFFFFFF), "OnPrimary" to c(0xFF000000), "PrimaryContainer" to c(0xFF2A2A2A),
                 "OnPrimaryContainer" to c(0xFFFFFFFF), "Secondary" to c(0xFFBDBDBD), "Tertiary" to c(0xFF8E8E8E),
                 "Background" to c(0xFF000000), "Surface" to c(0xFF000000), "OutlineVariant" to c(0x00000000)),
-            glyphColors = "FFFFFF,00000000", builtIn = true),
+            glyphColors = "FFFFFF,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFFFFFFF), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF000000),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFF8E8E8E), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFFFFFFFF)),
+            statusBar = status(c(0xFFFFFFFF), c(0xFFBDBDBD)), wallpaperDim = 40, wallpaperBlur = 8),
         CarTheme("Deep Ocean", "Cyan and aqua on dark navy",
             generate(c(0xFF00B4D8), neutralHue = 212f, neutralSaturation = 0.38f) + mapOf(
                 "OutlineVariant" to c(0x6600B4D8)),
-            glyphColors = "8EE9FF,00000000", builtIn = true),
+            glyphColors = "8EE9FF,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFE6F7FC), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF06182B),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFF00B4D8), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFF8EE9FF)),
+            statusBar = status(c(0xFFE6F7FC), c(0xFF8EE9FF)), wallpaperDim = 25, wallpaperBlur = 6),
         CarTheme("Amber Night", "Warm amber on black, like classic instrument lighting",
             generate(c(0xFFFFB000), neutralHue = 38f, neutralSaturation = 0.12f) + mapOf(
                 "Background" to c(0xFF050402), "Surface" to c(0xFF050402), "OutlineVariant" to c(0x55FFB000)),
-            glyphColors = "FFB000,00000000", builtIn = true),
+            glyphColors = "FFB000,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFFFE3A8), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF050402),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFFFFB000), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFFFFB000)),
+            statusBar = status(c(0xFFFFB000), c(0xFFFFB000)), wallpaperDim = 40, wallpaperBlur = 4),
         CarTheme("Forest", "Soft green on dark moss",
             generate(c(0xFF5BD68A), neutralHue = 140f, neutralSaturation = 0.22f) + mapOf(
                 "OutlineVariant" to c(0x555BD68A)),
-            glyphColors = "A8F0C2,00000000", builtIn = true)
+            glyphColors = "A8F0C2,00000000", builtIn = true,
+            resourceColors = mapOf(io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to c(0xFFE3F8EA), io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to c(0xFF0A1A12),
+                io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to c(0xFF5BD68A), io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to c(0xFFA8F0C2)),
+            statusBar = status(c(0xFFE3F8EA), c(0xFFA8F0C2)), wallpaperDim = 30, wallpaperBlur = 6)
     )
 
     /**
@@ -153,6 +182,10 @@ object Themes {
                 put(theme.name, JSONObject().apply {
                     put("description", theme.description)
                     theme.glyphColors?.let { put("glyphColors", it) }
+                    io.github.highwindbr.aaxp.runtime.ResourceColors.encode(theme.resourceColors)?.let { put("resourceColors", it) }
+                    theme.statusBar?.let { put("statusBar", it) }
+                    theme.wallpaperDim?.let { put("wallpaperDim", it) }
+                    theme.wallpaperBlur?.let { put("wallpaperBlur", it) }
                     put("roles", JSONObject().apply {
                         theme.roles.forEach { (role, color) -> put(role, "%08X".format(color)) }
                     })
@@ -179,7 +212,14 @@ object Themes {
                 val glyph = entry.optString("glyphColors").takeIf {
                     it.isNotEmpty() && io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(it) != null
                 }
-                add(CarTheme(name, entry.optString("description"), parsed, glyph))
+                val resources = io.github.highwindbr.aaxp.runtime.ResourceColors.parse(entry.optString("resourceColors").ifEmpty { null })
+                val status = entry.optString("statusBar").takeIf {
+                    it.isNotEmpty() && io.github.highwindbr.aaxp.runtime.StatusBarTweaks.parse(it) != null
+                }
+                add(CarTheme(name, entry.optString("description"), parsed, glyph,
+                    resourceColors = resources.orEmpty(), statusBar = status,
+                    wallpaperDim = if (entry.has("wallpaperDim")) entry.optInt("wallpaperDim").coerceIn(0, 80) else null,
+                    wallpaperBlur = if (entry.has("wallpaperBlur")) entry.optInt("wallpaperBlur").coerceIn(0, BlurLevel.MAX) else null))
             }
         }.take(Presets.MAX_PRESETS)
     }

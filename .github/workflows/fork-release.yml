@@ -10,6 +10,12 @@ on:
 permissions:
   contents: write
 
+# One release build at a time, in push order. Without this, two pushes close together both see
+# "no release yet" for the same version and race to publish it from different commits.
+concurrency:
+  group: fork-release
+  cancel-in-progress: false
+
 env:
   GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.workers.max=1
 
@@ -77,6 +83,11 @@ jobs:
           VER: ${{ steps.version.outputs.ver }}
         run: |
           set -euo pipefail
+          # Checked again here: the first check was made before a build that takes minutes.
+          if gh release view "$VER" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $VER was published while this build ran; not publishing again."
+            exit 0
+          fi
           git log -1 --pretty=%B | sed '/^Co-Authored-By:/d;/^Claude-Session:/d' > "$RUNNER_TEMP/notes.txt"
           gh release create "$VER" out/*.apk --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
             --title "$VER" --notes-file "$RUNNER_TEMP/notes.txt" --latest

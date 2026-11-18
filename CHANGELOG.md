@@ -192,7 +192,9 @@ instrumented or physical-device acceptance yet.
 - More colours: the colour table rewrite is only used where the platform's table has the
   expected layout (Android 10 and later, seven numbers per attribute); elsewhere it is skipped
   and logged.
-- versionName `1.0.0-wr35`, versionCode unchanged.
+- Loading a look file no longer changes the wallpaper or its editor settings if the load fails;
+  clearer Load dialog wording; small clean-up.
+- versionName `1.0.0-wr36`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

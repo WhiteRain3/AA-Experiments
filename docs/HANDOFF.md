@@ -382,3 +382,97 @@ reverse-engineering material), it says so to the owner instead of quietly doing 
 - **Release**: bumps the version, updates the changelog line, pushes, confirms the release.
 - **Design reviewer**: looks at the owner's screenshots of the app and says, concretely, what
   to change. Changes nothing.
+
+## Dispatcher notes (for the session that takes over dispatching)
+
+Written 2026-11-18 by the first dispatcher session, whose conversation had grown too long to
+continue cheaply. Everything a new dispatcher needs is here; do not rely on the old session.
+
+### State at hand-over
+
+- Latest release: `1.0.0-wr35` (tag on `c42ce88`). The redesign in `docs/DESIGN_SPEC.md`,
+  pieces 1 to 9, is complete and released.
+- Unreleased on the branch: nothing reviewed is waiting. The App worker has three low
+  follow-ups queued (failed-import ordering, Load dialog wording, delete unused `undoThen`).
+- `main` is still upstream 1.0.0; all fork work is on `claude/companion-features` (the owner
+  asked; no decision yet on merging to `main`).
+
+### The sessions (all on this repository, environment "aa-tweaker")
+
+| Role | Session id | Model | Notes |
+|---|---|---|---|
+| App worker | `session_0164xm2ZquHZtmUqMQf9RNSX` | Sonnet 5.5 | Screens and app logic. Reliable; reads messages only between tasks. |
+| Hooks worker | `session_0164xm2WxKQjB36qpJLor7x6` | Fable 5.2 | Module. Has Android Auto 18.0 decompiled in its scratch folder. |
+| Reviewer | `session_0164xm2VdkgXvdqAyyz4BNF2` | Opus 5.5 | Builds, tests, ends with CLEAN or HOLD. |
+| Planner | `session_0164xm2ZzMHryyXBZf6M1kvK` | Opus 5.5 | Ideas and task lists, reads code first. |
+| Design reviewer | `session_0164xm2YcMBh7jDZDCkaLULA` | Sonnet 5.5 | Wrote the redesign spec; wants screenshots of the rebuilt pages. |
+| Manager, Release | `session_0164xm2Zyujw882AqbQyUp94`, `session_0164xm2Vvm8Pyxgk3vBPTbCG` | Opus 5.5, Haiku 5.5 | Never used; the dispatcher does both jobs. |
+| Tester | local on the owner's PC | owner's choice | Drives the Desktop Head Unit and the phone over adb; reports to branch `claude/test-reports`. Cannot be messaged; read its branch or ask the owner. |
+
+These sessions were created by the first dispatcher, so their replies to `"@parent"` go to that
+old session. A new dispatcher must tell each one its own session id and ask for replies there,
+or create fresh sessions from this file (cheap, and they start with clean context).
+
+### How the chain is run (what worked)
+
+1. The owner gives the dispatcher a request. The dispatcher routes it; it does not write code,
+   plans, ideas or designs itself.
+2. Brief the worker with: the owner's words, what is already known, what done looks like, "one
+   commit per piece, build and tests pass, no version bump, note to me with the hash, then stop
+   pushing".
+3. Send the pushed range to the Reviewer with the specific risks to look at. It replies CLEAN
+   or HOLD with findings.
+4. On CLEAN, and only if the branch tip is exactly the reviewed commit: bump `versionName` and
+   the CHANGELOG line, build and test, push, confirm
+   `https://github.com/WhiteRain3/AA-Experiments/releases/latest` redirects to the new tag and
+   that the tag is the bump commit. Then send "resume" to the workers and route the Reviewer's
+   low findings as the next small commit.
+5. Tell the owner, briefly: what is in the build, how to test it, what is still unconfirmed.
+
+Lessons, each learned the hard way:
+
+- Sessions read messages only between turns. A "hold" sent mid-task arrives late. So the rule
+  is "stop pushing after your batch and tell me", never "stop when I say".
+- Never push anything behind a release commit until the release is confirmed; the workflow
+  builds every push and the newest commit wins.
+- Two workers pushing at once is fine if each fetches and merges first, but a release needs
+  both quiet. Batch the work, review the batch, release once.
+- The owner wants short messages, plain English, and the dispatcher to dispatch. They test in
+  the car and with the local Tester.
+
+### Open with the owner
+
+- Did the launcher backdrop turn yellow before wr32's More colours fix? (Decides whether that
+  fix was needed; it is shipped and reviewed either way.)
+- Day and night looks: does Android Auto's look change at all on their car when the lights
+  switch? Dashboard wallpaper: do they want the see-through-cards version? (Hooks worker's
+  questions; details under "What exists".)
+- Screenshots of the rebuilt Colours, Status bar and Home pages for the Design reviewer.
+- Whether to merge the branch into `main`.
+
+### The next goal the owner raised: an app that replaces Android Auto
+
+On 2026-11-18 the owner found https://github.com/malashhab/F-Auto (GPL-3.0-or-later, based on
+a project called AARE): an app that speaks Android Auto's protocol to the car itself and draws
+its own car screen, with no Google Android Auto app involved. From its README only (nobody has
+read its source yet): USB and wireless including aftermarket adapters; two layouts and six
+themes; navigation and media through the standard car libraries; phone-app mirroring, Google
+Maps and car audio capture need root or Shizuku; Google's own car apps refuse unofficial
+hosts; its author calls it early software tested on one car and one adapter.
+
+The owner's point, in their words: "we could have actually made our own custom app, with
+youtube working, with knobs working, specifically for my box and everything." They are right
+that this route was never offered to them, and they want it considered now. The plan agreed in
+outline, not yet started:
+
+1. First let the local Tester's findings on the current app be fixed.
+2. The owner tries F-Auto parked, as it is: does it connect through their wireless adapter,
+   and does the rotary knob do anything.
+3. The Planner reads F-Auto's source and reports what it would take to fork it for a knob-only
+   Audi screen (rotary handling, phone-app mirroring, video, what is solid and what is rough),
+   and what from this fork carries over (themes, colour picker, wallpaper editor, styles,
+   updater, release chain, the redesigned screens).
+4. If it connects: a second fork with its own chain. The current app stays as the daily
+   driver meanwhile.
+
+Video on the dash is for parked use or a passenger; say so once, not repeatedly.

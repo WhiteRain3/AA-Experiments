@@ -154,6 +154,12 @@ instrumented or physical-device acceptance yet.
 - Status bar: one size slider (70 to 140%) for the signal and battery icons. Only the drawing
   of the icon row is scaled, around its centre; layout sizes are untouched. The battery
   percentage keeps its own size. Untested on a car.
+- Battery percentage coloured by level, live: green at or above a high mark (70), red below a
+  low mark (30), in between the colour the number already has (its own colour, else the
+  clock's) unless one is chosen; an optional colour while charging. The colour changes with the
+  system's battery broadcast, without a restart. Applying a one-tap style now keeps every
+  status bar setting it does not set (plate colour and corners and icon size were dropped
+  before). Untested on a car.
 - versionName `1.0.0-wr29`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

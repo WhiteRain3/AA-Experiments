@@ -67,6 +67,13 @@ private val STATUS_BAR_PARTS = listOf(
     var plateColor by remember(stored) { mutableStateOf(stored?.plateColor) }
     var plateRadius by remember(stored) { mutableStateOf(stored?.plateRadius) }
     var iconSize by remember(stored) { mutableStateOf(stored?.iconSize ?: StatusBarTweaks.DEFAULT_ICON_SIZE) }
+    var byLevel by remember(stored) { mutableStateOf(stored?.batteryByLevel ?: false) }
+    var levelHigh by remember(stored) { mutableStateOf(stored?.batteryHigh ?: StatusBarTweaks.DEFAULT_BATTERY_HIGH) }
+    var levelLow by remember(stored) { mutableStateOf(stored?.batteryLow ?: StatusBarTweaks.DEFAULT_BATTERY_LOW) }
+    var highColor by remember(stored) { mutableStateOf(stored?.batteryHighColor ?: StatusBarTweaks.DEFAULT_BATTERY_HIGH_COLOR) }
+    var lowColor by remember(stored) { mutableStateOf(stored?.batteryLowColor ?: StatusBarTweaks.DEFAULT_BATTERY_LOW_COLOR) }
+    var midColor by remember(stored) { mutableStateOf(stored?.batteryMidColor) }
+    var chargeColor by remember(stored) { mutableStateOf(stored?.batteryChargeColor) }
     var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
     picking?.let { (title, apply) ->
         ColorPickerDialog(title, 0xFFFFFFFF.toInt(), onDismiss = { picking = null }) { apply(it); picking = null }
@@ -99,6 +106,19 @@ private val STATUS_BAR_PARTS = listOf(
             androidx.compose.material3.Slider(batterySize.toFloat(), { batterySize = (it / 5).toInt() * 5 },
                 valueRange = StatusBarTweaks.MIN_BATTERY_SIZE.toFloat()..StatusBarTweaks.MAX_BATTERY_SIZE.toFloat())
             colorRow("Percentage colour", batteryColor) { batteryColor = it }
+            switchRow("Colour by battery level", byLevel) { byLevel = it }
+            if (byLevel) {
+                Text("High: $levelHigh% and above", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(levelHigh.toFloat(), { levelHigh = ((it / 5).toInt() * 5).coerceAtLeast(levelLow + 5) },
+                    valueRange = 10f..100f)
+                colorRow("Colour when high", highColor) { highColor = it ?: StatusBarTweaks.DEFAULT_BATTERY_HIGH_COLOR }
+                colorRow("Colour in between (Default: the percentage colour)", midColor) { midColor = it }
+                Text("Low: below $levelLow%", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(levelLow.toFloat(), { levelLow = ((it / 5).toInt() * 5).coerceAtMost(levelHigh - 5) },
+                    valueRange = 0f..90f)
+                colorRow("Colour when low", lowColor) { lowColor = it ?: StatusBarTweaks.DEFAULT_BATTERY_LOW_COLOR }
+                colorRow("Colour while charging (optional)", chargeColor) { chargeColor = it }
+            }
         }
         Text("Background plate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
@@ -133,6 +153,9 @@ private val STATUS_BAR_PARTS = listOf(
                 builder.batteryPercent = batteryPercent; builder.batteryColor = batteryColor; builder.batterySize = batterySize
                 builder.clockSize = clockSize; builder.clockBold = clockBold
                 builder.plateColor = plateColor; builder.plateRadius = plateRadius; builder.iconSize = iconSize
+                builder.batteryByLevel = byLevel; builder.batteryHigh = levelHigh; builder.batteryLow = levelLow
+                builder.batteryHighColor = highColor; builder.batteryLowColor = lowColor
+                builder.batteryMidColor = midColor; builder.batteryChargeColor = chargeColor
                 model.setStatusBarConfig(StatusBarTweaks.encode(builder.build()))
             }, Modifier.weight(1f), enabled = connected) { Text("Save") }
             OutlinedButton({
@@ -140,6 +163,9 @@ private val STATUS_BAR_PARTS = listOf(
                 batteryColor = null; batterySize = StatusBarTweaks.DEFAULT_BATTERY_SIZE
                 clockSize = StatusBarTweaks.DEFAULT_CLOCK_SIZE; clockBold = false
                 plateColor = null; plateRadius = null; iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE
+                byLevel = false; levelHigh = StatusBarTweaks.DEFAULT_BATTERY_HIGH; levelLow = StatusBarTweaks.DEFAULT_BATTERY_LOW
+                highColor = StatusBarTweaks.DEFAULT_BATTERY_HIGH_COLOR; lowColor = StatusBarTweaks.DEFAULT_BATTERY_LOW_COLOR
+                midColor = null; chargeColor = null
                 model.setStatusBarConfig(null)
             }, Modifier.weight(1f), enabled = connected && stored != null) { Text("Turn off") }
         }

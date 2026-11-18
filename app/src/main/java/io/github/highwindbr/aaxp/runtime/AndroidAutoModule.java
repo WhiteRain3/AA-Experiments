@@ -607,11 +607,20 @@ public final class AndroidAutoModule extends XposedModule {
             if (config.batteryColor != null) color = config.batteryColor;
             text.setTextColor(color);
             text.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX, size);
+            final int baseColor = color;
             final android.content.BroadcastReceiver receiver = new android.content.BroadcastReceiver() {
                 @Override public void onReceive(android.content.Context context, Intent intent) {
-                    text.setText(StatusBarTweaks.percentText(
-                            intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1),
-                            intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)));
+                    int level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1);
+                    int scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1);
+                    text.setText(StatusBarTweaks.percentText(level, scale));
+                    if (!config.batteryByLevel) return;
+                    try {
+                        boolean charging = intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+                        text.setTextColor(StatusBarTweaks.levelColor(
+                                StatusBarTweaks.percent(level, scale), charging, config, baseColor));
+                    } catch (Throwable t) {
+                        eventOnce(Log.WARN, "BATTERY_PERCENT_FAILED", "colour", t.getClass().getSimpleName());
+                    }
                 }
             };
             text.addOnAttachStateChangeListener(new android.view.View.OnAttachStateChangeListener() {

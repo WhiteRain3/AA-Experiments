@@ -170,6 +170,95 @@ public class StatusBarTweaksTest {
         assertEquals(22.4f, StatusBarTweaks.sizeInsideScaledRow(22.4f, 100), 0.001f);
     }
 
+    private static StatusBarTweaks.Config byLevel() {
+        return StatusBarTweaks.parse("battery=percent;battery_level=70,30");
+    }
+
+    @Test public void levelColourBoundaries() {
+        StatusBarTweaks.Config config = byLevel();
+        int base = 0xFFF2F0F0, green = StatusBarTweaks.DEFAULT_BATTERY_HIGH_COLOR, red = StatusBarTweaks.DEFAULT_BATTERY_LOW_COLOR;
+        assertEquals(green, StatusBarTweaks.levelColor(100, false, config, base));
+        assertEquals(green, StatusBarTweaks.levelColor(70, false, config, base));
+        assertEquals(base, StatusBarTweaks.levelColor(69, false, config, base));
+        assertEquals(base, StatusBarTweaks.levelColor(30, false, config, base));
+        assertEquals(red, StatusBarTweaks.levelColor(29, false, config, base));
+        assertEquals(red, StatusBarTweaks.levelColor(0, false, config, base));
+        // Unknown level: the colour the number has anyway.
+        assertEquals(base, StatusBarTweaks.levelColor(-1, false, config, base));
+        // Charging is not special unless a colour for it was chosen.
+        assertEquals(red, StatusBarTweaks.levelColor(10, true, config, base));
+    }
+
+    @Test public void levelColourOffIsTheBaseColour() {
+        StatusBarTweaks.Config off = StatusBarTweaks.parse("battery=percent;battery_color=FF00FFFF");
+        assertFalse(off.batteryByLevel);
+        for (int percent : new int[] {-1, 0, 29, 30, 50, 70, 100}) {
+            assertEquals(0xFF00FFFF, StatusBarTweaks.levelColor(percent, true, off, 0xFF00FFFF));
+        }
+        assertEquals(0xFF123456, StatusBarTweaks.levelColor(90, false, null, 0xFF123456));
+    }
+
+    @Test public void levelColourChosenColoursAndCharging() {
+        StatusBarTweaks.Config config = StatusBarTweaks.parse("battery=percent;battery_level=80,20;"
+                + "battery_high_color=FF00FF00;battery_mid_color=FFFFFF00;battery_low_color=FFFF0000;battery_charge_color=FF0000FF");
+        assertEquals(80, config.batteryHigh);
+        assertEquals(20, config.batteryLow);
+        assertEquals(0xFF00FF00, StatusBarTweaks.levelColor(80, false, config, 0));
+        assertEquals(0xFFFFFF00, StatusBarTweaks.levelColor(79, false, config, 0));
+        assertEquals(0xFFFFFF00, StatusBarTweaks.levelColor(20, false, config, 0));
+        assertEquals(0xFFFF0000, StatusBarTweaks.levelColor(19, false, config, 0));
+        assertEquals(0xFF0000FF, StatusBarTweaks.levelColor(19, true, config, 0));
+        assertEquals(0xFF0000FF, StatusBarTweaks.levelColor(95, true, config, 0));
+        // Unknown level wins over charging: there is nothing to go by.
+        assertEquals(0, StatusBarTweaks.levelColor(-1, true, config, 0));
+        assertEquals("battery=percent;battery_level=80,20;battery_high_color=FF00FF00;battery_mid_color=FFFFFF00;"
+                + "battery_low_color=FFFF0000;battery_charge_color=FF0000FF", StatusBarTweaks.encode(config));
+    }
+
+    @Test public void levelColourSetting() {
+        assertEquals("battery=percent;battery_level=70,30", StatusBarTweaks.encode(byLevel()));
+        assertNull(byLevel().batteryMidColor);
+        assertNull(byLevel().batteryChargeColor);
+        // Marks must be 0 <= low < high <= 100.
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=30,70"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=50,50"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=101,30"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=70,-1"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=70"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=high,low"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_level=70,30;battery_low_color=red"));
+        // The builder falls back to the default marks when given unusable ones.
+        StatusBarTweaks.Builder builder = new StatusBarTweaks.Builder();
+        builder.batteryPercent = true;
+        builder.batteryByLevel = true;
+        builder.batteryHigh = 20;
+        builder.batteryLow = 60;
+        assertEquals(StatusBarTweaks.DEFAULT_BATTERY_HIGH, builder.build().batteryHigh);
+        assertEquals(StatusBarTweaks.DEFAULT_BATTERY_LOW, builder.build().batteryLow);
+        // Without the number there is nothing to colour, so nothing is stored.
+        builder.batteryPercent = false;
+        assertNull(StatusBarTweaks.encode(builder.build()));
+        // Settings from before this existed are unchanged.
+        assertFalse(StatusBarTweaks.parse("battery=percent").batteryByLevel);
+        assertEquals("battery=percent", StatusBarTweaks.encode(StatusBarTweaks.parse("battery=percent")));
+    }
+
+    @Test public void toBuilderKeepsEverything() {
+        String all = "hide=clock;clock=FFFF2D95;icons=80FFFFFF;battery=percent;battery_color=FF00FFFF;battery_size=110;"
+                + "battery_level=80,20;battery_high_color=FF00FF00;battery_mid_color=FFFFFF00;battery_low_color=FFFF0000;"
+                + "battery_charge_color=FF0000FF;clock_size=120;clock_bold=on;plate_color=80102030;plate_radius=12;icon_size=125";
+        assertEquals(all, StatusBarTweaks.encode(StatusBarTweaks.parse(all)));
+        assertEquals(all, StatusBarTweaks.encode(StatusBarTweaks.parse(all).toBuilder().build()));
+    }
+
+    @Test public void percentOfLevel() {
+        assertEquals(74, StatusBarTweaks.percent(74, 100));
+        assertEquals(50, StatusBarTweaks.percent(100, 200));
+        assertEquals(100, StatusBarTweaks.percent(101, 100));
+        assertEquals(-1, StatusBarTweaks.percent(-1, 100));
+        assertEquals(-1, StatusBarTweaks.percent(50, 0));
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

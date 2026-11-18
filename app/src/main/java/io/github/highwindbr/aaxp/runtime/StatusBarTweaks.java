@@ -8,7 +8,8 @@ import java.util.Set;
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
  * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent;
- * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12;icon_size=120"; every part is optional.
+ * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12;icon_size=120;battery_level=70,30;battery_high_color=AARRGGBB;battery_mid_color=AARRGGBB;
+ * battery_low_color=AARRGGBB;battery_charge_color=AARRGGBB"; every part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
 public final class StatusBarTweaks {
@@ -65,10 +66,43 @@ public final class StatusBarTweaks {
         return Math.max(1f, original * percent / 100f);
     }
 
+    /** Colouring the battery number by level: at or above the high mark, below the low mark, or in between. */
+    public static final int DEFAULT_BATTERY_HIGH = 70;
+    public static final int DEFAULT_BATTERY_LOW = 30;
+    public static final int DEFAULT_BATTERY_HIGH_COLOR = 0xFF4CAF50;
+    public static final int DEFAULT_BATTERY_LOW_COLOR = 0xFFF44336;
+
+    /** Battery level in percent, 0 to 100; -1 when the level is unknown. */
+    public static int percent(int level, int scale) {
+        if (level < 0 || scale <= 0) return -1;
+        return Math.min(100, Math.round(level * 100f / scale));
+    }
+
     /** Battery level as text, e.g. "74%"; empty when the level is unknown. */
     public static String percentText(int level, int scale) {
-        if (level < 0 || scale <= 0) return "";
-        return Math.min(100, Math.round(level * 100f / scale)) + "%";
+        int percent = percent(level, scale);
+        return percent < 0 ? "" : percent + "%";
+    }
+
+    /**
+     * The colour of the battery number at {@code percent} (-1 = unknown). {@code base} is the
+     * colour the number has without colouring by level: the battery colour, else the clock's.
+     * With colouring by level off, or the level unknown, that is the answer. Otherwise: the
+     * charging colour while charging, if one is set; the high colour at or above the high mark;
+     * the low colour below the low mark; in between the middle colour, which is {@code base}
+     * unless one was chosen.
+     */
+    public static int levelColor(int percent, boolean charging, Config config, int base) {
+        if (config == null || !config.batteryByLevel || percent < 0) return base;
+        if (charging && config.batteryChargeColor != null) return config.batteryChargeColor;
+        if (percent >= config.batteryHigh) return config.batteryHighColor;
+        if (percent < config.batteryLow) return config.batteryLowColor;
+        return config.batteryMidColor != null ? config.batteryMidColor : base;
+    }
+
+    /** True when the two marks can be used: 0 <= low < high <= 100. */
+    public static boolean validMarks(int high, int low) {
+        return low >= 0 && low < high && high <= 100;
     }
     private static final List<String> LAYOUTS = Arrays.asList(
             "rail_statusbar", "rail_statusbar_rhd", "vertical_rail_statusbar", "hero_vertical_rail_statusbar");
@@ -95,6 +129,16 @@ public final class StatusBarTweaks {
         public final Integer plateRadius;
         /** Size of the signal and battery icons in percent. */
         public final int iconSize;
+        /** Colour the battery number by level. Only means something while the number is shown. */
+        public final boolean batteryByLevel;
+        public final int batteryHigh;
+        public final int batteryLow;
+        public final int batteryHighColor;
+        public final int batteryLowColor;
+        /** Colour between the marks; null follows the battery colour, else the clock. */
+        public final Integer batteryMidColor;
+        /** Colour while charging; null means charging is not treated differently. */
+        public final Integer batteryChargeColor;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
@@ -134,6 +178,14 @@ public final class StatusBarTweaks {
             Integer clockColor = from.clockColor, iconColor = from.iconColor, batteryColor = from.batteryColor;
             boolean noPlate = from.noPlate, batteryPercent = from.batteryPercent;
             int batterySize = from.batterySize;
+            this.batteryByLevel = from.batteryByLevel;
+            boolean marks = validMarks(from.batteryHigh, from.batteryLow);
+            this.batteryHigh = marks ? from.batteryHigh : DEFAULT_BATTERY_HIGH;
+            this.batteryLow = marks ? from.batteryLow : DEFAULT_BATTERY_LOW;
+            this.batteryHighColor = from.batteryHighColor;
+            this.batteryLowColor = from.batteryLowColor;
+            this.batteryMidColor = from.batteryMidColor;
+            this.batteryChargeColor = from.batteryChargeColor;
             this.iconSize = Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, from.iconSize));
             this.plateColor = from.plateColor;
             this.plateRadius = from.plateRadius == null ? null : Math.max(0, Math.min(MAX_PLATE_RADIUS, from.plateRadius));
@@ -146,6 +198,23 @@ public final class StatusBarTweaks {
             this.clockColor = clockColor;
             this.iconColor = iconColor;
             this.noPlate = noPlate;
+        }
+
+        /** Every setting copied into a builder, for changing a few and keeping the rest. */
+        public Builder toBuilder() {
+            Builder builder = builder(new LinkedHashSet<>(hide), clockColor, iconColor, noPlate, batteryPercent,
+                    batteryColor, batterySize, clockSize, clockBold);
+            builder.plateColor = plateColor;
+            builder.plateRadius = plateRadius;
+            builder.iconSize = iconSize;
+            builder.batteryByLevel = batteryByLevel;
+            builder.batteryHigh = batteryHigh;
+            builder.batteryLow = batteryLow;
+            builder.batteryHighColor = batteryHighColor;
+            builder.batteryLowColor = batteryLowColor;
+            builder.batteryMidColor = batteryMidColor;
+            builder.batteryChargeColor = batteryChargeColor;
+            return builder;
         }
 
         public boolean isEmpty() {
@@ -169,6 +238,13 @@ public final class StatusBarTweaks {
         public Integer plateColor;
         public Integer plateRadius;
         public int iconSize = DEFAULT_ICON_SIZE;
+        public boolean batteryByLevel;
+        public int batteryHigh = DEFAULT_BATTERY_HIGH;
+        public int batteryLow = DEFAULT_BATTERY_LOW;
+        public int batteryHighColor = DEFAULT_BATTERY_HIGH_COLOR;
+        public int batteryLowColor = DEFAULT_BATTERY_LOW_COLOR;
+        public Integer batteryMidColor;
+        public Integer batteryChargeColor;
 
         public Config build() {
             return new Config(this);
@@ -191,6 +267,7 @@ public final class StatusBarTweaks {
         boolean clockBold = false;
         Integer plateColor = null, plateRadius = null;
         int iconSize = DEFAULT_ICON_SIZE;
+        Builder level = new Builder();
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -250,6 +327,31 @@ public final class StatusBarTweaks {
                     }
                     if (plateRadius < 0 || plateRadius > MAX_PLATE_RADIUS) return null;
                     break;
+                case "battery_level": {
+                    String[] marks = value.split(",");
+                    if (marks.length != 2) return null;
+                    try {
+                        level.batteryHigh = Integer.parseInt(marks[0]);
+                        level.batteryLow = Integer.parseInt(marks[1]);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (!validMarks(level.batteryHigh, level.batteryLow)) return null;
+                    level.batteryByLevel = true;
+                    break;
+                }
+                case "battery_high_color":
+                case "battery_low_color":
+                case "battery_mid_color":
+                case "battery_charge_color": {
+                    Integer parsed = color(value);
+                    if (parsed == null) return null;
+                    if (name.equals("battery_high_color")) level.batteryHighColor = parsed;
+                    else if (name.equals("battery_low_color")) level.batteryLowColor = parsed;
+                    else if (name.equals("battery_mid_color")) level.batteryMidColor = parsed;
+                    else level.batteryChargeColor = parsed;
+                    break;
+                }
                 case "icon_size":
                     try {
                         iconSize = Integer.parseInt(value);
@@ -270,6 +372,13 @@ public final class StatusBarTweaks {
         builder.plateColor = plateColor;
         builder.plateRadius = plateRadius;
         builder.iconSize = iconSize;
+        builder.batteryByLevel = level.batteryByLevel;
+        builder.batteryHigh = level.batteryHigh;
+        builder.batteryLow = level.batteryLow;
+        builder.batteryHighColor = level.batteryHighColor;
+        builder.batteryLowColor = level.batteryLowColor;
+        builder.batteryMidColor = level.batteryMidColor;
+        builder.batteryChargeColor = level.batteryChargeColor;
         Config config = builder.build();
         return config.isEmpty() ? null : config;
     }
@@ -287,6 +396,19 @@ public final class StatusBarTweaks {
             // The number's own colour and size only mean something while the number is shown.
             if (config.batteryColor != null) append(text, "battery_color=" + String.format("%08X", config.batteryColor));
             if (config.batterySize != DEFAULT_BATTERY_SIZE) append(text, "battery_size=" + config.batterySize);
+            if (config.batteryByLevel) {
+                append(text, "battery_level=" + config.batteryHigh + "," + config.batteryLow);
+                if (config.batteryHighColor != DEFAULT_BATTERY_HIGH_COLOR) {
+                    append(text, "battery_high_color=" + String.format("%08X", config.batteryHighColor));
+                }
+                if (config.batteryMidColor != null) append(text, "battery_mid_color=" + String.format("%08X", config.batteryMidColor));
+                if (config.batteryLowColor != DEFAULT_BATTERY_LOW_COLOR) {
+                    append(text, "battery_low_color=" + String.format("%08X", config.batteryLowColor));
+                }
+                if (config.batteryChargeColor != null) {
+                    append(text, "battery_charge_color=" + String.format("%08X", config.batteryChargeColor));
+                }
+            }
         }
         if (config.clockSize != DEFAULT_CLOCK_SIZE) append(text, "clock_size=" + config.clockSize);
         if (config.clockBold) append(text, "clock_bold=on");

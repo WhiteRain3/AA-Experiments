@@ -103,6 +103,7 @@ instrumented or physical-device acceptance yet.
 - Look pages: one short intro line each; a single "Changes saved. Restart Android Auto to see them" banner with a Restart button replaces the repeated restart notes; long caveats sit behind "How this works". Status bar switches are headed "Hide" with short labels.
 - Car wallpaper blur is now a real blur (three box blur passes, radius relative to the image size) instead of shrinking and enlarging the picture; the preview updates when the slider is released.
 - Car wallpaper blur slider is four times finer (0 to 40, shown as a percentage); saved blur values from before are converted, the blur is computed off the main thread, and the saved picture always matches the saved setting.
+- Undo for the look: before a look change is saved (theme, extra colours, icons, status bar, wallpaper, loading a look file) a copy of the current look is kept, and "Undo last change" on Home puts it back. The wallpaper image is only copied again when it has changed.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

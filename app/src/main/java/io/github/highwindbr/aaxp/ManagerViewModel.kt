@@ -1089,6 +1089,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun setThemeColors(text: String, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val parsed = io.github.highwindbr.aaxp.runtime.ThemeColors.parse(text)
         val saved = parsed != null && withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(parsed)
             if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
@@ -1142,6 +1143,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     /** Writes the role colours and the glyph colours in one step; null [glyphColors] turns glyphs off. */
     fun applyCarTheme(roles: Map<String, Int>, glyphColors: String?) = viewModelScope.launch {
         val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("applying a theme")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ThemeColors.encode(roles)
             if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
@@ -1274,6 +1276,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setResourceColors(colors: Map<String, Int>) = viewModelScope.launch {
         val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the extra colours")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             val encoded = io.github.highwindbr.aaxp.runtime.ResourceColors.encode(colors)
             if (encoded == null) editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
@@ -1295,6 +1298,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setStatusBarConfig(config: String?) = viewModelScope.launch {
         val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the status bar")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY)
             else {
@@ -1371,6 +1375,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun setGlyphIcons(colors: String?, onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val valid = colors == null || io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
         val saved = valid && withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the icons")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()).edit()
             if (colors == null) editor.remove(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY)
             else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, colors)
@@ -1384,6 +1389,103 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             else -> "Glyph icons on. Restart Android Auto; icons Android Auto has already cached may take a while to refresh."
         })
         onDone(saved)
+    }
+
+    // ---- Undo for the look ----
+
+    private val undoJson get() = File(getApplication<Application>().filesDir, "look_undo.json")
+    private val undoImage get() = File(getApplication<Application>().filesDir, "look_undo_wallpaper")
+
+    /** True while there is a saved look that "Undo last change" can put back. */
+    var canUndo by androidx.compose.runtime.mutableStateOf(File(application.filesDir, "look_undo.json").isFile)
+        private set
+    var undoLabel by androidx.compose.runtime.mutableStateOf("")
+        private set
+
+    private fun wallpaperSourceStamp(): String? =
+        CarWallpaperStudio.sourceFile(getApplication()).takeIf { it.isFile }
+            ?.let { io.github.highwindbr.aaxp.core.LookUndo.stamp(it.length(), it.lastModified()) }
+
+    private fun snapshotNow(label: String, wallpaperStamp: String?): io.github.highwindbr.aaxp.core.LookSnapshot {
+        val prefs = ServiceBridge.dynamicPreferencesOrNull()
+        return io.github.highwindbr.aaxp.core.LookSnapshot(label,
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
+            if (wallpaperStamp != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(getApplication())) else null,
+            wallpaperStamp)
+    }
+
+    /**
+     * Keeps a copy of the current look so it can be undone. Blocking file and preference I/O: call
+     * off Main. Never throws; the wallpaper image is only copied when it differs from the kept one.
+     */
+    fun captureUndo(label: String) {
+        runCatching {
+            if (ServiceBridge.dynamicPreferencesOrNull() == null) return
+            val plan = io.github.highwindbr.aaxp.core.LookUndo.wallpaperPlan(carWallpaperEnabled(), wallpaperSourceStamp(),
+                controlPreferences.getString("wallpaper_applied_stamp", null), controlPreferences.getString("undo_image_stamp", null))
+            if (plan.copyImage) {
+                CarWallpaperStudio.sourceFile(getApplication()).copyTo(undoImage, overwrite = true)
+                controlPreferences.edit().putString("undo_image_stamp", plan.snapshotStamp).apply()
+            }
+            undoJson.writeText(io.github.highwindbr.aaxp.core.LookUndo.encode(snapshotNow(label, plan.snapshotStamp)))
+            undoLabel = label
+            canUndo = true
+        }
+    }
+
+    /** Keeps an undo copy, then runs [block] (on Main). For changes made outside this class. */
+    fun undoThen(label: String, block: () -> Unit) {
+        viewModelScope.launch { withContext(Dispatchers.IO) { captureUndo(label) }; block() }
+    }
+
+    /** Remembers that the current wallpaper source file is the image the car uses. */
+    fun markWallpaperApplied() {
+        if (carWallpaperEnabled()) controlPreferences.edit().putString("wallpaper_applied_stamp", wallpaperSourceStamp()).apply()
+    }
+
+    /** Puts back the look kept before the last change. */
+    fun undoLastChange() = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching {
+            val kept = checkNotNull(io.github.highwindbr.aaxp.core.LookUndo.decode(undoJson.readText())) { "The saved copy cannot be read" }
+            val context = getApplication<Application>()
+            val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
+            val applied = controlPreferences.getString("wallpaper_applied_stamp", null)
+            val now = snapshotNow(kept.label, if (carWallpaperEnabled()) (applied ?: wallpaperSourceStamp()) else null)
+            val editor = prefs.edit()
+            fun put(key: String, value: String?) { if (value == null) editor.remove(key) else editor.putString(key, value) }
+            put(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, kept.themeColors)
+            put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, kept.glyphColors)
+            put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, kept.statusBar)
+            put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, kept.resourceColors)
+            val imageKept = kept.wallpaperStamp != null && undoImage.isFile &&
+                controlPreferences.getString("undo_image_stamp", null) == kept.wallpaperStamp
+            if (imageKept) {
+                undoImage.copyTo(CarWallpaperStudio.sourceFile(context), overwrite = true)
+                CarWallpaperStudio.save(context, CarWallpaperStudio.settingsFrom(kept.wallpaperSettings))
+                val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderSaved(context)) { "The kept wallpaper is not an image" }
+                writeCarWallpaper(editor, rendered, rail)
+            } else {
+                editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)
+                editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)
+            }
+            check(editor.commit()) { "Framework rejected the preference update" }
+            if (imageKept) markWallpaperApplied()
+            undoJson.delete()
+            val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+            io.github.highwindbr.aaxp.core.LookUndo.restoredMessage(
+                io.github.highwindbr.aaxp.core.LookUndo.differences(now, kept.let {
+                    io.github.highwindbr.aaxp.core.LookSnapshot(it.label, it.themeColors, it.glyphColors, it.statusBar, it.resourceColors,
+                        if (imageKept) it.wallpaperSettings else null, if (imageKept) it.wallpaperStamp else null)
+                }), kept.label) to restarted
+        } }
+        canUndo = undoJson.isFile
+        result.onSuccess { changesWaiting = !it.second }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { (text, restarted) -> text + if (restarted) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Nothing was undone: ${it.message}" }))
     }
 
     // ---- Car wallpaper ----
@@ -1415,6 +1517,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             // The version changes last, so the module never sees a new version with an old file.
             writeCarWallpaper(editor, bitmap, rail)
             check(editor.commit()) { "Framework rejected the preference update" }
+            markWallpaperApplied()
             "${bitmap.width}x${bitmap.height}"
         } }
         mutable.value = mutable.value.copy(message = result.fold(
@@ -1428,6 +1531,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun clearCarWallpaper(onDone: (Boolean) -> Unit = {}) = viewModelScope.launch {
         val cleared = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("removing the wallpaper")
             ServiceBridge.dynamicPreferencesOrNull()?.edit()
                 ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)
                 ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)?.commit() == true

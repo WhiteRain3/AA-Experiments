@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Apps
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.CheckCircle
@@ -172,6 +173,9 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
         }
         update?.let { found ->
             item { FeatureTile(Icons.Default.SystemUpdate, "Update available", "${found.versionName} is ready to install") { onOpen(FeaturePage.UPDATES) } }
+        }
+        if (model.canUndo) item {
+            FeatureTile(Icons.AutoMirrored.Filled.Undo, "Undo last change", "Put the look back to how it was before ${model.undoLabel}") { model.undoLastChange() }
         }
         item { SectionHeading("Look") }
         item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -947,27 +947,38 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private final java.util.Set<android.view.View> fittedContainers =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+
     /**
-     * Size of the signal and battery icons. Only how they are drawn is scaled, around the centre
-     * of the row that holds them; their layout size stays as it is, because a changed size inside
-     * the status bar's ConstraintLayout has gone wrong before. The row's parents are told not to
-     * cut off what a larger row draws beyond its own edges.
+     * Size of the signal and battery icons, and room for the battery number. Only how the row
+     * that holds them is drawn is scaled; the icons' layout sizes stay as they are, because a
+     * changed size inside the status bar's ConstraintLayout has gone wrong before. Seen on a
+     * head unit: at 140% the row was cut off by the plate, and with both icons shown the battery
+     * number was squeezed out of view. So after every layout pass the row is fitted: the plate
+     * is asked to become as wide as the scaled row needs (up to the rail's width), the row is
+     * given its full width when the number is in it, and it is drawn at the wanted scale or, when
+     * even the rail is too narrow, as large as fits, centred.
      */
     private void applyIconSize(android.view.View root, StatusBarTweaks.Config config) {
-        if (config.iconSize == StatusBarTweaks.DEFAULT_ICON_SIZE) return;
+        if (config.iconSize == StatusBarTweaks.DEFAULT_ICON_SIZE && !config.batteryPercent) return;
         try {
             float scale = StatusBarTweaks.iconScale(config.iconSize);
-            android.view.View row = findByName(root, StatusBarTweaks.ICON_ROW);
+            final android.view.View row = findByName(root, StatusBarTweaks.ICON_ROW);
             String route;
-            if (row != null) {
-                row.setScaleX(scale);
-                row.setScaleY(scale);
-                android.view.ViewParent parent = row.getParent();
+            if (row != null && row.getParent() instanceof android.view.ViewGroup container) {
+                android.view.ViewParent parent = container;
                 for (int level = 0; level < 2 && parent instanceof android.view.ViewGroup group; level++) {
                     group.setClipChildren(false);
                     group.setClipToPadding(false);
                     parent = group.getParent();
                 }
+                final android.view.View plate = findByName(root, StatusBarTweaks.PLATE);
+                if (fittedContainers.add(container)) {
+                    container.addOnLayoutChangeListener((view, l, t, r, b, ol, ot, or, ob) -> fitIconRow(row, plate));
+                }
+                row.setScaleX(scale);
+                row.setScaleY(scale);
                 route = "row";
             } else {
                 int scaled = 0;
@@ -983,6 +994,62 @@ public final class AndroidAutoModule extends XposedModule {
             eventOnce(Log.INFO, "STATUS_ICON_SIZE", "status_bar", route + "@" + config.iconSize);
         } catch (Throwable t) {
             eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "status_bar", t.getClass().getSimpleName());
+        }
+    }
+
+    /** One fitting pass for the icon row; see {@link #applyIconSize}. Runs after each layout of its container. */
+    private void fitIconRow(android.view.View rowView, android.view.View plate) {
+        try {
+            StatusBarTweaks.Config config = statusBar();
+            if (config == null || !(rowView instanceof android.view.ViewGroup row)
+                    || !(row.getParent() instanceof android.view.View container)) return;
+            android.view.View text = row.findViewWithTag(BATTERY_PERCENT_TAG);
+            int needed = row.getPaddingLeft() + row.getPaddingRight();
+            for (int i = 0; i < row.getChildCount(); i++) {
+                android.view.View child = row.getChildAt(i);
+                if (child.getVisibility() == android.view.View.GONE) continue;
+                if (child == text && text instanceof android.widget.TextView number) {
+                    needed += (int) Math.ceil(number.getPaint().measureText(StatusBarTweaks.WIDEST_PERCENT))
+                            + number.getPaddingLeft() + number.getPaddingRight();
+                } else {
+                    needed += child.getMeasuredWidth();
+                }
+                if (child.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams margins) {
+                    needed += margins.leftMargin + margins.rightMargin;
+                }
+            }
+            // The widest the container can be: the rail's width less what surrounds the container.
+            int maxContainer = container.getWidth();
+            if (plate != null && plate.getParent() instanceof android.view.View wrapper
+                    && wrapper.getWidth() > 0 && plate.getWidth() >= container.getWidth()) {
+                int around = plate.getWidth() - container.getWidth();
+                maxContainer = wrapper.getWidth() - wrapper.getPaddingLeft() - wrapper.getPaddingRight() - around;
+                StatusBarTweaks.RowFit wanted = StatusBarTweaks.fitRow(needed, StatusBarTweaks.iconScale(config.iconSize), maxContainer);
+                int plateWidth = wanted.containerWidth + around;
+                // Only ever asked to grow: a plate that is already wider (a large clock) stays.
+                if (plate.getMinimumWidth() != plateWidth) plate.setMinimumWidth(plateWidth);
+            }
+            // With the number in it the row needs its full width, or the number is squeezed.
+            if (text != null && row.getWidth() < needed) {
+                android.view.ViewGroup.LayoutParams params = row.getLayoutParams();
+                if (params != null && params.width != needed) {
+                    params.width = needed;
+                    row.setLayoutParams(params);
+                }
+                return; // fitted on the layout pass this causes
+            }
+            int width = row.getWidth();
+            if (width <= 0 || container.getWidth() <= 0) return;
+            StatusBarTweaks.RowFit fit = StatusBarTweaks.fitRow(width, StatusBarTweaks.iconScale(config.iconSize), container.getWidth());
+            row.setPivotX(0f);
+            row.setPivotY(row.getHeight() / 2f);
+            row.setScaleX(fit.scale);
+            row.setScaleY(fit.scale);
+            row.setTranslationX(StatusBarTweaks.centredLeft(container.getWidth(), width, fit.scale) - row.getLeft());
+            eventOnce(Log.INFO, "STATUS_ICON_ROW_FIT", "status_bar", width + "in" + container.getWidth(),
+                    "scale", String.valueOf(fit.scale));
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "fit", t.getClass().getSimpleName());
         }
     }
 
@@ -1088,6 +1155,12 @@ public final class AndroidAutoModule extends XposedModule {
             for (String name : StatusBarTweaks.TINTABLE_ICONS) {
                 if (findByName(root, name) instanceof android.widget.ImageView icon) {
                     icon.setImageTintList(android.content.res.ColorStateList.valueOf(config.iconColor));
+                    // Android Auto's battery icon is a drawable of its own that ignores a tint
+                    // but honours a colour filter; the ImageView re-applies the filter whenever
+                    // the drawable is replaced.
+                    if (StatusBarTweaks.FILTERED_ICONS.contains(name)) {
+                        icon.setColorFilter(config.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
+                    }
                 }
             }
         }

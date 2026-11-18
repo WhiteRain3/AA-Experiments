@@ -201,6 +201,13 @@ instrumented or physical-device acceptance yet.
   now replaces that foreground with the same outline at a configured width
   (`look.map_border_width`, in dp, 0 to 16). The app's slider still writes the unused flag and
   has to be switched to the new setting before this is usable. Untested on a head unit or car.
+- Status bar, from a head unit test: the icon row is now fitted after every layout. The plate
+  grows to the width the scaled icons need (up to the rail's width), so 140% is no longer cut
+  off by a coloured plate; with the battery number next to both icons the row gets its full
+  width and is drawn as large as fits instead of the number being pushed out of view.
+- Status bar icon colour now reaches the battery icon: Android Auto draws it with a drawable of
+  its own that ignores a tint, so it gets a colour filter. Side effect: the icon no longer
+  turns red when the battery is low while an icon colour is set.
 - versionName `1.0.0-wr36`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

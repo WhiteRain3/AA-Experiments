@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 471 tests and none fail.
+At the time of writing there are 487 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -147,9 +147,20 @@ Built and unit-tested, not yet confirmed on the device:
   `StatusBarTweaks.levelColor`). Set in the battery broadcast receiver, so it is the one status
   bar change that updates while Android Auto runs. `StatusBarStyle.merge` starts from
   `Config.toBuilder()`; build status bar settings that way so new fields are never dropped.
-- Status bar icon size (`icon_size`): `icon_row` is scaled with scaleX/scaleY and its two
-  nearest parents get `clipChildren=false`. Unknown until seen: whether a larger row is cut off
-  by the plate (a card clips to its rounded outline) or touches the clock.
+- Status bar icon size (`icon_size`) and room for the battery number: `fitIconRow()` runs after
+  every layout of `status_bar_container`. Facts behind it (18.0 layout `rail_statusbar` and a
+  head unit test on wr33): the plate is `wrap_content` wide (85 px, set by the clock) in a 107 px
+  rail; `icon_row` is a `wrap_content` horizontal LinearLayout constrained to the container's
+  end, 69 px with both icons; at 140% it was cut off by a coloured plate (the drawn plate clips
+  to its outline), and a battery number added as the row's last child was squeezed to a sliver.
+  Now the plate's minimum width is set to what the scaled row needs (capped by the rail), the
+  row gets an explicit full width when the number is in it, and the row is drawn at the wanted
+  scale or as large as fits (`StatusBarTweaks.fitRow`), pivot at its left edge, centred by
+  translation. Not yet seen on a head unit or car.
+- Battery icon colour: `battery_level` shows a custom drawable (class `onr` in 18.0) with its own
+  paints; it ignores `setImageTintList` but implements `setColorFilter`, so the module also sets
+  a colour filter on that ImageView. The drawable paints itself red at low level; a filter
+  overrides that.
 - Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
   until seen: whether Android Auto resets the text size or typeface later (for example on a
   day/night switch), and whether 140% is clipped by the 107 px rail.
@@ -173,6 +184,40 @@ Built and unit-tested, not yet confirmed on the device:
   rows close up or leave a gap, and whether the item layout goes through
   `LayoutInflater.inflate(int, ViewGroup, boolean)` at all (event `LAUNCHER_NAMES_HIDDEN` in the
   module log says it did).
+
+### Seen on the Desktop Head Unit, not on the real car (Tester, wr33, 2026-11-18)
+
+Report: `test-reports/1.0.0-wr33/REPORT.md` on branch `claude/test-reports`. A head unit result
+says the hook works; it does not say the car's screen, knob or sensors behave the same.
+
+- "More colours" works: labels, clock, rail icons, signal and battery icons take the Labels
+  colour; the launcher background colour tints the wallpaper behind the grid; nothing on the
+  dashboard cards changed.
+- The knob focus ring colour works on the rail and in the launcher. So the ring is NOT worked
+  out from `Primary`; `palette_p_85` is the right resource. It does not colour the dashboard's
+  focus outline.
+- The map border colour works, and the same colour is used for the focus outline of dashboard
+  cards (two settings for what looks like one thing).
+- Map border width did nothing (the flag is dead, see "The map's focus border").
+- Status bar: plate colour works; corner roundness works (0 gave square corners, no old outline
+  on top); clock size 140% and bold fit the plate and the rail and stayed after a day/night
+  switch; the Status bar clock colour wins over the Labels colour; hiding signal and battery
+  works; the battery number coloured by level showed the high colour at 95%.
+- Status bar, fixed after this test and not seen since: icon size 140% cut off at the left with
+  a plate colour; icon colour not reaching the battery icon; battery number pushed out of view
+  when both icons are shown.
+- Rail strip colour works. Glyph figure size 150% works and figures are cut by the round plate,
+  as the tip warns. With an icon background colour, three launcher icons came out inverted
+  (coloured figure on a white plate), YT Music among them: not looked into yet.
+- Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
+  bit, the focus box shrinks to fit.
+- Day and night: the head unit's `day` / `night` command changed no colour the module had set
+  and caused no repaint. So on the head unit Android Auto stayed dark; whether the car's sensor
+  does more is not known.
+- The knob lost focus several times until the head unit was reconnected, also with the
+  Tester's own unchanged look. No hook of the module touches focus (hidden views are GONE and
+  were not focusable targets; `FocusInterceptor` views are not touched), so no cause is known
+  in the module; it may be the head unit.
 
 ### Colour roles confirmed on the car (Android Auto 18.0)
 

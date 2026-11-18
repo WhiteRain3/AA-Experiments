@@ -301,6 +301,39 @@ public class StatusBarTweaksTest {
         assertTrue(StatusBarTweaks.FILTERED_ICONS.contains("battery_level"));
     }
 
+    @Test public void lowBatteryAsAndroidAutoSeesIt() {
+        assertTrue(StatusBarTweaks.isLowBattery(15, false));
+        assertTrue(StatusBarTweaks.isLowBattery(0, false));
+        assertFalse(StatusBarTweaks.isLowBattery(16, false));
+        assertFalse(StatusBarTweaks.isLowBattery(15, true));   // charging: no warning
+        assertFalse(StatusBarTweaks.isLowBattery(-1, false));  // unknown level
+    }
+
+    @Test public void keepTheRedWarningAtLowBattery() {
+        StatusBarTweaks.Config keep = StatusBarTweaks.parse("icons=FFFFFF00;battery_low_red=on");
+        assertTrue(keep.batteryLowRed);
+        assertEquals("icons=FFFFFF00;battery_low_red=on", StatusBarTweaks.encode(keep));
+        assertEquals("icons=FFFFFF00;battery_low_red=on", StatusBarTweaks.encode(keep.toBuilder().build()));
+        // Coloured normally, colour taken off while low and not charging.
+        assertTrue(StatusBarTweaks.colourBatteryIcon(keep, 80, false));
+        assertTrue(StatusBarTweaks.colourBatteryIcon(keep, 16, false));
+        assertFalse(StatusBarTweaks.colourBatteryIcon(keep, 15, false));
+        assertFalse(StatusBarTweaks.colourBatteryIcon(keep, 3, false));
+        assertTrue(StatusBarTweaks.colourBatteryIcon(keep, 3, true));
+        assertTrue(StatusBarTweaks.colourBatteryIcon(keep, -1, false));
+        // Off (the default): always the icon colour, as before.
+        StatusBarTweaks.Config plain = StatusBarTweaks.parse("icons=FFFFFF00");
+        assertFalse(plain.batteryLowRed);
+        assertTrue(StatusBarTweaks.colourBatteryIcon(plain, 3, false));
+        // No icon colour: nothing to colour, and the switch alone stores nothing.
+        assertFalse(StatusBarTweaks.colourBatteryIcon(StatusBarTweaks.parse("clock=FFFFFFFF"), 80, false));
+        assertFalse(StatusBarTweaks.colourBatteryIcon(null, 80, false));
+        StatusBarTweaks.Builder alone = new StatusBarTweaks.Builder();
+        alone.batteryLowRed = true;
+        assertNull(StatusBarTweaks.encode(alone.build()));
+        assertNull(StatusBarTweaks.parse("icons=FFFFFF00;battery_low_red=off"));
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

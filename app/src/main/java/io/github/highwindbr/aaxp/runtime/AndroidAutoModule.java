@@ -719,6 +719,58 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private final java.util.Set<android.view.View> lowBatteryWatched =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+
+    /**
+     * "Keep the red warning at low battery": while the battery icon is on screen it follows the
+     * system's battery broadcast; at a low level (not charging) the icon colour's filter is taken
+     * off so Android Auto's own drawable shows its red, and it is put back otherwise. On any
+     * failure the icon simply keeps the icon colour.
+     */
+    private void keepLowBatteryRed(final android.widget.ImageView icon, final StatusBarTweaks.Config config) {
+        if (!lowBatteryWatched.add(icon)) return;
+        final android.content.BroadcastReceiver receiver = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(android.content.Context context, Intent intent) {
+                try {
+                    int percent = StatusBarTweaks.percent(
+                            intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1),
+                            intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1));
+                    boolean charging = intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, 0) != 0;
+                    if (StatusBarTweaks.colourBatteryIcon(config, percent, charging)) {
+                        icon.setColorFilter(config.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
+                    } else {
+                        icon.clearColorFilter();
+                        eventOnce(Log.INFO, "BATTERY_ICON_LOW_RED", "status_bar", "first");
+                    }
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "BATTERY_ICON_LOW_RED_FAILED", "apply", t.getClass().getSimpleName());
+                }
+            }
+        };
+        android.view.View.OnAttachStateChangeListener watch = new android.view.View.OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(android.view.View view) {
+                try {
+                    android.content.IntentFilter filter = new android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED);
+                    Intent sticky = android.os.Build.VERSION.SDK_INT >= 33
+                            ? view.getContext().getApplicationContext().registerReceiver(receiver, filter,
+                                    android.content.Context.RECEIVER_NOT_EXPORTED)
+                            : view.getContext().getApplicationContext().registerReceiver(receiver, filter);
+                    if (sticky != null) receiver.onReceive(view.getContext(), sticky);
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "BATTERY_ICON_LOW_RED_FAILED", "register", t.getClass().getSimpleName());
+                }
+            }
+            @Override public void onViewDetachedFromWindow(android.view.View view) {
+                try {
+                    view.getContext().getApplicationContext().unregisterReceiver(receiver);
+                } catch (Throwable ignored) { }
+            }
+        };
+        icon.addOnAttachStateChangeListener(watch);
+        if (icon.isAttachedToWindow()) watch.onViewAttachedToWindow(icon);
+    }
+
     private static final String BATTERY_PERCENT_TAG = "aax_battery_percent";
 
     /**
@@ -1190,6 +1242,7 @@ public final class AndroidAutoModule extends XposedModule {
                     // and a newly built bar has no filter to clear.
                     if (StatusBarTweaks.FILTERED_ICONS.contains(name)) {
                         icon.setColorFilter(config.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
+                        if (config.batteryLowRed) keepLowBatteryRed(icon, config);
                     }
                 }
             }

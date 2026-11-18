@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 498 tests and none fail.
+At the time of writing there are 508 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -162,8 +162,11 @@ Built and unit-tested, not yet confirmed on the device:
   is no longer in it. Not yet seen on a head unit or car.
 - Battery icon colour: `battery_level` shows a custom drawable (class `onr` in 18.0) with its own
   paints; it ignores `setImageTintList` but implements `setColorFilter`, so the module also sets
-  a colour filter on that ImageView. The drawable paints itself red at low level; a filter
-  overrides that.
+  a colour filter on that ImageView. The drawable paints itself red at low level (15% and
+  below, not charging; also a "!" below 5% and in one more state driven by a flag not traced,
+  probably battery saver); a filter overrides that. `battery_low_red=on` in `statusbar.config`
+  (only stored next to an icon colour) makes the module clear the filter at 15% and below
+  while not charging and set it again otherwise, from the battery broadcast.
 - Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
   until seen: whether Android Auto resets the text size or typeface later (for example on a
   day/night switch), and whether 140% is clipped by the 107 px rail.

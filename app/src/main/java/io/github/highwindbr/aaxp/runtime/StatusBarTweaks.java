@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
  * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent;
- * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12;icon_size=120;battery_level=70,30;battery_high_color=AARRGGBB;battery_mid_color=AARRGGBB;
+ * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12;icon_size=120;battery_low_red=on;battery_level=70,30;battery_high_color=AARRGGBB;battery_mid_color=AARRGGBB;
  * battery_low_color=AARRGGBB;battery_charge_color=AARRGGBB"; every part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
@@ -19,6 +19,27 @@ public final class StatusBarTweaks {
             "clock", "signal_icon", "battery_level", "dnd_icon", "notification_count_wrapper");
     public static final List<String> TINTABLE_ICONS = Arrays.asList(
             "cell_signal", "cell_info_overlay", "battery_level", "dnd_icon");
+    /**
+     * Android Auto 18.0's battery icon paints itself red at this level and below while the phone
+     * is not charging (read from its drawable: {@code if (level <= 15) red}).
+     */
+    public static final int LOW_BATTERY = 15;
+
+    /** True when Android Auto's own battery icon would show its red warning. Unknown level is not low. */
+    public static boolean isLowBattery(int percent, boolean charging) {
+        return percent >= 0 && percent <= LOW_BATTERY && !charging;
+    }
+
+    /**
+     * Whether the battery icon gets the icon colour right now. It does whenever an icon colour
+     * is set, except, with "keep the red warning" on, while the battery is low: then the colour
+     * is taken off so Android Auto's own red shows.
+     */
+    public static boolean colourBatteryIcon(Config config, int percent, boolean charging) {
+        if (config == null || config.iconColor == null) return false;
+        return !(config.batteryLowRed && isLowBattery(percent, charging));
+    }
+
     /** Icons that take their colour from a colour filter because their drawable ignores a tint. */
     public static final List<String> FILTERED_ICONS = Arrays.asList("battery_level");
     public static final String CLOCK = "clock";
@@ -174,6 +195,8 @@ public final class StatusBarTweaks {
         public final Integer batteryMidColor;
         /** Colour while charging; null means charging is not treated differently. */
         public final Integer batteryChargeColor;
+        /** Keep Android Auto's red battery icon at low battery although an icon colour is set. */
+        public final boolean batteryLowRed;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
@@ -221,6 +244,7 @@ public final class StatusBarTweaks {
             this.batteryLowColor = from.batteryLowColor;
             this.batteryMidColor = from.batteryMidColor;
             this.batteryChargeColor = from.batteryChargeColor;
+            this.batteryLowRed = from.batteryLowRed;
             this.iconSize = Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, from.iconSize));
             this.plateColor = from.plateColor;
             this.plateRadius = from.plateRadius == null ? null : Math.max(0, Math.min(MAX_PLATE_RADIUS, from.plateRadius));
@@ -249,6 +273,7 @@ public final class StatusBarTweaks {
             builder.batteryLowColor = batteryLowColor;
             builder.batteryMidColor = batteryMidColor;
             builder.batteryChargeColor = batteryChargeColor;
+            builder.batteryLowRed = batteryLowRed;
             return builder;
         }
 
@@ -280,6 +305,7 @@ public final class StatusBarTweaks {
         public int batteryLowColor = DEFAULT_BATTERY_LOW_COLOR;
         public Integer batteryMidColor;
         public Integer batteryChargeColor;
+        public boolean batteryLowRed;
 
         public Config build() {
             return new Config(this);
@@ -387,6 +413,10 @@ public final class StatusBarTweaks {
                     else level.batteryChargeColor = parsed;
                     break;
                 }
+                case "battery_low_red":
+                    if (!"on".equals(value)) return null;
+                    level.batteryLowRed = true;
+                    break;
                 case "icon_size":
                     try {
                         iconSize = Integer.parseInt(value);
@@ -414,6 +444,7 @@ public final class StatusBarTweaks {
         builder.batteryLowColor = level.batteryLowColor;
         builder.batteryMidColor = level.batteryMidColor;
         builder.batteryChargeColor = level.batteryChargeColor;
+        builder.batteryLowRed = level.batteryLowRed;
         Config config = builder.build();
         return config.isEmpty() ? null : config;
     }
@@ -453,6 +484,8 @@ public final class StatusBarTweaks {
             if (config.plateRadius != null) append(text, "plate_radius=" + config.plateRadius);
         }
         if (config.iconSize != DEFAULT_ICON_SIZE) append(text, "icon_size=" + config.iconSize);
+        // Only means something while an icon colour is set.
+        if (config.batteryLowRed && config.iconColor != null) append(text, "battery_low_red=on");
         return text.toString();
     }
 

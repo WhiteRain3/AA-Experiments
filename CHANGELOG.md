@@ -134,6 +134,10 @@ instrumented or physical-device acceptance yet.
   re-binding. Untested on a car; not yet part of look files or Undo.
 - Status bar: clock size (70 to 140% of Android Auto's own) and a bold switch. Untested on a
   car; the battery percentage, sized relative to the clock, follows the new clock size.
+- Rail strip: its background colour and how strongly the wallpaper slice shows over it (0 to
+  100%) are settings on the Car wallpaper page, instead of a fixed 80% over `#252626`. A colour
+  alone, without a whole-screen wallpaper, paints the strip. Untested on a car; not yet part of
+  look files or Undo.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

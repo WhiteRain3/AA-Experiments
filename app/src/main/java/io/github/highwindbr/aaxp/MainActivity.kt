@@ -242,7 +242,10 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                     ThemeColorsCard(model, connected)
                     ExtraColorsCard(model, connected)
                 }
-                FeaturePage.WALLPAPER -> CarWallpaperCard(model, connected)
+                FeaturePage.WALLPAPER -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    CarWallpaperCard(model, connected)
+                    RailLookCard(model, connected)
+                }
                 FeaturePage.ICONS -> GlyphIconsCard(model, connected)
                 FeaturePage.STATUS_BAR -> StatusBarCard(model, connected)
                 FeaturePage.LAUNCHER -> LauncherCard(model, connected)

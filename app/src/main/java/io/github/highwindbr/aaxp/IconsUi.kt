@@ -55,8 +55,9 @@ internal fun AppIconsPage(model: ManagerViewModel, connected: Boolean, resetSign
     // Writes the icon colours and size; only while the switch is on.
     fun commit() { if (enabled) model.setGlyphIcons(colours(), figureSize) }
     // The page menu's reset has already written the default; this only brings the rows back to it.
+    val resetWatcher = remember { io.github.highwindbr.aaxp.core.ResetWatcher(resetSignal) }
     LaunchedEffect(resetSignal) {
-        if (resetSignal != 0) {
+        if (resetWatcher.changed(resetSignal)) {
             enabled = false; glyph = defaults[0]; background = defaults[1]; figureSize = GlyphIcons.DEFAULT_SIZE; hideNames = false
         }
     }

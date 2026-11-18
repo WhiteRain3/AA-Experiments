@@ -246,6 +246,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                 FeaturePage.STATUS_BAR -> StatusBarCard(model, connected)
                 FeaturePage.LOOK_FILE -> LookFileCard(model, connected)
                 FeaturePage.PRESETS -> PresetsCard(model, state.dynamicOverrides, connected)
+                FeaturePage.QUICK_SWITCHES -> QuickSwitchesCard(model, state.dynamicOverrides, connected)
                 FeaturePage.CONTROLS -> AndroidAutoControlsCard(model, connected)
                 FeaturePage.UPDATES -> UpdateCard(model)
                 FeaturePage.LAYOUT_CAPTURE -> ScreenLayoutCard(model, connected)

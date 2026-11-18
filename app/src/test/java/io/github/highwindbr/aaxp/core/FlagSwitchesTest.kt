@@ -12,6 +12,26 @@ class FlagSwitchesTest {
         assertEquals(mapOf(a to "true", b to "true"), sw.flags)
     }
 
+    @Test fun sharpPictureLowersBothWirelessQpValues() {
+        val s = FlagSwitches.SHARP_PICTURE
+        assertEquals(setOf("VideoEncoderParams__max_qp_wireless", "VideoEncoderParams__min_qp_wireless"), s.flags.keys)
+        assertTrue(s.flags.getValue("VideoEncoderParams__max_qp_wireless").toInt() < 30)
+        assertTrue(s.flags.getValue("VideoEncoderParams__min_qp_wireless").toInt() < 15)
+        assertTrue(s.flags.getValue("VideoEncoderParams__min_qp_wireless").toInt() <= s.flags.getValue("VideoEncoderParams__max_qp_wireless").toInt())
+    }
+
+    @Test fun sharpPictureOffRestoresTheOwnersEarlierMaxQp() {
+        val s = FlagSwitches.SHARP_PICTURE
+        val max = "VideoEncoderParams__max_qp_wireless"; val min = "VideoEncoderParams__min_qp_wireless"
+        val before = FlagSwitches.beforeValues(s, mapOf(max to "LONG:26"), null)
+        // Turned on twice (for example after a failed attempt): the 26 must not be lost.
+        val again = FlagSwitches.beforeValues(s, mapOf(max to "LONG:22", min to "LONG:10"), before)
+        assertEquals("26", FlagSwitches.valueToRestore(again, max))
+        assertNull(FlagSwitches.valueToRestore(again, min))
+        assertTrue(FlagSwitches.isOn(s, mapOf(max to "LONG:22", min to "LONG:10")))
+        assertFalse(FlagSwitches.isOn(s, mapOf(max to "LONG:26")))
+    }
+
     @Test fun isOnNeedsEveryFlagAtItsValue() {
         assertFalse(FlagSwitches.isOn(sw, emptyMap()))
         assertFalse(FlagSwitches.isOn(sw, mapOf(a to "BOOLEAN:true")))

@@ -105,6 +105,7 @@ instrumented or physical-device acceptance yet.
 - Car wallpaper blur slider is four times finer (0 to 40, shown as a percentage); saved blur values from before are converted, the blur is computed off the main thread, and the saved picture always matches the saved setting.
 - Undo for the look: before a look change is saved (theme, extra colours, icons, status bar, wallpaper, loading a look file) a copy of the current look is kept, and "Undo last change" on Home puts it back. The wallpaper image is only copied again when it has changed.
 - Quick switches (Home, under Flags): a "Parked apps" switch sets CradleFeature__all_app_launcher_enabled and CradleFeature__allow_video_apps through the normal flag overrides; turning it off puts back what each flag was before. It says so when the installed Android Auto does not have the flags, and that it is not known whether Android Auto 18.0 honours them.
+- Quick switches: a "Sharp picture" switch lowers VideoEncoderParams__max_qp_wireless (22) and min_qp_wireless (10) through the normal flag overrides; off puts back what was there before (for example an earlier max of 26). It may use more Wi-Fi bandwidth and may stutter; the best values for a given adapter are unknown.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

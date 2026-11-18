@@ -1,0 +1,164 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Merged direction</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1340px;height:1000px;background:#0b0d12;font-family:system-ui,"Liberation Sans","DejaVu Sans",sans-serif;color:#eef1f7;padding:24px 30px}
+h1{font-size:22px;font-weight:700}.sub{font-size:13px;color:#8b93a7;margin:2px 0 18px}
+.row{display:flex;gap:30px}
+.phone{width:390px;height:850px;border-radius:38px;background:#10131b;border:1px solid #262b39;overflow:hidden;position:relative;padding:20px 18px}
+svg{display:block}svg.i{width:22px;height:22px}
+.top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.top b{font-size:20px;flex:1}
+.circ{width:38px;height:38px;border-radius:50%;background:#1b2030;display:grid;place-items:center;color:#aab3c8}
+.car{border-radius:20px;overflow:hidden;position:relative;height:214px;background:linear-gradient(135deg,#17306b 0%,#5b2a86 55%,#c2417a 100%);border:1px solid #2f3650}
+.car .rail{position:absolute;left:0;top:0;bottom:0;width:40px;background:rgba(10,12,20,.55);display:flex;flex-direction:column;gap:11px;align-items:center;padding-top:40px}
+.car .rail i{width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.7);background:rgba(255,255,255,.1)}
+.sb{position:absolute;left:48px;right:10px;top:8px;height:28px;border-radius:14px;background:rgba(10,12,20,.6);display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-size:12px;font-weight:600}
+.sb .r{display:flex;gap:8px;align-items:center}.sb svg{width:15px;height:15px}
+.hot{outline:2px solid #6ee7a8;outline-offset:3px;border-radius:8px;position:relative}
+.pulse{position:absolute;right:-6px;top:-8px;width:34px;height:34px;border-radius:50%;border:2px solid #6ee7a8;opacity:.5}
+.card{position:absolute;border-radius:14px;background:rgba(10,12,20,.55)}
+.hand{position:absolute;right:10px;top:30px;color:#fff;filter:drop-shadow(0 2px 4px #0008)}.hand svg{width:32px;height:32px}
+.tag{position:absolute;font-size:10.5px;font-weight:700;background:rgba(10,12,20,.75);border-radius:9px;padding:3px 8px;display:flex;gap:4px;align-items:center;border:1px solid rgba(255,255,255,.25)}
+.tag svg{width:12px;height:12px}
+.hint{display:flex;align-items:center;gap:8px;color:#8b93a7;font-size:12.5px;margin:10px 2px 6px}
+.sec{font-size:12px;letter-spacing:.08em;color:#8b93a7;margin:18px 2px 10px;text-transform:uppercase;display:flex;align-items:center;gap:8px}
+.sec .ln{flex:1;height:1px;background:#262b39}
+/* dark symbol tiles (from direction 2) */
+.tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tile{border-radius:22px;padding:12px;height:104px;display:flex;flex-direction:column;justify-content:space-between;position:relative}
+.tile svg{width:26px;height:26px}
+.tile .st{font-size:15px;font-weight:800;display:flex;align-items:center;gap:5px}
+.tile .nm{font-size:11.5px;font-weight:600;opacity:.7}
+.d1{background:#33201f;color:#ffb199}.d2{background:#1d3226;color:#8fe3b0}.d3{background:#1c2a3f;color:#8ec5ff}
+.d4{background:#352e1b;color:#ffd77a}.d5{background:#2a2340;color:#c7b0ff}.d6{background:#36202c;color:#ff9fc0}
+.tile .badge{position:absolute;top:10px;right:10px;width:9px;height:9px;border-radius:50%;background:#6ee7a8;box-shadow:0 0 0 3px #1d3226}
+.restart{position:absolute;left:18px;right:18px;bottom:18px;height:50px;border-radius:25px;background:#6ee7a8;color:#06251a;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;font-size:15px}
+/* battery page (direction 1 controls) */
+.zoom{background:linear-gradient(135deg,#17306b,#5b2a86);border-radius:20px;height:104px;position:relative;border:1px solid #2f3650;overflow:hidden}
+.zoom .sb2{position:absolute;left:14px;right:14px;top:29px;height:46px;border-radius:23px;background:rgba(10,12,20,.65);display:flex;align-items:center;justify-content:flex-end;padding:0 18px;gap:10px}
+.zoom .time{margin-right:auto;font-size:20px;font-weight:600}
+.zoom .batt{display:flex;align-items:center;gap:6px;color:#6ee7a8;font-size:22px;font-weight:700}.zoom .batt svg{width:30px;height:30px}
+.tog{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.t{height:88px;border-radius:22px;background:#171b27;border:1.5px solid #262b39;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:#6b7390;position:relative}
+.t .g{font-size:30px;font-weight:700;height:32px;display:flex;align-items:center}.t svg{width:32px;height:32px}
+.t small{font-size:11px;color:#6b7390}
+.t.on{background:#14291f;border-color:#6ee7a8;color:#6ee7a8}.t.on small{color:#9fe9c3}
+.dot{position:absolute;top:10px;right:12px;width:10px;height:10px;border-radius:50%;background:#6ee7a8}
+.size{display:flex;align-items:flex-end;justify-content:space-between;background:#171b27;border-radius:22px;padding:12px 18px;border:1.5px solid #262b39}
+.size div{text-align:center;color:#6b7390;font-size:11px}.size svg{display:block;color:#6b7390;margin:0 auto 4px}
+.size .sel,.size .sel svg{color:#6ee7a8}
+.cols{display:flex;gap:12px;align-items:center;background:#171b27;border-radius:22px;padding:12px 16px;border:1.5px solid #262b39}
+.cols i{width:28px;height:28px;border-radius:50%;display:block}.cols .sel{outline:3px solid #fff;outline-offset:2px}
+.cols .more{margin-left:auto;font-size:12px;color:#8b93a7}
+.lvl{background:#171b27;border-radius:22px;padding:14px 16px 12px;border:1.5px solid #262b39}
+.track{position:relative;height:18px;border-radius:9px;background:linear-gradient(90deg,#ff5a5f 0 20%,#ffc24a 20% 80%,#6ee7a8 80% 100%);margin:6px 4px 24px}
+.knob{position:absolute;top:-6px;width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:0 2px 8px #0008;transform:translateX(-50%);display:grid;place-items:center;font-size:10px;font-weight:700;color:#10131b}
+.zl{display:flex;justify-content:space-between;font-size:11px;color:#8b93a7;margin:0 4px}
+.zl span{display:flex;align-items:center;gap:5px}.zl b{width:9px;height:9px;border-radius:50%;display:inline-block}
+/* simple rows (from direction 2) */
+.rows{background:#171b27;border:1.5px solid #262b39;border-radius:22px;overflow:hidden}
+.r{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid #222838}.r:last-child{border-bottom:0}
+.bd{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;flex:none}.bd svg{width:22px;height:22px}
+.r .l{font-size:15px;font-weight:700}.r .s{font-size:12px;color:#8b93a7;margin-top:1px}
+.r .end{margin-left:auto;display:flex;align-items:center;gap:8px;color:#8b93a7;font-size:13px}
+.r .end svg{width:16px;height:16px}
+.sw{width:50px;height:30px;border-radius:15px;background:#2b3144;position:relative}.sw.on{background:#6ee7a8}
+.sw::after{content:"";position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:50%;background:#fff}.sw.on::after{left:24px;background:#06251a}
+.btn{padding:7px 13px;border-radius:15px;background:#6ee7a8;color:#06251a;font-weight:800;font-size:12.5px}
+.btn.o{background:#222838;color:#e3e8f5}
+.saved{position:absolute;left:18px;right:18px;bottom:16px;height:46px;border-radius:23px;background:#1d3a2c;color:#bff3d6;display:flex;align-items:center;padding:0 8px 0 18px;font-size:13px;justify-content:space-between}
+.saved span.b{background:#6ee7a8;color:#06251a;font-weight:700;padding:8px 16px;border-radius:18px}
+.mini4{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mini4 .c{display:flex;align-items:center;gap:8px;background:#171b27;border:1.5px solid #262b39;border-radius:16px;padding:8px 10px;font-size:12.5px;font-weight:700}
+.mini4 .c i{width:22px;height:22px;border-radius:50%;display:block;flex:none}
+.mini4 .c em{margin-left:auto;font-style:normal;font-weight:600;color:#8b93a7;font-size:11px}
+</style></head><body>
+<!--SPRITE-->
+<h1>Merged direction: tap the picture, tiles for the rest</h1>
+<div class="sub">Dark. Everything you can see on the car screen is changed by tapping it on a picture of the car screen. Everything you cannot see lives in symbol tiles that show their own state.</div>
+<div class="row">
+
+<!-- 1. ENTRY -->
+<div class="phone">
+  <div class="top"><b>Customise</b><div class="circ"><svg class="i"><use href="#q"/></svg></div></div>
+  <div class="car">
+    <div class="rail"><i></i><i></i><i></i></div>
+    <div class="sb"><span>12:34</span><span class="r"><svg><use href="#signal"/></svg><span class="hot" style="display:flex;align-items:center;gap:4px;padding:2px 4px;color:#6ee7a8"><svg><use href="#battery"/></svg>87%<span class="pulse"></span></span></span></div>
+    <div class="card" style="left:48px;top:46px;width:112px;height:100px"></div>
+    <div class="card" style="left:168px;top:46px;width:120px;height:46px"></div>
+    <div class="card" style="left:168px;top:100px;width:120px;height:46px"></div>
+    <div class="card" style="left:48px;top:154px;width:240px;height:50px"></div>
+    <div class="tag" style="left:6px;top:152px"><svg><use href="#launcher"/></svg></div>
+    <div class="tag" style="left:54px;top:50px"><svg><use href="#palette"/></svg></div>
+    <div class="tag" style="left:174px;top:104px"><svg><use href="#image"/></svg></div>
+    <div class="hand"><svg><use href="#tap"/></svg></div>
+  </div>
+  <div class="hint"><svg style="width:16px;height:16px"><use href="#tap"/></svg>Tap a part of the screen to change it</div>
+
+  <div class="sec">Behind the scenes<span class="ln"></span></div>
+  <div class="tiles">
+    <div class="tile d3"><svg><use href="#update"/></svg><span class="badge"></span><div><div class="st">wr36</div><div class="nm">Updates</div></div></div>
+    <div class="tile d2"><svg><use href="#box"/></svg><div><div class="st">Saved</div><div class="nm">Backup</div></div></div>
+    <div class="tile d1"><svg><use href="#restart"/></svg><div><div class="st">Auto</div><div class="nm">Restart</div></div></div>
+    <div class="tile d4"><svg><use href="#flag"/></svg><div><div class="st">3</div><div class="nm">Flags</div></div></div>
+    <div class="tile d5"><svg><use href="#tune"/></svg><div><div class="st">2 on</div><div class="nm">Quick</div></div></div>
+    <div class="tile d6"><svg><use href="#pulse"/></svg><div><div class="st">OK</div><div class="nm">System</div></div></div>
+  </div>
+  <div class="restart"><svg class="i"><use href="#restart"/></svg>Restart Android Auto</div>
+</div>
+
+<!-- 2. BATTERY -->
+<div class="phone">
+  <div class="top"><div class="circ"><svg class="i"><use href="#back"/></svg></div><b>Battery</b><div class="circ"><svg class="i"><use href="#q"/></svg></div></div>
+  <div class="zoom"><div class="sb2"><span class="time">12:34</span><span class="batt"><svg><use href="#battery"/></svg>87%</span></div></div>
+  <div class="sec" style="margin-top:16px">Show</div>
+  <div class="tog">
+    <div class="t on"><span class="dot"></span><span class="g"><svg><use href="#battery"/></svg></span><small>Icon</small></div>
+    <div class="t on"><span class="dot"></span><span class="g">87</span><small>Number</small></div>
+    <div class="t on"><span class="dot"></span><span class="g">%</span><small>Sign</small></div>
+  </div>
+  <div class="sec" style="margin-top:14px">Size</div>
+  <div class="size">
+    <div><svg style="width:20px;height:20px"><use href="#battery"/></svg>Small</div>
+    <div class="sel"><svg style="width:28px;height:28px"><use href="#battery"/></svg>Normal</div>
+    <div><svg style="width:36px;height:36px"><use href="#battery"/></svg>Large</div>
+    <div><svg style="width:44px;height:44px"><use href="#battery"/></svg>Huge</div>
+  </div>
+  <div class="sec" style="margin-top:14px">Colour</div>
+  <div class="cols"><i style="background:#fff"></i><i style="background:#6ee7a8" class="sel"></i><i style="background:#4cc9f0"></i><i style="background:#ffc24a"></i><i style="background:#ff5a5f"></i><i style="background:conic-gradient(#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00)"></i><span class="more">Default</span></div>
+  <div class="sec" style="margin-top:14px">Colour by level<span class="ln"></span><div class="sw on" style="width:44px;height:26px"></div></div>
+  <div class="lvl">
+    <div class="track"><div class="knob" style="left:20%">20</div><div class="knob" style="left:80%">80</div></div>
+    <div class="zl"><span><b style="background:#ff5a5f"></b>Low</span><span><b style="background:#ffc24a"></b>Middle</span><span><b style="background:#6ee7a8"></b>High</span><span><svg style="width:14px;height:14px;color:#4cc9f0"><use href="#bolt"/></svg>Charging</span></div>
+  </div>
+  <div class="saved"><span>Saved. Restart to see it.</span><span class="b">Restart</span></div>
+</div>
+
+<!-- 3. BEHIND THE SCENES -->
+<div class="phone">
+  <div class="top"><div class="circ"><svg class="i"><use href="#back"/></svg></div><b>Behind the scenes</b><div class="circ"><svg class="i"><use href="#q"/></svg></div></div>
+
+  <div class="sec" style="margin-top:6px">Updates and backup<span class="ln"></span></div>
+  <div class="rows">
+    <div class="r"><div class="bd d3"><svg><use href="#update"/></svg></div><div><div class="l">Update</div><div class="s">wr36 is ready</div></div><div class="end"><span class="btn">Install</span></div></div>
+    <div class="r"><div class="bd d3"><svg><use href="#search"/></svg></div><div><div class="l">Check when the app opens</div></div><div class="end"><div class="sw on"></div></div></div>
+    <div class="r"><div class="bd d2"><svg><use href="#box"/></svg></div><div><div class="l">Look file</div><div class="s">Saved today 14:02</div></div><div class="end"><span class="btn o">Save</span><span class="btn o">Load</span></div></div>
+  </div>
+
+  <div class="sec">Restart<span class="ln"></span></div>
+  <div class="rows">
+    <div class="r"><div class="bd d1"><svg><use href="#restart"/></svg></div><div><div class="l">Restart after a change</div><div class="s">waits 3 s after the last change</div></div><div class="end"><div class="sw on"></div></div></div>
+    <div class="r"><div class="bd d1"><svg><use href="#capture"/></svg></div><div><div class="l">Desktop Head Unit mode</div></div><div class="end"><svg style="width:18px;height:18px;color:#8b93a7"><use href="#q"/></svg><div class="sw"></div></div></div>
+  </div>
+
+  <div class="sec">Flags and tools<span class="ln"></span></div>
+  <div class="rows">
+    <div class="r"><div class="bd d4"><svg><use href="#flag"/></svg></div><div><div class="l">Flags</div><div class="s">3 changed</div></div><div class="end"><svg><use href="#chev"/></svg></div></div>
+    <div class="r"><div class="bd d5"><svg><use href="#tune"/></svg></div><div><div class="l">Quick switches</div><div class="s">2 on</div></div><div class="end"><svg><use href="#chev"/></svg></div></div>
+    <div class="r"><div class="bd d5"><svg><use href="#box"/></svg></div><div><div class="l">Presets</div><div class="s">4 saved</div></div><div class="end"><svg><use href="#chev"/></svg></div></div>
+    <div class="r"><div class="bd d6"><svg><use href="#capture"/></svg></div><div><div class="l">Screen capture</div><div class="s">Nothing captured</div></div><div class="end"><svg><use href="#chev"/></svg></div></div>
+    <div class="r"><div class="bd d6"><svg><use href="#pulse"/></svg></div><div><div class="l">System</div><div class="s">Module connected</div></div><div class="end"><svg><use href="#chev"/></svg></div></div>
+  </div>
+</div>
+
+</div></body></html>

@@ -31,6 +31,17 @@ Pick one, mix parts, or ask for another round.
 - **Good:** most precise and the most room for plenty of settings; you can see the result while you edit anything.
 - **Trade-off:** denser and more technical, so least inviting for a first-time user.
 
+## Merged direction (owner's pick: 1 and 2, dark)
+
+![Merged overview](merged-overview.png)
+
+Single screens: [Customise](merged-1-customise.png), [Battery](merged-2-battery.png), [Behind the scenes](merged-3-behind-the-scenes.png).
+
+- **Everything you can see on the car screen** (battery, clock, signal, colours, wallpaper, launcher) is changed by tapping that part on a picture of the car screen. Its page uses direction 1's controls: big symbol buttons for icon, number and %, growing battery icons for size, colour dots and a draggable low/middle/high bar.
+- **Everything you cannot see** (updates, backup, restart, flags, quick switches, system) lives in dark symbol tiles from direction 2 that show their own state (wr36, Saved, Auto, 3, 2 on, OK).
+- **Simple rows** from direction 2 (symbol, one word, switch or button) are used where big controls would be fiddly: the "Behind the scenes" page.
+- The restart button is always on the Customise screen; after a change a "Saved. Restart to see it." bar appears.
+
 ## Rebuild the pictures
 
-The sources are in `src/`. With Node and Playwright installed, run `node render.js` here.
+The sources are in `src/`. With Node and Playwright installed, run `node render.js` here, and `node render-merged.js` for the merged set.

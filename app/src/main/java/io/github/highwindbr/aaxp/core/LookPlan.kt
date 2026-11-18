@@ -16,8 +16,9 @@ class LookPlan(
     val wallpaperBlur: Int?
 ) {
     companion object {
-        fun of(look: CarTheme) = LookPlan(
-            ThemeColors.encode(look.roles), look.glyphColors, look.statusBar,
+        /** [currentStatusBar] is the owner's present status bar setting; a look only changes its colours and background. */
+        fun of(look: CarTheme, currentStatusBar: String? = null) = LookPlan(
+            ThemeColors.encode(look.roles), look.glyphColors, StatusBarStyle.merge(currentStatusBar, look.statusBar),
             ResourceColors.encode(look.resourceColors), look.wallpaperDim?.coerceIn(0, 80),
             look.wallpaperBlur?.coerceIn(0, BlurLevel.MAX))
     }

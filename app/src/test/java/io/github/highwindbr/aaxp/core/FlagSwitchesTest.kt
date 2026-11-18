@@ -50,6 +50,26 @@ class FlagSwitchesTest {
         assertEquals(first, second)
     }
 
+    @Test fun offWithoutARecordNeverRemovesHandSetValues() {
+        val on = mapOf(a to "BOOLEAN:true", b to "BOOLEAN:true")
+        assertNull(FlagSwitches.turnOffPlan(sw, on, null))
+    }
+
+    @Test fun offOnlyTouchesFlagsStillAtTheSwitchValue() {
+        val before = mapOf(a to "BOOLEAN:false", b to null)
+        val plan = FlagSwitches.turnOffPlan(sw, mapOf(a to "BOOLEAN:true", b to "BOOLEAN:false"), before)!!
+        assertEquals(mapOf<String, String?>(a to "false"), plan)
+        assertEquals(mapOf<String, String?>(a to "false", b to null),
+            FlagSwitches.turnOffPlan(sw, mapOf(a to "BOOLEAN:true", b to "BOOLEAN:true"), before))
+    }
+
+    @Test fun aHandEditSinceWinsOverTheOldMemory() {
+        val old = mapOf(a to "BOOLEAN:false", b to null)
+        // The owner changed b by hand to false, then turns the switch on again.
+        val again = FlagSwitches.beforeValues(sw, mapOf(a to "BOOLEAN:true", b to "BOOLEAN:false"), old)
+        assertEquals("BOOLEAN:false", again[a]); assertEquals("BOOLEAN:false", again[b])
+    }
+
     @Test fun restoreGivesPlainValueOrRemoval() {
         val before = mapOf(a to "BOOLEAN:false", b to null)
         assertEquals("false", FlagSwitches.valueToRestore(before, a))

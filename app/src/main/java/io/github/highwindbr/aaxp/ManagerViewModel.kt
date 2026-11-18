@@ -993,10 +993,14 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             controlPreferences.edit().putString("flag_switch_before_${switch.id}",
                 io.github.highwindbr.aaxp.core.FlagSwitches.encodeBefore(before)).apply()
         }
-        switch.flags.forEach { (key, target) ->
-            val raw = if (on) target else io.github.highwindbr.aaxp.core.FlagSwitches.valueToRestore(stored, key)
-            setDynamicOverride(found.getValue(key), raw).join()
+        val changes: Map<String, String?> = if (on) switch.flags else {
+            io.github.highwindbr.aaxp.core.FlagSwitches.turnOffPlan(switch, currentOverridesSerialized(), stored) ?: run {
+                mutable.value = mutable.value.copy(message = "${switch.title} not changed: its values were set by hand, so they are left as they are. " +
+                    "Change them on the Flags page.")
+                return@launch
+            }
         }
+        changes.forEach { (key, raw) -> setDynamicOverride(found.getValue(key), raw).join() }
         val ok = flagSwitchOn(switch) == on
         if (ok && !on) controlPreferences.edit().remove("flag_switch_before_${switch.id}").apply()
         if (!ok) mutable.value = mutable.value.copy(message = "${switch.title} could not be fully " + (if (on) "turned on" else "turned off") +
@@ -1291,7 +1295,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             carThemes().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Themes.encode(it) },
             presets().takeIf { it.isNotEmpty() }?.let { io.github.highwindbr.aaxp.core.Presets.encode(it) },
             if (image != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(context)) else null, image,
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null)))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null)))
     }
 
     /**
@@ -1310,6 +1315,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, bundle.glyphColors)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, bundle.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, bundle.resourceColors)
+            put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, bundle.launcherConfig)
             val parts = mutableListOf("colours, glyph icons and status bar")
             bundle.wallpaperImage?.let { image ->
                 CarWallpaperStudio.sourceFile(context).writeBytes(image)
@@ -1394,6 +1400,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     fun setLauncherConfig(config: String?) = viewModelScope.launch {
         val restarted = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("changing the launcher")
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             if (config == null) editor.remove(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY)
             else {
@@ -1552,7 +1559,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             prefs?.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, null),
             if (wallpaperStamp != null) CarWallpaperStudio.settingsJson(CarWallpaperStudio.load(getApplication())) else null,
-            wallpaperStamp, carWallpaperEnabled())
+            wallpaperStamp, carWallpaperEnabled(), prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null))
     }
 
     /** Copies the wallpaper image in use aside for undo if that has not been done. Blocking: call off Main. */
@@ -1617,6 +1624,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, kept.glyphColors)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, kept.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, kept.resourceColors)
+            put(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, kept.launcherConfig)
             val imageKept = kept.wallpaperStamp != null && kept.wallpaperSettings != null && undoImage.isFile &&
                 controlPreferences.getString("undo_image_stamp", null) == kept.wallpaperStamp
             val action = io.github.highwindbr.aaxp.core.LookUndo.wallpaperAction(kept, imageKept)
@@ -1647,10 +1655,10 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.RESTORE -> kept
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.REMOVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, null, null, false)
+                        kept.resourceColors, null, null, false, kept.launcherConfig)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.LEAVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn)
+                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig)
             }
             io.github.highwindbr.aaxp.core.LookUndo.restoredMessage(
                 io.github.highwindbr.aaxp.core.LookUndo.differences(now, effective), kept.label) to restarted
@@ -1670,28 +1678,39 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * does not have is switched off. An undo copy is kept first.
      */
     fun applyLook(look: io.github.highwindbr.aaxp.core.CarTheme) = viewModelScope.launch {
-        val plan = io.github.highwindbr.aaxp.core.LookPlan.of(look)
+        var wallpaperProblem: String? = null
         val restarted = withContext(Dispatchers.IO) { runCatching {
             captureUndo("applying ${look.name}")
             val context = getApplication<Application>()
-            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            val prefs = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }
+            // A style changes the status bar's colours and background only; the owner's hidden parts, battery number and clock size stay.
+            val plan = io.github.highwindbr.aaxp.core.LookPlan.of(look,
+                prefs.getString(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, null))
+            val editor = prefs.edit()
             fun put(key: String, value: String?) { if (value == null) editor.remove(key) else editor.putString(key, value) }
             put(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY, plan.themeColors)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, plan.glyphColors)
             put(io.github.highwindbr.aaxp.runtime.StatusBarTweaks.KEY, plan.statusBar)
             put(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY, plan.resourceColors)
-            if (plan.wallpaperDim != null || plan.wallpaperBlur != null) {
-                val current = CarWallpaperStudio.load(context)
-                CarWallpaperStudio.save(context, current.copy(dim = plan.wallpaperDim ?: current.dim,
-                    blurLevel = plan.wallpaperBlur ?: current.blurLevel))
-                if (carWallpaperEnabled()) CarWallpaperStudio.renderSaved(context)?.let { (rendered, rail) -> writeCarWallpaper(editor, rendered, rail) }
-            }
             check(editor.commit()) { "Framework rejected the preference update" }
+            // The wallpaper's darken and blur come last, and are only stored once the car's copy has been written.
+            if (plan.wallpaperDim != null || plan.wallpaperBlur != null) runCatching {
+                val current = CarWallpaperStudio.load(context)
+                val updated = current.copy(dim = plan.wallpaperDim ?: current.dim, blurLevel = plan.wallpaperBlur ?: current.blurLevel)
+                if (carWallpaperEnabled()) {
+                    val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderFrom(CarWallpaperStudio.sourceFile(context), updated)) { "the wallpaper image could not be read" }
+                    val wallpaperEditor = prefs.edit()
+                    writeCarWallpaper(wallpaperEditor, rendered, rail)
+                    check(wallpaperEditor.commit()) { "Framework rejected the preference update" }
+                }
+                CarWallpaperStudio.save(context, updated)
+            }.onFailure { wallpaperProblem = it.message }
             autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
         } }
         restarted.onSuccess { changesWaiting = !it }
         mutable.value = mutable.value.copy(message = restarted.fold(
-            { "${look.name} applied. " + if (it) "Android Auto was asked to restart." else "Restart Android Auto to see it." },
+            { "${look.name} applied. " + (wallpaperProblem?.let { problem -> "The wallpaper darken and blur were not changed: $problem. " } ?: "") +
+                if (it) "Android Auto was asked to restart." else "Restart Android Auto to see it." },
             { "${look.name} not applied: ${it.message}" }))
     }
 
@@ -1723,11 +1742,12 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         val result = withContext(Dispatchers.IO) { runCatching {
             // The undo copy is taken here, before anything is written, so cancelling the editor never replaces it.
             captureUndo("changing the wallpaper")
-            settings?.let { CarWallpaperStudio.save(getApplication(), it) }
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             // The version changes last, so the module never sees a new version with an old file.
             writeCarWallpaper(editor, bitmap, rail)
             check(editor.commit()) { "Framework rejected the preference update" }
+            // Stored only now, so a refused commit leaves the editor's settings as they were.
+            settings?.let { CarWallpaperStudio.save(getApplication(), it) }
             markWallpaperApplied()
             "${bitmap.width}x${bitmap.height}"
         } }

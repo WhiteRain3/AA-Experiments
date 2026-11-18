@@ -33,6 +33,20 @@ class LookPlanTest {
         assertEquals(35, plan.wallpaperDim); assertEquals(4, plan.wallpaperBlur)
     }
 
+    @Test fun aStyleKeepsTheOwnersStatusBarSetup() {
+        val mine = "hide=signal_icon,battery_level;clock=FF111111;battery=percent;battery_color=FF222222;battery_size=70;clock_size=130;clock_bold=on"
+        val merged = StatusBarTweaks.parse(LookPlan.of(Themes.BUILT_IN.first { it.name == "Motorsport" }, mine).statusBar)!!
+        assertEquals(setOf("signal_icon", "battery_level"), merged.hide)
+        assertTrue(merged.batteryPercent); assertEquals(70, merged.batterySize); assertEquals(0xFF222222.toInt(), merged.batteryColor)
+        assertEquals(130, merged.clockSize); assertTrue(merged.clockBold)
+        // Only the colours and the background come from the style.
+        assertEquals(0xFFFFFFFF.toInt(), merged.clockColor); assertEquals(0xFFC4C8D0.toInt(), merged.iconColor); assertTrue(merged.noPlate)
+    }
+
+    @Test fun aLookWithoutStatusBarLeavesTheCurrentOneAlone() {
+        assertEquals("hide=clock", LookPlan.of(CarTheme("x", "", emptyMap()), "hide=clock").statusBar)
+    }
+
     @Test fun aLookWithoutExtrasSwitchesThemOff() {
         val plan = LookPlan.of(CarTheme("Mine", "", mapOf("Primary" to 0xFF112233.toInt())))
         assertNull(plan.glyphColors); assertNull(plan.statusBar); assertNull(plan.resourceColors)

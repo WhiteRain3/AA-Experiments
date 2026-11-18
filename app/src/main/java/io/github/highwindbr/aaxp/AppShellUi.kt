@@ -64,6 +64,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -109,21 +110,6 @@ internal enum class FeaturePage(val title: String, val subtitle: String, val ico
     }
 }
 
-/** A square tile for the Home grid. */
-@Composable private fun GridTile(modifier: Modifier, icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    Surface(modifier.clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            IconBadge(icon, 40)
-            Column {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
 @Composable private fun SectionHeading(text: String) =
     Text(text, Modifier.padding(start = 4.dp, top = 6.dp), style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
@@ -134,19 +120,81 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
     val wallpaper = connected && model.carWallpaperEnabled()
     val glyphs = connected && model.glyphIconColors() != null
     val statusBar = connected && model.statusBarConfig() != null
-    fun themes() = if (colours == 0) "Android Auto's own colours" else "$colours colours set"
-    fun wallpaperText() = if (wallpaper) "On" else "Off"
-    fun icons() = if (glyphs) "Glyph icons on" else "Normal icons"
-    fun statusBarText() = if (statusBar) "Changed" else "Android Auto's own"
+    /** One short word or phrase per page: "Default", "3 colours" or "On". */
+    fun stateOf(page: FeaturePage): String = when (page) {
+        FeaturePage.THEMES -> if (colours == 0) "Default" else "$colours colours"
+        FeaturePage.WALLPAPER -> if (wallpaper) "On" else "Default"
+        FeaturePage.ICONS -> if (glyphs) "On" else "Default"
+        FeaturePage.STATUS_BAR -> if (statusBar) "On" else "Default"
+        else -> ""
+    }
 }
 
+/** A small picture of what a look page is set to: a colour strip, the wallpaper, an icon, a status bar. */
+@Composable private fun LookThumb(page: FeaturePage, model: ManagerViewModel, connected: Boolean, look: LookState) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+        when {
+            page == FeaturePage.THEMES && look.colours > 0 -> {
+                val roles = remember(look.colours) { model.themeColorsMap() }
+                Row(Modifier.fillMaxSize()) {
+                    listOf("Background", "Primary", "Secondary", "Tertiary").forEach { role ->
+                        Box(Modifier.weight(1f).fillMaxSize().background(androidx.compose.ui.graphics.Color(roles[role] ?: roles["Surface"] ?: 0xFF808080.toInt())))
+                    }
+                }
+            }
+            page == FeaturePage.WALLPAPER && look.wallpaper -> {
+                val bitmap by androidx.compose.runtime.produceState<android.graphics.Bitmap?>(null) {
+                    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        runCatching { CarWallpaperStudio.loadSource(context)?.let { android.graphics.Bitmap.createScaledBitmap(it, 88, 88, true) } }.getOrNull()
+                    }
+                }
+                bitmap?.let { androidx.compose.foundation.Image(it.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = androidx.compose.ui.layout.ContentScale.Crop) }
+                    ?: IconBadge(page.icon, 44)
+            }
+            page == FeaturePage.ICONS && look.glyphs -> {
+                val colours = remember { io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(model.glyphIconColors() ?: "") ?: intArrayOf(-1, 0) }
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF3A3839)).background(androidx.compose.ui.graphics.Color(colours[1])),
+                    contentAlignment = Alignment.Center) {
+                    Icon(Icons.Default.Apps, null, Modifier.size(24.dp), tint = androidx.compose.ui.graphics.Color(colours[0]))
+                }
+            }
+            page == FeaturePage.STATUS_BAR && look.statusBar -> {
+                val config = remember { io.github.highwindbr.aaxp.runtime.StatusBarTweaks.parse(model.statusBarConfig()) }
+                Box(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color(0xFF121212)), contentAlignment = Alignment.Center) {
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp).height(14.dp)
+                        .background(if (config?.noPlate == true) androidx.compose.ui.graphics.Color.Transparent else androidx.compose.ui.graphics.Color(config?.plateColor ?: 0xFF303030.toInt()), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 3.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Box(Modifier.size(10.dp, 4.dp).background(androidx.compose.ui.graphics.Color(config?.clockColor ?: 0xFFF2F0F0.toInt())))
+                        Box(Modifier.size(8.dp, 4.dp).background(androidx.compose.ui.graphics.Color(config?.iconColor ?: 0xFFF2F0F0.toInt())))
+                    }
+                }
+            }
+            else -> IconBadge(page.icon, 44)
+        }
+    }
+}
+
+/** A row on a look card or the Look tab: thumbnail, name, one-word state, chevron. */
+@Composable private fun LookRow(page: FeaturePage, model: ManagerViewModel, connected: Boolean, look: LookState, onOpen: (FeaturePage) -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clickable { onOpen(page) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        LookThumb(page, model, connected, look)
+        Spacer(Modifier.width(14.dp))
+        Text(page.title, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+        Text(look.stateOf(page), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, FeaturePage.ICONS, FeaturePage.STATUS_BAR)
+
 /**
- * Home: whether everything is working, one button to restart Android Auto, and shortcuts to the
- * things people come here to do. Technical detail lives behind "System status".
+ * Home: whether everything is working, one button to restart Android Auto, and the look and flag
+ * pages with their current state. Technical detail lives behind "System status".
  */
 @Composable internal fun HomeScreen(
     model: ManagerViewModel, connected: Boolean, ready: Boolean, checking: Boolean,
-    headline: String, detail: String, modifiedFlags: Int,
+    headline: String, detail: String, modifiedFlags: Int, overrides: Map<String, io.github.highwindbr.aaxp.core.TypedOverride>,
     onOpen: (FeaturePage) -> Unit, onFlags: () -> Unit
 ) {
     val look = remember(connected) { LookState(model, connected) }
@@ -171,11 +219,13 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
                             Text(headline, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                             Text(detail, style = MaterialTheme.typography.bodySmall, color = colors.onSurfaceVariant)
                         }
+                        Text("Details", style = MaterialTheme.typography.labelLarge, color = colors.onSurfaceVariant)
+                        Icon(Icons.Default.ChevronRight, null, tint = colors.onSurfaceVariant)
                     }
                     Button({ model.requestAndroidAutoControl(restart = true, headUnit = model.headUnitAfterRestart()) },
                         Modifier.fillMaxWidth().height(52.dp), enabled = connected) {
                         Icon(Icons.Default.RestartAlt, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
-                        Text("Restart Android Auto", fontWeight = FontWeight.SemiBold)
+                        Text(model.restartResult ?: "Restart Android Auto", fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -186,41 +236,59 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
         if (model.canUndo) item {
             FeatureTile(Icons.AutoMirrored.Filled.Undo, "Undo last change", "Put the look back to how it was before ${model.undoLabel}") { model.undoLastChange() }
         }
-        item { SectionHeading("Look") }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GridTile(Modifier.weight(1f), FeaturePage.THEMES.icon, "Themes", look.themes()) { onOpen(FeaturePage.THEMES) }
-            GridTile(Modifier.weight(1f), FeaturePage.WALLPAPER.icon, "Wallpaper", look.wallpaperText()) { onOpen(FeaturePage.WALLPAPER) }
-        } }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GridTile(Modifier.weight(1f), FeaturePage.ICONS.icon, "App icons", look.icons()) { onOpen(FeaturePage.ICONS) }
-            GridTile(Modifier.weight(1f), FeaturePage.STATUS_BAR.icon, "Status bar", look.statusBarText()) { onOpen(FeaturePage.STATUS_BAR) }
-        } }
-        item { SectionHeading("Flags") }
-        item { Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            GridTile(Modifier.weight(1f), Icons.Default.Science, "Browse flags",
-                if (modifiedFlags == 0) "None changed" else "$modifiedFlags changed", onFlags)
-            GridTile(Modifier.weight(1f), FeaturePage.PRESETS.icon, "Presets", "Saved sets") { onOpen(FeaturePage.PRESETS) }
-        } }
-        item { FeatureTile(FeaturePage.QUICK_SWITCHES.icon, FeaturePage.QUICK_SWITCHES.title, FeaturePage.QUICK_SWITCHES.subtitle) { onOpen(FeaturePage.QUICK_SWITCHES) } }
-        item { SectionHeading("More") }
-        item { FeatureTile(FeaturePage.SYSTEM.icon, FeaturePage.SYSTEM.title, FeaturePage.SYSTEM.subtitle) { onOpen(FeaturePage.SYSTEM) } }
+        item {
+            Column {
+                SectionHeading("Your look")
+                Surface(Modifier.fillMaxWidth().padding(top = 6.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        LOOK_PAGES.forEachIndexed { index, page ->
+                            if (index > 0) RowDivider()
+                            LookRow(page, model, connected, look, onOpen)
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            val switchesOn = io.github.highwindbr.aaxp.core.FlagSwitches.ALL.count { switch ->
+                io.github.highwindbr.aaxp.core.FlagSwitches.isOn(switch, overrides.mapValues { io.github.highwindbr.aaxp.core.DynamicOverrideCodec.serialize(it.value) })
+            }
+            val presetCount = remember(overrides) { model.presets().size }
+            Column {
+                SectionHeading("Flags")
+                Surface(Modifier.fillMaxWidth().padding(top = 6.dp), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                    Column(Modifier.padding(horizontal = 16.dp)) {
+                        LinkRow("Browse flags", if (modifiedFlags == 0) "None changed" else "$modifiedFlags changed", onFlags)
+                        RowDivider()
+                        LinkRow(FeaturePage.QUICK_SWITCHES.title, "$switchesOn of ${io.github.highwindbr.aaxp.core.FlagSwitches.ALL.size} on", { onOpen(FeaturePage.QUICK_SWITCHES) })
+                        RowDivider()
+                        LinkRow(FeaturePage.PRESETS.title, if (presetCount == 0) "None" else "$presetCount saved", { onOpen(FeaturePage.PRESETS) })
+                    }
+                }
+            }
+        }
     }
 }
 
-/** Everything that changes how the car screen looks, each with its current state. */
+/** The look pages with a thumbnail and a one-word state each, plus the keep and share row. */
 @Composable internal fun LookScreen(model: ManagerViewModel, connected: Boolean, onOpen: (FeaturePage) -> Unit) {
     val look = remember(connected) { LookState(model, connected) }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item { Column(Modifier.padding(start = 4.dp, bottom = 4.dp)) {
             Text("Look", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("How Android Auto looks on the car screen. Changes show after it restarts.",
-                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("How the car screen looks", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } }
-        item { FeatureTile(FeaturePage.THEMES.icon, FeaturePage.THEMES.title, look.themes()) { onOpen(FeaturePage.THEMES) } }
-        item { FeatureTile(FeaturePage.WALLPAPER.icon, FeaturePage.WALLPAPER.title, look.wallpaperText()) { onOpen(FeaturePage.WALLPAPER) } }
-        item { FeatureTile(FeaturePage.ICONS.icon, FeaturePage.ICONS.title, look.icons()) { onOpen(FeaturePage.ICONS) } }
-        item { FeatureTile(FeaturePage.STATUS_BAR.icon, FeaturePage.STATUS_BAR.title, look.statusBarText()) { onOpen(FeaturePage.STATUS_BAR) } }
+        item {
+            Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainer) {
+                Column(Modifier.padding(horizontal = 16.dp)) {
+                    LOOK_PAGES.forEachIndexed { index, page ->
+                        if (index > 0) RowDivider()
+                        LookRow(page, model, connected, look, onOpen)
+                    }
+                }
+            }
+        }
         item { SectionHeading("Share and keep") }
         item { FeatureTile(FeaturePage.LOOK_FILE.icon, FeaturePage.LOOK_FILE.title, FeaturePage.LOOK_FILE.subtitle) { onOpen(FeaturePage.LOOK_FILE) } }
     }

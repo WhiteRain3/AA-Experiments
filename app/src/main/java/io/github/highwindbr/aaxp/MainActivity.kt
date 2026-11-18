@@ -296,7 +296,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                     !scopeOk -> "Tick Android Auto in this module's scope in LSPosed"
                     else -> "Android Auto ${state.aa.versionName ?: ""} · module active"
                 },
-                modifiedFlags = state.dynamicOverrides.size,
+                modifiedFlags = state.dynamicOverrides.size, overrides = state.dynamicOverrides,
                 onOpen = { featurePageName = it.name }, onFlags = { tab = 1 })
         }
         3 -> LookScreen(model, connected) { featurePageName = it.name }

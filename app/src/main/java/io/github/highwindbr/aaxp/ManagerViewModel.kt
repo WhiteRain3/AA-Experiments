@@ -1565,6 +1565,15 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         onDone(saved)
     }
 
+    /** What the Restart button shows for a few seconds after a restart was asked for. */
+    var restartResult by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+
+    private fun showRestartResult(text: String) {
+        restartResult = text
+        viewModelScope.launch { kotlinx.coroutines.delay(6_000); if (restartResult == text) restartResult = null }
+    }
+
     private val lookWriteLock = kotlinx.coroutines.sync.Mutex()
 
     /** Runs a look write on the IO dispatcher, one at a time and in the order they were asked for, so an older write never lands last. */
@@ -1923,10 +1932,13 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         val sent = withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart, headUnit) }.getOrDefault(false) }
         if (sent && restart) {
             changesWaiting = false
+            showRestartResult("Restart requested…")
             mutable.value = mutable.value.copy(message = "Asked Android Auto to restart…")
             kotlinx.coroutines.delay(2_500)
             val heard = reportPreferences.getString(ModuleReportProvider.KEY_RESTART_ACK, null) == lastRestartRequest
+            if (heard) showRestartResult("Done: Android Auto is restarting")
             if (!heard) {
+                showRestartResult("No answer from Android Auto")
                 val stopped = withContext(Dispatchers.IO) { stopAndroidAutoWithRoot() }
                 mutable.value = mutable.value.copy(message = if (stopped)
                     "Android Auto did not answer, so the module is not loaded in it yet. It was stopped with root instead; the module loads when it starts again."
@@ -1936,7 +1948,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             }
         }
         mutable.value = mutable.value.copy(message = when {
-            !sent -> "Request failed: LSPosed remote preferences unavailable."
+            !sent -> { showRestartResult("Request failed"); "Request failed: LSPosed remote preferences unavailable." }
             restart && headUnit -> "Asked Android Auto to restart; the head unit server starts a few seconds after it is back up."
             restart -> "Android Auto is restarting."
             else -> "Asked Android Auto to start the head unit server. It only reacts while it is running; check LSPosed events (CONTROL_HEAD_UNIT_*)."

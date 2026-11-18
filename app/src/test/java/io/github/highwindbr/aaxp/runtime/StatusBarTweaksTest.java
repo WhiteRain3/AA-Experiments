@@ -143,6 +143,33 @@ public class StatusBarTweaksTest {
         assertEquals(0f, StatusBarTweaks.radiusPx(-4, 2f), 0.001f);
     }
 
+    @Test public void iconSize() {
+        StatusBarTweaks.Config config = StatusBarTweaks.parse("icon_size=125");
+        assertEquals(125, config.iconSize);
+        assertEquals("icon_size=125", StatusBarTweaks.encode(config));
+        assertEquals(StatusBarTweaks.DEFAULT_ICON_SIZE, StatusBarTweaks.parse("clock=FFFF2D95").iconSize);
+        assertEquals("clock=FFFF2D95", StatusBarTweaks.encode(StatusBarTweaks.parse("clock=FFFF2D95")));
+        assertNull(StatusBarTweaks.parse("icon_size=100")); // the default alone changes nothing
+        assertNull(StatusBarTweaks.parse("icon_size=69"));
+        assertNull(StatusBarTweaks.parse("icon_size=141"));
+        assertNull(StatusBarTweaks.parse("icon_size=huge"));
+        StatusBarTweaks.Builder builder = new StatusBarTweaks.Builder();
+        builder.iconSize = 500;
+        assertEquals(StatusBarTweaks.MAX_ICON_SIZE, builder.build().iconSize);
+        assertEquals(1.25f, StatusBarTweaks.iconScale(125), 0.0001f);
+        assertEquals(0.7f, StatusBarTweaks.iconScale(10), 0.0001f);
+        assertEquals(1.4f, StatusBarTweaks.iconScale(900), 0.0001f);
+    }
+
+    @Test public void batteryNumberKeepsItsSizeInsideAScaledRow() {
+        // Drawn at the row's scale, the number comes out at the size that was wanted.
+        for (int percent : new int[] {70, 100, 125, 140}) {
+            float inside = StatusBarTweaks.sizeInsideScaledRow(22.4f, percent);
+            assertEquals(22.4f, inside * StatusBarTweaks.iconScale(percent), 0.001f);
+        }
+        assertEquals(22.4f, StatusBarTweaks.sizeInsideScaledRow(22.4f, 100), 0.001f);
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

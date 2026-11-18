@@ -8,7 +8,7 @@ import java.util.Set;
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
  * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent;
- * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12"; every part is optional.
+ * clock_size=120;clock_bold=on;plate_color=AARRGGBB;plate_radius=12;icon_size=120"; every part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
 public final class StatusBarTweaks {
@@ -31,6 +31,26 @@ public final class StatusBarTweaks {
     public static final int DEFAULT_CLOCK_SIZE = 100;
     public static final int MIN_CLOCK_SIZE = 70;
     public static final int MAX_CLOCK_SIZE = 140;
+
+    /** Size of the signal and battery icons as a percentage of Android Auto's own. */
+    public static final int DEFAULT_ICON_SIZE = 100;
+    public static final int MIN_ICON_SIZE = 70;
+    public static final int MAX_ICON_SIZE = 140;
+    /** The icons the size applies to when the row holding them cannot be found. */
+    public static final List<String> SIZED_ICONS = Arrays.asList("signal_icon", "battery_level");
+
+    /** The drawing scale for an icon size in percent, e.g. 1.2 for 120. */
+    public static float iconScale(int percent) {
+        return Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, percent)) / 100f;
+    }
+
+    /**
+     * The battery number lives in the icon row, so it is drawn at the row's scale too. This is
+     * the text size that makes it come out at {@code wanted} on screen all the same.
+     */
+    public static float sizeInsideScaledRow(float wanted, int iconPercent) {
+        return wanted / iconScale(iconPercent);
+    }
 
     /** Largest corner radius offered for the plate, in dp. */
     public static final int MAX_PLATE_RADIUS = 48;
@@ -73,6 +93,8 @@ public final class StatusBarTweaks {
         public final Integer plateColor;
         /** Corner radius of the plate in dp; null keeps Android Auto's. */
         public final Integer plateRadius;
+        /** Size of the signal and battery icons in percent. */
+        public final int iconSize;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
@@ -112,6 +134,7 @@ public final class StatusBarTweaks {
             Integer clockColor = from.clockColor, iconColor = from.iconColor, batteryColor = from.batteryColor;
             boolean noPlate = from.noPlate, batteryPercent = from.batteryPercent;
             int batterySize = from.batterySize;
+            this.iconSize = Math.max(MIN_ICON_SIZE, Math.min(MAX_ICON_SIZE, from.iconSize));
             this.plateColor = from.plateColor;
             this.plateRadius = from.plateRadius == null ? null : Math.max(0, Math.min(MAX_PLATE_RADIUS, from.plateRadius));
             this.clockSize = Math.max(MIN_CLOCK_SIZE, Math.min(MAX_CLOCK_SIZE, from.clockSize));
@@ -127,7 +150,8 @@ public final class StatusBarTweaks {
 
         public boolean isEmpty() {
             return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate && !batteryPercent
-                    && clockSize == DEFAULT_CLOCK_SIZE && !clockBold && plateColor == null && plateRadius == null;
+                    && clockSize == DEFAULT_CLOCK_SIZE && !clockBold && plateColor == null && plateRadius == null
+                    && iconSize == DEFAULT_ICON_SIZE;
         }
     }
 
@@ -144,6 +168,7 @@ public final class StatusBarTweaks {
         public boolean clockBold;
         public Integer plateColor;
         public Integer plateRadius;
+        public int iconSize = DEFAULT_ICON_SIZE;
 
         public Config build() {
             return new Config(this);
@@ -165,6 +190,7 @@ public final class StatusBarTweaks {
         int clockSize = DEFAULT_CLOCK_SIZE;
         boolean clockBold = false;
         Integer plateColor = null, plateRadius = null;
+        int iconSize = DEFAULT_ICON_SIZE;
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -224,6 +250,14 @@ public final class StatusBarTweaks {
                     }
                     if (plateRadius < 0 || plateRadius > MAX_PLATE_RADIUS) return null;
                     break;
+                case "icon_size":
+                    try {
+                        iconSize = Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (iconSize < MIN_ICON_SIZE || iconSize > MAX_ICON_SIZE) return null;
+                    break;
                 case "clock_bold":
                     if (!"on".equals(value)) return null;
                     clockBold = true;
@@ -235,6 +269,7 @@ public final class StatusBarTweaks {
         Builder builder = Config.builder(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold);
         builder.plateColor = plateColor;
         builder.plateRadius = plateRadius;
+        builder.iconSize = iconSize;
         Config config = builder.build();
         return config.isEmpty() ? null : config;
     }
@@ -260,6 +295,7 @@ public final class StatusBarTweaks {
             if (config.plateColor != null) append(text, "plate_color=" + String.format("%08X", config.plateColor));
             if (config.plateRadius != null) append(text, "plate_radius=" + config.plateRadius);
         }
+        if (config.iconSize != DEFAULT_ICON_SIZE) append(text, "icon_size=" + config.iconSize);
         return text.toString();
     }
 

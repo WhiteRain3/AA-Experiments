@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 438 tests and none fail.
+At the time of writing there are 440 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -137,6 +137,9 @@ Built and unit-tested, not yet confirmed on the device:
   `setRadius(float)` is not known; the log event `STATUS_BAR_PLATE` reports `card`,
   `card_no_radius`, `drawable` or `radius_unavailable` and the view's class name. New status bar
   settings go in `StatusBarTweaks.Builder`, not in another constructor.
+- Status bar icon size (`icon_size`): `icon_row` is scaled with scaleX/scaleY and its two
+  nearest parents get `clipChildren=false`. Unknown until seen: whether a larger row is cut off
+  by the plate (a card clips to its rounded outline) or touches the clock.
 - Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
   until seen: whether Android Auto resets the text size or typeface later (for example on a
   day/night switch), and whether 140% is clipped by the 107 px rail.

@@ -601,7 +601,8 @@ public final class AndroidAutoModule extends XposedModule {
             } else {
                 size = 32f;
             }
-            size = size * config.batterySize / 100f;
+            // The number sits in the icon row, which is drawn at the icon size's scale.
+            size = StatusBarTweaks.sizeInsideScaledRow(size * config.batterySize / 100f, config.iconSize);
             if (config.clockColor != null) color = config.clockColor;
             if (config.batteryColor != null) color = config.batteryColor;
             text.setTextColor(color);
@@ -718,6 +719,45 @@ public final class AndroidAutoModule extends XposedModule {
     }
 
     /**
+     * Size of the signal and battery icons. Only how they are drawn is scaled, around the centre
+     * of the row that holds them; their layout size stays as it is, because a changed size inside
+     * the status bar's ConstraintLayout has gone wrong before. The row's parents are told not to
+     * cut off what a larger row draws beyond its own edges.
+     */
+    private void applyIconSize(android.view.View root, StatusBarTweaks.Config config) {
+        if (config.iconSize == StatusBarTweaks.DEFAULT_ICON_SIZE) return;
+        try {
+            float scale = StatusBarTweaks.iconScale(config.iconSize);
+            android.view.View row = findByName(root, StatusBarTweaks.ICON_ROW);
+            String route;
+            if (row != null) {
+                row.setScaleX(scale);
+                row.setScaleY(scale);
+                android.view.ViewParent parent = row.getParent();
+                for (int level = 0; level < 2 && parent instanceof android.view.ViewGroup group; level++) {
+                    group.setClipChildren(false);
+                    group.setClipToPadding(false);
+                    parent = group.getParent();
+                }
+                route = "row";
+            } else {
+                int scaled = 0;
+                for (String name : StatusBarTweaks.SIZED_ICONS) {
+                    android.view.View icon = findByName(root, name);
+                    if (icon == null) continue;
+                    icon.setScaleX(scale);
+                    icon.setScaleY(scale);
+                    scaled++;
+                }
+                route = "icons" + scaled;
+            }
+            eventOnce(Log.INFO, "STATUS_ICON_SIZE", "status_bar", route + "@" + config.iconSize);
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "status_bar", t.getClass().getSimpleName());
+        }
+    }
+
+    /**
      * Colour and corner radius of the plate behind the status bar. A card-type view takes both
      * through its own setters. Any other view gets a rounded background drawn by the module,
      * which needs a colour: a radius alone cannot be applied to it. The module log says which
@@ -810,6 +850,7 @@ public final class AndroidAutoModule extends XposedModule {
             hideForGood(target);
         }
         applyClockText(root, config);
+        applyIconSize(root, config);
         if (config.batteryPercent) addBatteryPercent(root, config);
         if (config.clockColor != null && findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
             clock.setTextColor(config.clockColor);

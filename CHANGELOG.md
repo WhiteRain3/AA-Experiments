@@ -139,6 +139,7 @@ instrumented or physical-device acceptance yet.
 - The Status bar preview no longer draws a do-not-disturb dot; it shows only the clock, signal and battery as set, with the sample percentage only while the percentage is on.
 - Colour picker: the hex field uses capital letters, no suggestions and a plain keyboard, and "Use colour" stays above the keyboard. The "Changes saved. Restart Android Auto" banner floats at the bottom of a page, so it appearing no longer shifts the page.
 - Applying a style shows a snackbar "<name> applied." with an Undo action (the same undo as Home), and the style's card says "Applied" instead of Apply until the colours change.
+- The App icons preview draws the sample icons on the background colour as set, with a checkerboard behind a see-through background.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

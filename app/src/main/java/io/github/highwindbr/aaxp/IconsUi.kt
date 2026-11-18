@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import io.github.highwindbr.aaxp.core.ColorMath
@@ -71,7 +72,25 @@ internal fun AppIconsPage(model: ManagerViewModel, connected: Boolean, resetSign
                 listOf(Icons.Default.Call, Icons.Default.Map, Icons.Default.MusicNote, Icons.Default.Textsms, Icons.Default.Settings).forEach { icon ->
                     val plate = if (enabled) Color(background) else Color(0xFF3A3839)
                     val figure = if (enabled) Color(glyph) else Color(0xFF9A9A9A)
-                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1B1B1B)).background(plate), contentAlignment = Alignment.Center) {
+                    // Sample icons sit on the background colour as set; a see-through one shows a checkerboard so the see-through is visible.
+                    val seeThrough = enabled && androidx.compose.ui.graphics.Color(background).alpha < 1f
+                    Box(Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1B1B1B))
+                        .then(if (seeThrough) Modifier.drawBehind {
+                            val cell = 8.dp.toPx()
+                            var row = 0
+                            var y = 0f
+                            while (y < size.height) {
+                                var column = 0
+                                var x = 0f
+                                while (x < size.width) {
+                                    if ((row + column) % 2 == 0) drawRect(Color(0xFF3A3A3A), androidx.compose.ui.geometry.Offset(x, y),
+                                        androidx.compose.ui.geometry.Size(cell, cell))
+                                    x += cell; column++
+                                }
+                                y += cell; row++
+                            }
+                        } else Modifier)
+                        .background(plate), contentAlignment = Alignment.Center) {
                         Icon(icon, null, Modifier.size((28 * (if (enabled) figureSize else GlyphIcons.DEFAULT_SIZE) / 100f).dp), tint = figure)
                     }
                 }

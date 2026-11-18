@@ -378,13 +378,16 @@ private val LOOK_PAGES = listOf(FeaturePage.THEMES, FeaturePage.WALLPAPER, Featu
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(enabled = enabled, onClick = onPick),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         ColorSwatch(colour, Modifier.size(40.dp))
-        // The label and its "?" take all the room the value and reset icon leave, so a label never wraps in a narrow column.
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
-            if (tip != null) TipIcon(label, tip)
+        // One cell for the label (with its "?") and the value under it, so the label only wraps at spaces and never in a narrow column.
+        Column(Modifier.weight(1f).padding(vertical = 6.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(label, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodyLarge)
+                if (tip != null) TipIcon(label, tip)
+            }
+            Text(io.github.highwindbr.aaxp.core.ColourLabel.of(colour), style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Text(colour?.let { "#" + io.github.highwindbr.aaxp.core.ColorMath.toHex(it) } ?: "Default",
-            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        // The reset slot is always reserved, so rows line up with or without a value set.
         if (colour != null) ResetIcon(onReset) else Spacer(Modifier.width(48.dp))
     }
 }

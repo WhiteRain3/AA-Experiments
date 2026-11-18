@@ -132,6 +132,7 @@ instrumented or physical-device acceptance yet.
 - Colour rows give their label all the room left over, so labels like "Launcher background" no longer break in the middle of a word.
 - Switch rows and link rows use one label area, so the switches on the Status bar page (and everywhere else) line up at the right edge.
 - Map border width now uses the module's own setting (0 to 16 dp, Android Auto's own is 6) instead of the Coolwalk flag, which does nothing in Android Auto 18.0; an old override of that flag is removed once. The width is part of look files, Undo and "Reset colours to default".
+- Colour rows put the value under the label in one cell, with the reset slot always reserved, so labels wrap only at spaces and all rows line up; "00FFFFFF" reads "Transparent".
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

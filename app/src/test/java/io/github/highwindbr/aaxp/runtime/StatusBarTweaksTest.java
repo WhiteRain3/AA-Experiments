@@ -47,6 +47,26 @@ public class StatusBarTweaksTest {
         assertEquals("", StatusBarTweaks.percentText(50, 0));
     }
 
+    @Test public void batteryNumberColourAndSize() {
+        StatusBarTweaks.Config config = StatusBarTweaks.parse("battery=percent;battery_color=FFFF2D95;battery_size=110");
+        assertEquals(Integer.valueOf(0xFFFF2D95), config.batteryColor);
+        assertEquals(110, config.batterySize);
+        assertEquals("battery=percent;battery_color=FFFF2D95;battery_size=110", StatusBarTweaks.encode(config));
+        // Defaults: follows the clock, default size, and neither is written out.
+        StatusBarTweaks.Config plain = StatusBarTweaks.parse("battery=percent");
+        assertNull(plain.batteryColor);
+        assertEquals(StatusBarTweaks.DEFAULT_BATTERY_SIZE, plain.batterySize);
+        assertEquals("battery=percent", StatusBarTweaks.encode(plain));
+        // Out of range or unreadable values are rejected; the constructor clamps.
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_size=10"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_size=big"));
+        assertNull(StatusBarTweaks.parse("battery=percent;battery_color=red"));
+        assertEquals(StatusBarTweaks.MAX_BATTERY_SIZE,
+                new StatusBarTweaks.Config(new LinkedHashSet<>(), null, null, false, true, null, 999).batterySize);
+        // Without the number, its colour and size are not stored.
+        assertNull(StatusBarTweaks.encode(new StatusBarTweaks.Config(new LinkedHashSet<>(), null, null, false, false, 0xFF000000, 120)));
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

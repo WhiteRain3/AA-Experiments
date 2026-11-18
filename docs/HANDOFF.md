@@ -488,15 +488,37 @@ reverse-engineering material), it says so to the owner instead of quietly doing 
 Written 2026-11-18 by the first dispatcher session, whose conversation had grown too long to
 continue cheaply. Everything a new dispatcher needs is here; do not rely on the old session.
 
-### State at hand-over
+### State (updated 2026-11-18, later in the day)
 
-- Latest release: `1.0.0-wr35` (tag on `c42ce88`). The redesign in `docs/DESIGN_SPEC.md`,
-  pieces 1 to 9, is complete and released.
-- Unreleased on the branch and NOT yet reviewed: the App worker's follow-up commit just before
-  merge `4d7988c` (failed look-file import now changes nothing; Load dialog wording; unused
-  `undoThen` deleted). Send `c42ce88..<tip>` to the Reviewer; it ships with the next batch.
+- Latest release: `1.0.0-wr38` (tag on `b9e8dd3`). wr36: safer look-file load. wr37: the Tester's
+  wr33 fixes and design polish. wr38: status bar number on its own line, glyph plate figures,
+  Colours page scroll and "Applied" fixes, the low-battery red option.
+- The redesign in `docs/DESIGN_SPEC.md`, pieces 1 to 9, is complete and released (wr35).
 - `main` is still upstream 1.0.0; all fork work is on `claude/companion-features` (the owner
   asked; no decision yet on merging to `main`).
+- **The dispatcher is now `session_0164xm2WGLbejRCB65ouk7d4`;** all five workers reply there. It
+  has read-only access to this repository, so releases are done by the Release session
+  (`session_0164xm2Vvm8Pyxgk3vBPTbCG`): the dispatcher sends it the reviewed commit, it bumps the
+  version, builds, pushes and confirms. Its push has needed the owner's approval in its own chat
+  each time (wr37, wr38). The dispatcher checks `releases/latest` and the tag itself.
+- Tester reports are on branch `claude/test-reports` (`test-reports/1.0.0-wr33`,
+  `test-reports/1.0.0-wr37`). Checks for the next round: the three-line status bar with the
+  number (readable, icon size 100 vs 140 differ, the clock stays steady when a notification count
+  appears); glyphs with a coloured and a see-through background; the Colours page no longer
+  slides after a pick; "Applied" follows Undo; note which styles were applied before saving a
+  look file and whether "the wallpaper editor could not be updated" appears after Load a look;
+  `MODULE_LOADED version=` after the first restart following an update; the low-battery red at
+  15% or below.
+- Open with the owner: the icon-size slider limit while both status bar icons are shown
+  (A leave it, B cap at about 110%, C let the icons stick out; the Hooks worker and the
+  dispatcher recommend B). After an app update, restart Android Auto twice: the LSPosed
+  framework may load the old module on the first restart.
+- The Android Auto replacement goal moved to its own repository, `WhiteRain3/MyPlay` (a fork of
+  prototux/AARE, not F-Auto), branch `claude/myplay`, with its own handoff file and sessions
+  (tag "myplay"). The study is `docs/plans/f-auto.md` on branch `claude/plan-f-auto`; the chosen
+  settings design (direction 1, "Edit the picture", dark) is on branch `claude/design-options`.
+  The owner's head unit is an aftermarket box (carplay.lt, GP0A2020H-Q5H / EWMCP-N726) on an Audi
+  A4 MMI 3G, not a factory Android Auto unit. This app stays the daily driver.
 
 ### The sessions (all on this repository, environment "aa-tweaker")
 
@@ -507,12 +529,14 @@ continue cheaply. Everything a new dispatcher needs is here; do not rely on the 
 | Reviewer | `session_0164xm2VdkgXvdqAyyz4BNF2` | Opus 5.5 | Builds, tests, ends with CLEAN or HOLD. |
 | Planner | `session_0164xm2ZzMHryyXBZf6M1kvK` | Opus 5.5 | Ideas and task lists, reads code first. |
 | Design reviewer | `session_0164xm2YcMBh7jDZDCkaLULA` | Sonnet 5.5 | Wrote the redesign spec; wants screenshots of the rebuilt pages. |
-| Manager, Release | `session_0164xm2Zyujw882AqbQyUp94`, `session_0164xm2Vvm8Pyxgk3vBPTbCG` | Opus 5.5, Haiku 5.5 | Never used; the dispatcher does both jobs. |
+| Manager | `session_0164xm2Zyujw882AqbQyUp94` | Opus 5.5 | Never used; the dispatcher does this job. |
+| Release | `session_0164xm2Vvm8Pyxgk3vBPTbCG` | Haiku 5.5 | Bumps the version, builds, pushes, confirms; its push needs the owner's approval in its own chat. |
 | Tester | local on the owner's PC | owner's choice | Drives the Desktop Head Unit and the phone over adb; reports to branch `claude/test-reports`. Cannot be messaged; read its branch or ask the owner. |
 
-These sessions were created by the first dispatcher, so their replies to `"@parent"` go to that
-old session. A new dispatcher must tell each one its own session id and ask for replies there,
-or create fresh sessions from this file (cheap, and they start with clean context).
+These sessions were created by the first dispatcher, so a reply to `"@parent"` goes to that old
+session (retired). Reply to the current dispatcher's id above instead, and a new dispatcher must
+tell each session its own id, or create fresh sessions from this file (cheap, and they start
+with clean context).
 
 ### How the chain is run (what worked)
 

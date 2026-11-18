@@ -188,7 +188,7 @@ instrumented or physical-device acceptance yet.
 - More colours: the colour table rewrite is only used where the platform's table has the
   expected layout (Android 10 and later, seven numbers per attribute); elsewhere it is skipped
   and logged.
-- versionName `1.0.0-wr33`, versionCode unchanged.
+- versionName `1.0.0-wr34`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

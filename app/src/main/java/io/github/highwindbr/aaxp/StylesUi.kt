@@ -21,7 +21,8 @@ import io.github.highwindbr.aaxp.core.Themes
 internal fun StylesCard(model: ManagerViewModel, connected: Boolean) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text("One-tap styles", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("Each style sets everything together. The status bar and More colours parts are not yet confirmed on the car. " +
+        Text("A style sets the colours, More colours, icons, status bar colours and background, and the wallpaper's darken and blur. " +
+            "Your hidden status bar parts, battery number and clock size stay. The status bar and More colours parts are not yet confirmed on the car. " +
             "You can undo from Home.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Themes.BUILT_IN.forEach { look ->
             Card(Modifier.fillMaxWidth()) {

@@ -132,6 +132,8 @@ instrumented or physical-device acceptance yet.
   the launcher icons. The module finds each launcher item's text container
   (`grid_item_text_container`) when its layout is inflated and keeps it hidden through list
   re-binding. Untested on a car; not yet part of look files or Undo.
+- Status bar: clock size (70 to 140% of Android Auto's own) and a bold switch. Untested on a
+  car; the battery percentage, sized relative to the clock, follows the new clock size.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

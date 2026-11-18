@@ -7,8 +7,8 @@ import java.util.Set;
 
 /**
  * Changes to Android Auto's status bar (clock, signal, battery). The setting is stored as
- * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent"; every
- * part is optional.
+ * "hide=clock,battery_level;clock=AARRGGBB;icons=AARRGGBB;plate=off;battery=percent;
+ * clock_size=120;clock_bold=on"; every part is optional.
  * The names are the view ids in Android Auto's own status bar layouts.
  */
 public final class StatusBarTweaks {
@@ -26,6 +26,16 @@ public final class StatusBarTweaks {
     public static final int DEFAULT_BATTERY_SIZE = 70;
     public static final int MIN_BATTERY_SIZE = 50;
     public static final int MAX_BATTERY_SIZE = 130;
+
+    /** Clock text size as a percentage of the size Android Auto gives it. */
+    public static final int DEFAULT_CLOCK_SIZE = 100;
+    public static final int MIN_CLOCK_SIZE = 70;
+    public static final int MAX_CLOCK_SIZE = 140;
+
+    /** {@code original} text size scaled to {@code percent}, never below one pixel. */
+    public static float scaledSize(float original, int percent) {
+        return Math.max(1f, original * percent / 100f);
+    }
 
     /** Battery level as text, e.g. "74%"; empty when the level is unknown. */
     public static String percentText(int level, int scale) {
@@ -48,6 +58,9 @@ public final class StatusBarTweaks {
         public final Integer batteryColor;
         /** Size of the battery number as a percentage of the clock's text size. */
         public final int batterySize;
+        /** Size of the clock as a percentage of Android Auto's own size. */
+        public final int clockSize;
+        public final boolean clockBold;
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate) {
             this(hide, clockColor, iconColor, noPlate, false);
@@ -59,6 +72,13 @@ public final class StatusBarTweaks {
 
         public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent,
                       Integer batteryColor, int batterySize) {
+            this(hide, clockColor, iconColor, noPlate, batteryPercent, batteryColor, batterySize, DEFAULT_CLOCK_SIZE, false);
+        }
+
+        public Config(Set<String> hide, Integer clockColor, Integer iconColor, boolean noPlate, boolean batteryPercent,
+                      Integer batteryColor, int batterySize, int clockSize, boolean clockBold) {
+            this.clockSize = Math.max(MIN_CLOCK_SIZE, Math.min(MAX_CLOCK_SIZE, clockSize));
+            this.clockBold = clockBold;
             this.batteryColor = batteryColor;
             this.batterySize = Math.max(MIN_BATTERY_SIZE, Math.min(MAX_BATTERY_SIZE, batterySize));
             this.batteryPercent = batteryPercent;
@@ -69,7 +89,8 @@ public final class StatusBarTweaks {
         }
 
         public boolean isEmpty() {
-            return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate && !batteryPercent;
+            return hide.isEmpty() && clockColor == null && iconColor == null && !noPlate && !batteryPercent
+                    && clockSize == DEFAULT_CLOCK_SIZE && !clockBold;
         }
     }
 
@@ -85,6 +106,8 @@ public final class StatusBarTweaks {
         boolean noPlate = false, batteryPercent = false;
         Integer batteryColor = null;
         int batterySize = DEFAULT_BATTERY_SIZE;
+        int clockSize = DEFAULT_CLOCK_SIZE;
+        boolean clockBold = false;
         for (String part : text.split(";")) {
             int equals = part.indexOf('=');
             if (equals <= 0) return null;
@@ -124,11 +147,23 @@ public final class StatusBarTweaks {
                     }
                     if (batterySize < MIN_BATTERY_SIZE || batterySize > MAX_BATTERY_SIZE) return null;
                     break;
+                case "clock_size":
+                    try {
+                        clockSize = Integer.parseInt(value);
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                    if (clockSize < MIN_CLOCK_SIZE || clockSize > MAX_CLOCK_SIZE) return null;
+                    break;
+                case "clock_bold":
+                    if (!"on".equals(value)) return null;
+                    clockBold = true;
+                    break;
                 default:
                     return null;
             }
         }
-        Config config = new Config(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize);
+        Config config = new Config(hide, clock, icons, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold);
         return config.isEmpty() ? null : config;
     }
 
@@ -146,6 +181,8 @@ public final class StatusBarTweaks {
             if (config.batteryColor != null) append(text, "battery_color=" + String.format("%08X", config.batteryColor));
             if (config.batterySize != DEFAULT_BATTERY_SIZE) append(text, "battery_size=" + config.batterySize);
         }
+        if (config.clockSize != DEFAULT_CLOCK_SIZE) append(text, "clock_size=" + config.clockSize);
+        if (config.clockBold) append(text, "clock_bold=on");
         return text.toString();
     }
 

@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 407 tests and none fail.
+At the time of writing there are 411 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -132,6 +132,9 @@ Built and unit-tested, not yet confirmed on the device:
 - The reorganised app (Home, Look, Flags, Settings tabs; one page per feature), wr25.
 - Crash safe mode for the look hooks.
 - Status bar changes (hide or recolour clock, signal, battery; remove the plate).
+- Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
+  until seen: whether Android Auto resets the text size or typeface later (for example on a
+  day/night switch), and whether 140% is clipped by the 107 px rail.
 - Style packs and backup (one file with the whole look).
 - Restart button's acknowledgement and root fallback (wr20).
 - Update check through the release page redirect (wr21).
@@ -201,6 +204,15 @@ Working out Android Auto's internals needs its decompiled code and resources. Th
 uploaded by the owner into one session and are not in this repository, because they are
 Google's. A session that needs them asks the owner to upload `gearhead-code.zip` and
 `gearhead-res.zip` again.
+
+### Status bar settings need a restart (looked at 2026-11-18, left as is)
+
+The status bar hooks are installed only when a setting exists at process start, and settings are
+applied once, when the status bar layout is inflated. Re-applying on a preference change would
+need: the inflate hook installed for everyone (a cost on every inflate for users with no
+setting), weak references to the inflated status bar roots, and the original colour, tint, size,
+visibility and background of every changed view so that a removed setting can be put back. That
+is not a small change and cannot be checked without the car, so it has not been done.
 
 ## Open questions for the owner
 

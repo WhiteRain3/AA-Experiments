@@ -67,6 +67,39 @@ public class StatusBarTweaksTest {
         assertNull(StatusBarTweaks.encode(new StatusBarTweaks.Config(new LinkedHashSet<>(), null, null, false, false, 0xFF000000, 120)));
     }
 
+    @Test public void clockSizeAndBold() {
+        StatusBarTweaks.Config config = StatusBarTweaks.parse("clock_size=120;clock_bold=on");
+        assertEquals(120, config.clockSize);
+        assertTrue(config.clockBold);
+        assertEquals("clock_size=120;clock_bold=on", StatusBarTweaks.encode(config));
+        // Each alone is a setting of its own.
+        assertEquals(70, StatusBarTweaks.parse("clock_size=70").clockSize);
+        assertFalse(StatusBarTweaks.parse("clock_size=70").clockBold);
+        assertTrue(StatusBarTweaks.parse("clock_bold=on").clockBold);
+        assertEquals(StatusBarTweaks.DEFAULT_CLOCK_SIZE, StatusBarTweaks.parse("clock_bold=on").clockSize);
+        // Defaults are not written out and settings from before this existed still parse.
+        StatusBarTweaks.Config old = StatusBarTweaks.parse("clock=FFFF2D95");
+        assertEquals(StatusBarTweaks.DEFAULT_CLOCK_SIZE, old.clockSize);
+        assertFalse(old.clockBold);
+        assertEquals("clock=FFFF2D95", StatusBarTweaks.encode(old));
+        assertNull(StatusBarTweaks.encode(new StatusBarTweaks.Config(
+                new LinkedHashSet<>(), null, null, false, false, null, 70, StatusBarTweaks.DEFAULT_CLOCK_SIZE, false)));
+        // Out of range or unreadable values are rejected; the constructor clamps.
+        assertNull(StatusBarTweaks.parse("clock_size=69"));
+        assertNull(StatusBarTweaks.parse("clock_size=141"));
+        assertNull(StatusBarTweaks.parse("clock_size=big"));
+        assertNull(StatusBarTweaks.parse("clock_bold=off"));
+        assertEquals(StatusBarTweaks.MIN_CLOCK_SIZE, new StatusBarTweaks.Config(
+                new LinkedHashSet<>(), null, null, false, false, null, 70, 5, false).clockSize);
+    }
+
+    @Test public void scaledSize() {
+        assertEquals(32f, StatusBarTweaks.scaledSize(32f, 100), 0.001f);
+        assertEquals(44.8f, StatusBarTweaks.scaledSize(32f, 140), 0.001f);
+        assertEquals(22.4f, StatusBarTweaks.scaledSize(32f, 70), 0.001f);
+        assertEquals(1f, StatusBarTweaks.scaledSize(0f, 70), 0.001f);
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

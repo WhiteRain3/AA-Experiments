@@ -101,6 +101,7 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.view.WindowCompat
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.Dispatchers
@@ -237,8 +238,9 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
     }
     // A style that was just applied: one snackbar with Undo, the same undo as the Undo tile on Home.
-    LaunchedEffect(model.undoOffer) {
-        model.undoOffer?.let { text ->
+    // Collected once for the life of the screen: clearing the offer must not cancel the effect that is showing it.
+    LaunchedEffect(Unit) {
+        androidx.compose.runtime.snapshotFlow { model.undoOffer }.filterNotNull().collect { text ->
             model.clearUndoOffer()
             val result = feedbackHost.showSnackbar(text, actionLabel = "Undo", withDismissAction = true,
                 duration = androidx.compose.material3.SnackbarDuration.Long)

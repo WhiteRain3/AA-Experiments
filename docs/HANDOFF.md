@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 463 tests and none fail.
+At the time of writing there are 470 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -199,9 +199,24 @@ point at colour resources named `baseline_palette_*`, `dynamic_palette_*` and
 | `baseline_palette_n_15` | `#252626` | Launcher background behind the wallpaper |
 | `neutral_palette_p_40` | `#00629F` | Focus border around the map on the dashboard |
 
-`runtime/ResourceColors.java` and `installResourceColorHooks()` override these by hooking
-`TypedArray.getColor/getColorStateList` and `Resources.getColor/getColorStateList`; the "More
-colours" card on the Themes page sets them. Built and unit-tested, not confirmed on the car.
+`runtime/ResourceColors.java` and `installResourceColorHooks()` override these; the "More
+colours" card on the Themes page sets them. History: the first version hooked only
+`TypedArray.getColor/getColorStateList` and `Resources.getColor/getColorStateList` and had NO
+effect on the owner's car (captures on wr31: clock, labels, rail buttons still `#FFF2F0F0`,
+launcher background still `#FF252626`). Reasons: `android:background="?attr/..."` goes through
+`TypedArray.getDrawable`, where the platform builds a ColorDrawable from the resolved value
+without calling any of those four methods; and precompiled platform or app code can read a
+colour without entering a hooked method (the same lesson as `View.setVisibility`). Since then
+`installResourceTableHooks()` also changes the value where it is resolved: it rewrites the
+`mData` table of the TypedArray returned by `ResourcesImpl$ThemeImpl.obtainStyledAttributes`
+(falling back to `Resources.Theme.obtainStyledAttributes`) and `Resources.obtainAttributes`,
+and the TypedValue from `Theme.resolveAttribute` and `Resources.getValue`
+(`ResourceColors.rewrite`). Log events: `RESOURCE_COLOR_HOOKS` (`tables` = how many of these
+were installed), `RESOURCE_COLOR_TABLE_UNAVAILABLE` (the hidden field could not be reached),
+`RESOURCE_COLOR_SERVED` with key `table`, `attribute`, `value`, `layout` or `code` for the
+route that served a colour. Not confirmed on the car. Still open: the launcher label's style
+says `@color/template_white` (#FFFFFF) but the view shows `#FFF2F0F0`, so something sets it
+after inflation; if labels stay unchanged, that is where to look.
 
 The launcher's focus ring is `?attr/palette_p_85` in the theme. On the car it was a light pink
 while the role finder had `Primary` set to pure red, so it appears to be a light tint derived

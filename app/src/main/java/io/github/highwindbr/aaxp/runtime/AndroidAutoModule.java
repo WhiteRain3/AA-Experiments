@@ -476,7 +476,129 @@ public final class AndroidAutoModule extends XposedModule {
         } catch (Throwable t) {
             event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
-        event(Log.INFO, "RESOURCE_COLOR_HOOKS", null, "installed", String.valueOf(installed));
+        int tables = installResourceTableHooks();
+        event(Log.INFO, "RESOURCE_COLOR_HOOKS", null, "installed", String.valueOf(installed), "tables", String.valueOf(tables));
+    }
+
+    /**
+     * The four hooks above only see a colour when one of those methods is really called. On the
+     * car they were not enough: a background given as a colour never passes them (the platform
+     * builds the drawable straight from the resolved value), and precompiled platform and app
+     * code can reach a colour without entering a hooked method at all. So the value is changed
+     * where it is resolved instead: after the platform fills a TypedArray, every plain colour
+     * that came from a configured resource is replaced in the array's table, and a theme
+     * attribute or resource value handed out as a TypedValue is replaced the same way. Whatever
+     * reads the value afterwards (colour, text colour, background) then gets the new colour.
+     * Returns how many hooks were installed. Fails open.
+     */
+    private int installResourceTableHooks() {
+        int installed = 0;
+        java.lang.reflect.Field table = null;
+        try {
+            table = android.content.res.TypedArray.class.getDeclaredField("mData");
+            table.setAccessible(true);
+        } catch (Throwable t) {
+            event(Log.WARN, "RESOURCE_COLOR_TABLE_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
+        }
+        if (table != null) {
+            final java.lang.reflect.Field data = table;
+            java.util.List<Method> sources = new java.util.ArrayList<>();
+            try {
+                // Every Theme.obtainStyledAttributes overload ends in this one.
+                for (Method method : Class.forName("android.content.res.ResourcesImpl$ThemeImpl").getDeclaredMethods()) {
+                    if (method.getName().equals("obtainStyledAttributes")
+                            && method.getReturnType() == android.content.res.TypedArray.class) sources.add(method);
+                }
+            } catch (Throwable t) {
+                event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", "ThemeImpl", "error", t.getClass().getSimpleName());
+            }
+            if (sources.isEmpty()) {
+                // The inner class could not be reached: take the public entry points instead.
+                for (Method method : android.content.res.Resources.Theme.class.getDeclaredMethods()) {
+                    if (method.getName().equals("obtainStyledAttributes")
+                            && method.getReturnType() == android.content.res.TypedArray.class) sources.add(method);
+                }
+            }
+            try {
+                sources.add(android.content.res.Resources.class.getDeclaredMethod(
+                        "obtainAttributes", android.util.AttributeSet.class, int[].class));
+            } catch (Throwable ignored) { }
+            for (Method method : sources) {
+                try {
+                    hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                        Object result = chain.proceed();
+                        try {
+                            Map<Integer, Integer> colors = resourceColors();
+                            if (!colors.isEmpty() && result instanceof android.content.res.TypedArray array) {
+                                int[] values = (int[]) data.get(array);
+                                if (ResourceColors.rewrite(values, colors, false) > 0
+                                        && isAndroidAutoResources(array.getResources())) {
+                                    ResourceColors.rewrite(values, colors, true);
+                                    eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", "table", "first");
+                                }
+                            }
+                        } catch (Throwable t) {
+                            eventOnce(Log.WARN, "RESOURCE_COLOR_FAILED", "table", t.getClass().getSimpleName());
+                        }
+                        return result;
+                    });
+                    installed++;
+                } catch (Throwable t) {
+                    event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", method.getName(), "error", t.getClass().getSimpleName());
+                }
+            }
+        }
+        // Values handed out one at a time: a theme attribute, or a resource by id.
+        Method[] single = new Method[2];
+        try {
+            single[0] = android.content.res.Resources.Theme.class.getDeclaredMethod(
+                    "resolveAttribute", int.class, android.util.TypedValue.class, boolean.class);
+        } catch (Throwable ignored) { }
+        try {
+            single[1] = android.content.res.Resources.class.getDeclaredMethod(
+                    "getValue", int.class, android.util.TypedValue.class, boolean.class);
+        } catch (Throwable ignored) { }
+        for (Method method : single) {
+            if (method == null) continue;
+            final boolean theme = method.getDeclaringClass() == android.content.res.Resources.Theme.class;
+            try {
+                hook(method).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                    Object result = chain.proceed();
+                    try {
+                        Map<Integer, Integer> colors = resourceColors();
+                        if (!colors.isEmpty() && chain.getArg(1) instanceof android.util.TypedValue value
+                                && ResourceColors.isColorType(value.type) && !Boolean.FALSE.equals(result)) {
+                            Integer color = colors.get(value.resourceId);
+                            android.content.res.Resources resources = theme
+                                    ? ((android.content.res.Resources.Theme) chain.getThisObject()).getResources()
+                                    : (android.content.res.Resources) chain.getThisObject();
+                            if (color != null && isAndroidAutoResource(resources, value.resourceId)) {
+                                value.type = android.util.TypedValue.TYPE_INT_COLOR_ARGB8;
+                                value.data = color;
+                                eventOnce(Log.INFO, "RESOURCE_COLOR_SERVED", theme ? "attribute" : "value", "first");
+                            }
+                        }
+                    } catch (Throwable t) {
+                        eventOnce(Log.WARN, "RESOURCE_COLOR_FAILED", theme ? "attribute" : "value", t.getClass().getSimpleName());
+                    }
+                    return result;
+                });
+                installed++;
+            } catch (Throwable t) {
+                event(Log.WARN, "RESOURCE_COLOR_HOOK_FAILED", method.getName(), "error", t.getClass().getSimpleName());
+            }
+        }
+        return installed;
+    }
+
+    /**
+     * True when {@code resources} is Android Auto's own. Any of the configured ids is asked for:
+     * another app's resources would name a different package for it, or none.
+     */
+    private boolean isAndroidAutoResources(android.content.res.Resources resources) {
+        if (resources == null) return false;
+        for (Integer id : resourceColorsById.keySet()) return isAndroidAutoResource(resources, id);
+        return false;
     }
 
     /** True when {@code id} in {@code resources} belongs to Android Auto and not to another app it is reading. */

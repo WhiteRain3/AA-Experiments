@@ -130,6 +130,7 @@ instrumented or physical-device acceptance yet.
 - Fixed: after using "Reset status bar to default", reopening the Status bar page showed every row as default until the app was closed, and the next change then wrote those defaults over what was stored. The page now shows what is stored every time it opens.
 - The same fix for the App icons page, the single-app icon rows and the Wallpaper page, and the Colours page now shows the reset colours only after they were written (it could show the old ones).
 - Colour rows give their label all the room left over, so labels like "Launcher background" no longer break in the middle of a word.
+- Switch rows and link rows use one label area, so the switches on the Status bar page (and everywhere else) line up at the right edge.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

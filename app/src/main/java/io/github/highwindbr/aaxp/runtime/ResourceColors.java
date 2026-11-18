@@ -80,6 +80,17 @@ public final class ResourceColors {
     private static final int TYPE_LAST_COLOR = 0x1f;
     private static final int TYPE_COLOR_ARGB8 = 0x1c;
 
+    /**
+     * Whether the platform's table has the layout {@link #rewrite} expects. It has seven numbers
+     * per attribute from Android 10 (API 29); before that it had six. {@code platformEntries} is
+     * the platform's own count when it could be read, else null; a count that is not seven
+     * rules the table out whatever the version.
+     */
+    public static boolean tableLayoutSupported(int sdk, Integer platformEntries) {
+        if (sdk < 29) return false;
+        return platformEntries == null || platformEntries == ENTRY_SIZE;
+    }
+
     /** True when a resolved value of this type is a plain colour (not a file, state list or reference). */
     public static boolean isColorType(int type) {
         return type >= TYPE_FIRST_COLOR && type <= TYPE_LAST_COLOR;

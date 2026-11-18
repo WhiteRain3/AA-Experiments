@@ -494,11 +494,24 @@ public final class AndroidAutoModule extends XposedModule {
     private int installResourceTableHooks() {
         int installed = 0;
         java.lang.reflect.Field table = null;
+        Integer entries = null;
         try {
-            table = android.content.res.TypedArray.class.getDeclaredField("mData");
-            table.setAccessible(true);
-        } catch (Throwable t) {
-            event(Log.WARN, "RESOURCE_COLOR_TABLE_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
+            java.lang.reflect.Field count = android.content.res.AssetManager.class.getDeclaredField("STYLE_NUM_ENTRIES");
+            count.setAccessible(true);
+            entries = count.getInt(null);
+        } catch (Throwable unreadable) {
+            // The Android version alone decides then.
+        }
+        if (!ResourceColors.tableLayoutSupported(android.os.Build.VERSION.SDK_INT, entries)) {
+            event(Log.INFO, "RESOURCE_COLOR_TABLE_UNAVAILABLE", null, "reason", "layout",
+                    "sdk", String.valueOf(android.os.Build.VERSION.SDK_INT), "entries", String.valueOf(entries));
+        } else {
+            try {
+                table = android.content.res.TypedArray.class.getDeclaredField("mData");
+                table.setAccessible(true);
+            } catch (Throwable t) {
+                event(Log.WARN, "RESOURCE_COLOR_TABLE_UNAVAILABLE", null, "error", t.getClass().getSimpleName());
+            }
         }
         if (table != null) {
             final java.lang.reflect.Field data = table;

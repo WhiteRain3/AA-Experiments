@@ -205,6 +205,7 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
                     overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY),
                     overrideSnapshot.get(GlyphIcons.SIZE_KEY), overrideSnapshot.get(GlyphIcons.PER_APP_KEY),
+                    overrideSnapshot.get(MapBorder.KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -337,7 +338,8 @@ public final class AndroidAutoModule extends XposedModule {
         final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY))
                 || CarWallpaper.parseRailLook(overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY)).color != null;
         final LauncherTweaks.Config launcherAtStart = launcher();
-        if (atStart == null && !railAtStart && launcherAtStart == null) return;
+        final boolean mapBorderAtStart = MapBorder.parse(overrideSnapshot.get(MapBorder.KEY)) != null;
+        if (atStart == null && !railAtStart && launcherAtStart == null && !mapBorderAtStart) return;
         try {
             Method inflate = android.view.LayoutInflater.class.getDeclaredMethod(
                     "inflate", int.class, android.view.ViewGroup.class, boolean.class);
@@ -359,6 +361,12 @@ public final class AndroidAutoModule extends XposedModule {
                     }
                 } catch (Throwable t) {
                     eventOnce(Log.WARN, "STATUS_BAR_FAILED", "inflate", t.getClass().getSimpleName());
+                }
+                try {
+                    Integer border = MapBorder.parse(overrideSnapshot.get(MapBorder.KEY));
+                    if (border != null && result instanceof android.view.View view) applyMapBorder(view, (Integer) chain.getArg(0), border);
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "MAP_BORDER_FAILED", "inflate", t.getClass().getSimpleName());
                 }
                 try {
                     LauncherTweaks.Config config = launcher();
@@ -391,7 +399,8 @@ public final class AndroidAutoModule extends XposedModule {
                 }
             }
             event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart == null ? 0 : atStart.hide.size()),
-                    "rail", String.valueOf(railAtStart), "launcher", String.valueOf(launcherAtStart != null));
+                    "rail", String.valueOf(railAtStart), "launcher", String.valueOf(launcherAtStart != null),
+                    "mapBorder", String.valueOf(mapBorderAtStart));
         } catch (Throwable t) {
             event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
@@ -809,6 +818,76 @@ public final class AndroidAutoModule extends XposedModule {
             params.height = 0;
             target.setLayoutParams(params);
         }
+    }
+
+    private final Map<Integer, Boolean> mapBorderLayouts = new ConcurrentHashMap<>();
+    private volatile int mapBorderFrameId;
+
+    /**
+     * Thickness of the focus border around the map. The border is the foreground of the view
+     * with id focus_frame; Android Auto's own is replaced by the same thing (a rectangle outline
+     * for the hovered and the focused state, with the theme's colour and corner radius) drawn at
+     * the configured width. When the theme's colour cannot be read, nothing is changed.
+     */
+    private void applyMapBorder(android.view.View root, Integer layout, int widthDp) {
+        Boolean match = mapBorderLayouts.get(layout);
+        if (match != null && !match) return;
+        int id = mapBorderFrameId;
+        if (id == 0) {
+            id = root.getResources().getIdentifier(MapBorder.FRAME, "id", AA_PACKAGE);
+            if (id == 0) {
+                id = -1;
+                eventOnce(Log.WARN, "MAP_BORDER_NO_ID", MapBorder.FRAME, "first");
+            }
+            mapBorderFrameId = id;
+        }
+        if (id == -1) return;
+        android.view.View frame = root.findViewById(id);
+        if (match == null) mapBorderLayouts.put(layout, frame != null);
+        if (frame == null || frame.getForeground() == null) return;
+        android.content.Context context = frame.getContext();
+        android.content.res.Resources resources = context.getResources();
+        int colorAttr = resources.getIdentifier(MapBorder.COLOR_ATTR, "attr", AA_PACKAGE);
+        int radiusAttr = resources.getIdentifier(MapBorder.RADIUS_ATTR, "attr", AA_PACKAGE);
+        if (colorAttr == 0) {
+            eventOnce(Log.WARN, "MAP_BORDER_NO_COLOR", "attr", "first");
+            return;
+        }
+        android.content.res.ColorStateList color;
+        float radius = 0f;
+        // Both attributes in one read; the array must list them in ascending id order.
+        boolean colorFirst = radiusAttr == 0 || colorAttr < radiusAttr;
+        int[] attrs = radiusAttr == 0 ? new int[] {colorAttr}
+                : colorFirst ? new int[] {colorAttr, radiusAttr} : new int[] {radiusAttr, colorAttr};
+        android.content.res.TypedArray values = context.obtainStyledAttributes(attrs);
+        try {
+            color = values.getColorStateList(colorFirst ? 0 : 1);
+            if (radiusAttr != 0) radius = values.getDimension(colorFirst ? 1 : 0, 0f);
+        } finally {
+            values.recycle();
+        }
+        if (color == null) {
+            eventOnce(Log.WARN, "MAP_BORDER_NO_COLOR", "theme", "first");
+            return;
+        }
+        float density = resources.getDisplayMetrics().density;
+        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+        states.addState(new int[] {android.R.attr.state_window_focused, android.R.attr.state_hovered},
+                mapBorderShape(MapBorder.pixels(MapBorder.hovered(widthDp), density), color, radius));
+        states.addState(new int[] {android.R.attr.state_focused, android.R.attr.state_window_focused},
+                mapBorderShape(MapBorder.pixels(widthDp, density), color, radius));
+        frame.setForeground(new android.graphics.drawable.InsetDrawable(states, 0));
+        eventOnce(Log.INFO, "MAP_BORDER_APPLIED", "width", String.valueOf(widthDp), "px",
+                String.valueOf(MapBorder.pixels(widthDp, density)));
+    }
+
+    private static android.graphics.drawable.Drawable mapBorderShape(int widthPx, android.content.res.ColorStateList color, float radius) {
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setColor(0);
+        shape.setStroke(widthPx, color);
+        shape.setCornerRadius(radius);
+        return shape;
     }
 
     private volatile String launcherRaw;

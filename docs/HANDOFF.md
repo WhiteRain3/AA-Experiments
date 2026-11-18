@@ -246,6 +246,23 @@ Launcher: `grid_background` (the wallpaper, 80% opaque over `#252626`); `AutoTun
 `grid_item_image_container` (117x117 `grid_item_image`) and `grid_item_text_container` (173x52,
 with CarTextViews `grid_item_title` and `grid_item_text`). Focus is handled by `FocusInterceptor` views.
 
+### The map's focus border (read from the decompiled code)
+
+The border around the map on the dashboard is the foreground of the view `focus_frame`
+(`@drawable/minimized_focus`: an inset around a selector with a rectangle outline for the
+hovered and for the focused state). Width: theme attributes `templateFocusStrokeWidthFocused` /
+`...Hovered` -> `template_focus_ring_stroke_width_*` -> `gearhead_focus_ring_stroke_width_*` =
+6dp / 4dp (8 px focused on the owner's screen, which is what the Tester measured). Colour:
+`templateFocusAccentColorInverse`; corners: `templateNoContentFocusCornerRadius`. The same width
+dimensions are used by 26 other drawables and layouts, so overriding the dimension would change
+every template's focus outline. The flag `Coolwalk__nav_app_border_width` is DEAD in 18.0: its
+only reader is a debug dump. `runtime/MapBorder.java` + `applyMapBorder()` rebuild the
+foreground at the width stored in `look.map_border_width` (dp, 0 to 16) when a layout with
+`focus_frame` is inflated; three layouts have it (`material_minimized_map_based_layout`,
+`material_unified_map_template`, `minimized_navigation_layout`). The app's slider
+(`core/MapBorderFlag.kt`, `ManagerViewModel.setMapBorderWidth`) still writes the dead flag
+through the override path and must be switched to this key (and to look files and Undo).
+
 ### How Android Auto 18.0 loads app icons (read from the decompiled code)
 
 Launcher, rail hotseat and dashboard cards all go through one funnel: Android Auto's icon class

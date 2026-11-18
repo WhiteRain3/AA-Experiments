@@ -706,12 +706,45 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    /** The clock's text size and typeface as Android Auto set them, so a size is never applied twice over. */
+    private final Map<android.view.View, Object[]> clockOriginals =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+
+    /** Clock size and boldness. Runs before the battery number is added, which sizes itself from the clock. */
+    private void applyClockText(android.view.View root, StatusBarTweaks.Config config) {
+        if (config.clockSize == StatusBarTweaks.DEFAULT_CLOCK_SIZE && !config.clockBold) return;
+        try {
+            if (!(findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock)) {
+                eventOnce(Log.WARN, "CLOCK_TEXT_NO_CLOCK", "status_bar", "first");
+                return;
+            }
+            Object[] original = clockOriginals.get(clock);
+            if (original == null) {
+                original = new Object[] {clock.getTextSize(), clock.getTypeface()};
+                clockOriginals.put(clock, original);
+            }
+            if (config.clockSize != StatusBarTweaks.DEFAULT_CLOCK_SIZE) {
+                clock.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,
+                        StatusBarTweaks.scaledSize((Float) original[0], config.clockSize));
+            }
+            if (config.clockBold) {
+                clock.setTypeface(android.graphics.Typeface.create(
+                        (android.graphics.Typeface) original[1], android.graphics.Typeface.BOLD));
+            }
+            eventOnce(Log.INFO, "CLOCK_TEXT_APPLIED", "status_bar",
+                    config.clockSize + (config.clockBold ? "b" : ""), "px", String.valueOf(clock.getTextSize()));
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "CLOCK_TEXT_FAILED", "status_bar", t.getClass().getSimpleName());
+        }
+    }
+
     private void applyStatusBar(android.view.View root, StatusBarTweaks.Config config) {
         for (String name : config.hide) {
             android.view.View target = findByName(root, name);
             if (target == null) continue;
             hideForGood(target);
         }
+        applyClockText(root, config);
         if (config.batteryPercent) addBatteryPercent(root, config);
         if (config.clockColor != null && findByName(root, StatusBarTweaks.CLOCK) instanceof android.widget.TextView clock) {
             clock.setTextColor(config.clockColor);

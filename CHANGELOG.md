@@ -109,6 +109,7 @@ instrumented or physical-device acceptance yet.
 - One-tap styles: each built-in look now sets everything together (colours, More colours, single-colour icons, status bar, wallpaper darken and blur) with one Apply button, shown as a card with the car screen preview on the Themes page. The status bar and More colours parts are not yet confirmed on the car. Undo is kept.
 - Undo hardening: restoring a wallpaper renders from the kept copy before replacing anything; the wallpaper is only removed when the kept copy says there was none; a failed copy drops the older one instead of leaving it under a wrong label; cancelling the wallpaper editor no longer replaces the undo copy; the Undo tile keeps its label after the app restarts.
 - Map border width (Themes page, under More colours): a slider for Coolwalk__nav_app_border_width through the normal flag overrides, showing the current value with "Android Auto's own" to remove the override. It says when the flag is missing or not a whole number. Not confirmed on a car; the unit is not known.
+- Quick switches: turning a switch off never removes values you set by hand (without a record of earlier values it leaves them and says so), and only flags still at the switch's value are put back; a hand edit made while a switch was on is not overwritten.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

@@ -35,7 +35,23 @@ object FlagSwitches {
      * records its own values as "before".
      */
     fun beforeValues(switch: FlagSwitch, current: Map<String, String>, existing: Map<String, String?>?): Map<String, String?> =
-        switch.flags.keys.associateWith { key -> if (existing != null && key in existing) existing[key] else current[key] }
+        switch.flags.keys.associateWith { key ->
+            // An earlier memory only still applies while the flag sits at the switch's own value; a hand edit since then wins.
+            val atSwitchValue = DynamicOverrideCodec.deserialize(current[key])?.encodedValue == switch.flags[key]
+            if (existing != null && key in existing && atSwitchValue) existing[key] else current[key]
+        }
+
+    /**
+     * What turning [switch] off changes: only flags still at the switch's value go back to their
+     * earlier value (null removes the override); a flag the owner has changed since is left alone.
+     * Null when there is no record of earlier values, which means the values were set by hand and
+     * must not be removed.
+     */
+    fun turnOffPlan(switch: FlagSwitch, current: Map<String, String>, before: Map<String, String?>?): Map<String, String?>? {
+        if (before == null) return null
+        return switch.flags.filter { (key, value) -> DynamicOverrideCodec.deserialize(current[key])?.encodedValue == value }
+            .keys.associateWith { valueToRestore(before, it) }
+    }
 
     /** The plain value to set for [key] when turning off, or null to remove the override. */
     fun valueToRestore(before: Map<String, String?>?, key: String): String? =

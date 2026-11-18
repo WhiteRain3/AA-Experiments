@@ -993,10 +993,14 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             controlPreferences.edit().putString("flag_switch_before_${switch.id}",
                 io.github.highwindbr.aaxp.core.FlagSwitches.encodeBefore(before)).apply()
         }
-        switch.flags.forEach { (key, target) ->
-            val raw = if (on) target else io.github.highwindbr.aaxp.core.FlagSwitches.valueToRestore(stored, key)
-            setDynamicOverride(found.getValue(key), raw).join()
+        val changes: Map<String, String?> = if (on) switch.flags else {
+            io.github.highwindbr.aaxp.core.FlagSwitches.turnOffPlan(switch, currentOverridesSerialized(), stored) ?: run {
+                mutable.value = mutable.value.copy(message = "${switch.title} not changed: its values were set by hand, so they are left as they are. " +
+                    "Change them on the Flags page.")
+                return@launch
+            }
         }
+        changes.forEach { (key, raw) -> setDynamicOverride(found.getValue(key), raw).join() }
         val ok = flagSwitchOn(switch) == on
         if (ok && !on) controlPreferences.edit().remove("flag_switch_before_${switch.id}").apply()
         if (!ok) mutable.value = mutable.value.copy(message = "${switch.title} could not be fully " + (if (on) "turned on" else "turned off") +

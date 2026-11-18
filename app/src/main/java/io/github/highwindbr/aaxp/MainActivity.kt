@@ -235,7 +235,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val connected = state.framework.connected
     featurePage?.let { page ->
         BackHandler { featurePageName = null }
-        FeaturePageScaffold(page, feedbackHost, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM) {
+        FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM) {
             when (page) {
                 FeaturePage.THEMES -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     ThemeColorsCard(model, connected)
@@ -482,7 +482,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val colours = remember(connected, revision) { if (connected) model.themeColorsMap().size else 0 }
     if (editing) ThemeEditor(model) { editing = false; revision++ }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Recolour Android Auto's interface: pick a ready-made theme, generate one from a single colour, or set each colour yourself. Restart Android Auto after saving.",
+        Text("Pick a ready-made theme, start from one colour, or set each colour yourself.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (roleClass == null) {
             Text("First the app has to find the colour roles in your Android Auto version. This reads the installed app and takes a little while.",
@@ -519,7 +519,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val colors = "${io.github.highwindbr.aaxp.core.ColorMath.toHex(glyph)},${io.github.highwindbr.aaxp.core.ColorMath.toHex(background)}"
     val valid = io.github.highwindbr.aaxp.runtime.GlyphIcons.parseColors(colors) != null
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Shows apps on the car screen as single-colour glyphs, using each app's own themed-icon layer. Apps without one keep their normal icon. Restart Android Auto after changing it.",
+        Text("Show apps as single-colour icons. Apps without a themed icon keep their normal one.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ColorSwatch(glyph, onClick = { picking = "Glyph colour" to { picked -> glyph = picked } })
@@ -561,8 +561,9 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Shows your own image on the car screen without changing the phone's wallpaper. Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image instead. Restart Android Auto after changing it.",
+        Text("Your own image on the car screen, separate from the phone's wallpaper.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        HowThisWorks("Android Auto must have \"Use phone's wallpaper\" turned on in its settings; the module then hands it this image instead of the phone's. Changes show after Android Auto restarts. Not yet tried on every car.")
         Text(if (enabled) "Custom image is set." else "Not set: Android Auto uses the phone's wallpaper.",
             style = MaterialTheme.typography.bodyMedium)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

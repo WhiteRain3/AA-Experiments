@@ -1,5 +1,7 @@
 package io.github.highwindbr.aaxp
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import android.app.Application
 import android.net.Uri
 import android.content.Intent
@@ -86,6 +88,10 @@ private const val AUTO_RESTART_PREF = "auto_restart_after_change"
 private const val HEAD_UNIT_AFTER_RESTART_PREF = "head_unit_after_restart"
 
 class ManagerViewModel(application: Application) : AndroidViewModel(application) {
+    /** True after a look change was saved and Android Auto has not been restarted since. */
+    var changesWaiting by androidx.compose.runtime.mutableStateOf(false)
+        private set
+
     private val mutable = MutableStateFlow(ManagerUiState())
     private val database = CatalogDatabase(application)
     private val hiddenPreferences = application.getSharedPreferences("suspended_override_visibility", Context.MODE_PRIVATE)
@@ -1149,7 +1155,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
-            { if (it) "Theme saved (${roles.size} colour(s)). Android Auto was asked to restart."
+            { changesWaiting = !it
+              if (it) "Theme saved (${roles.size} colour(s)). Android Auto was asked to restart."
               else "Theme saved (${roles.size} colour(s)). Restart Android Auto to see it." },
             { "Theme not saved: ${it.message}" }))
     }
@@ -1296,7 +1303,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
         } }
         mutable.value = mutable.value.copy(message = restarted.fold(
-            { (if (config == null) "Status bar changes off." else "Status bar changes saved.") +
+            { changesWaiting = !it
+              (if (config == null) "Status bar changes off." else "Status bar changes saved.") +
                 if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
             { "Status bar not changed: ${it.message}" }))
     }
@@ -1366,6 +1374,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             else editor.putString(io.github.highwindbr.aaxp.runtime.GlyphIcons.KEY, colors)
             editor.commit()
         }.getOrDefault(false) }
+        if (saved) changesWaiting = true
         mutable.value = mutable.value.copy(message = when {
             !valid -> "Glyph icons not changed: colours must be RRGGBB or AARRGGBB."
             !saved -> "Glyph icons not changed: LSPosed remote preferences unavailable."
@@ -1407,7 +1416,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             "${bitmap.width}x${bitmap.height}"
         } }
         mutable.value = mutable.value.copy(message = result.fold(
-            { "Car wallpaper saved ($it). In Android Auto's settings turn on \"Use phone's wallpaper\", then restart Android Auto." },
+            { changesWaiting = true
+              "Car wallpaper saved ($it). In Android Auto's settings turn on \"Use phone's wallpaper\", then restart Android Auto." },
             { "Car wallpaper not saved: ${it.message}" }))
         onDone(result.isSuccess)
     }
@@ -1420,6 +1430,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.VERSION_KEY)
                 ?.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_KEY)?.commit() == true
         }.getOrDefault(false) }
+        if (cleared) changesWaiting = true
         mutable.value = mutable.value.copy(message = if (cleared)
             "Car wallpaper removed. Android Auto shows the phone's wallpaper again after a restart."
         else "Car wallpaper not removed: LSPosed remote preferences unavailable.")
@@ -1470,6 +1481,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     fun requestAndroidAutoControl(restart: Boolean, headUnit: Boolean) = viewModelScope.launch {
         val sent = withContext(Dispatchers.IO) { runCatching { sendControlRequests(restart, headUnit) }.getOrDefault(false) }
         if (sent && restart) {
+            changesWaiting = false
             mutable.value = mutable.value.copy(message = "Asked Android Auto to restart…")
             kotlinx.coroutines.delay(2_500)
             val heard = reportPreferences.getString(ModuleReportProvider.KEY_RESTART_ACK, null) == lastRestartRequest

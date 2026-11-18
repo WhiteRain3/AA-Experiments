@@ -74,16 +74,18 @@ private val STATUS_BAR_PARTS = listOf(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ColorSwatch(color, onClick = { picking = title to { picked -> onChange(picked) } })
             Text(title, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-            if (color != null) TextButton({ onChange(null) }) { Text("Android Auto's own") }
+            if (color != null) TextButton({ onChange(null) }) { Text("Default") }
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Hide or recolour the clock, signal and battery on the car screen. Untested on a real car so far: Android Auto may repaint the colours when it switches between day and night. Needs a restart of Android Auto.",
+        Text("Hide or recolour the clock, signal and battery.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        HowThisWorks("Not tried on a real car yet: Android Auto may repaint the colours when it switches between day and night. Changes show after Android Auto restarts.")
+        Text("Hide", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         STATUS_BAR_PARTS.forEach { (id, label) ->
-            switchRow("Hide: $label", id in hidden) { hidden = if (it) hidden + id else hidden - id }
+            switchRow(label, id in hidden) { hidden = if (it) hidden + id else hidden - id }
         }
-        switchRow("Remove the plate behind the status bar", noPlate) { noPlate = it }
+        switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
         colorRow("Clock colour", clockColor) { clockColor = it }
         colorRow("Icon colour", iconColor) { iconColor = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

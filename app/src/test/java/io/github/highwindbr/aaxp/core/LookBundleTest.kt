@@ -30,6 +30,13 @@ class LookBundleTest {
         assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).resourceColors)
     }
 
+    @Test fun carriesTheLauncherSetting() {
+        val bundle = LookBundles.decode(LookBundles.encode(LookBundle(launcherConfig = "names=off")))
+        assertEquals("names=off", bundle.launcherConfig)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(launcherConfig = "nonsense"))) }.isFailure)
+        assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).launcherConfig)
+    }
+
     @Test fun emptyBundleIsValidAndHasNoParts() {
         val bundle = LookBundles.decode(LookBundles.encode(LookBundle()))
         assertNull(bundle.themeColors); assertNull(bundle.glyphColors); assertNull(bundle.statusBar)

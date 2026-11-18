@@ -71,6 +71,12 @@ class LookUndoTest {
         assertNull(LookUndo.decode(LookUndo.encode(snap()))!!.wallpaperOn)
     }
 
+    @Test fun launcherSettingTravelsWithTheCopyAndShowsAsADifference() {
+        val a = LookSnapshot("x", null, null, null, null, null, null, null, "names=off")
+        assertEquals("names=off", LookUndo.decode(LookUndo.encode(a))!!.launcherConfig)
+        assertEquals(listOf("launcher"), LookUndo.differences(a, LookSnapshot("x", null, null, null, null, null, null, null, null)))
+    }
+
     @Test fun messages() {
         assertTrue(LookUndo.restoredMessage(listOf("colours"), "saving a theme").contains("colours"))
         assertTrue(LookUndo.restoredMessage(emptyList(), "saving a theme").startsWith("Nothing to undo"))

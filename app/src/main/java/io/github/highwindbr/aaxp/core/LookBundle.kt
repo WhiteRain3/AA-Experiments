@@ -18,7 +18,8 @@ class LookBundle(
     val presetsJson: String? = null,
     val wallpaperSettings: JSONObject? = null,
     val wallpaperImage: ByteArray? = null,
-    val resourceColors: String? = null
+    val resourceColors: String? = null,
+    val launcherConfig: String? = null
 )
 
 object LookBundles {
@@ -31,6 +32,7 @@ object LookBundles {
         bundle.glyphColors?.let { put("glyphColors", it) }
         bundle.statusBar?.let { put("statusBar", it) }
         bundle.resourceColors?.let { put("resourceColors", it) }
+        bundle.launcherConfig?.let { put("launcherConfig", it) }
         bundle.themesJson?.let { put("themes", JSONObject(it)) }
         bundle.presetsJson?.let { put("presets", JSONObject(it)) }
         bundle.wallpaperImage?.let { image ->
@@ -53,6 +55,10 @@ object LookBundles {
         require(resourceColors == null || io.github.highwindbr.aaxp.runtime.ResourceColors.parse(resourceColors) != null) {
             "The extra colours in this file are not readable"
         }
+        val launcher = root.optString("launcherConfig").ifEmpty { null }
+        require(launcher == null || io.github.highwindbr.aaxp.runtime.LauncherTweaks.parse(launcher) != null) {
+            "The launcher settings in this file are not readable"
+        }
         val themes = root.optJSONObject("themes")?.toString()?.also { Themes.decode(it) }
         val presets = root.optJSONObject("presets")?.toString()?.also { Presets.decode(it) }
         val image = root.optString("wallpaperImage").ifEmpty { null }?.let {
@@ -60,6 +66,6 @@ object LookBundles {
             java.util.Base64.getDecoder().decode(it)
         }
         return LookBundle(colors, glyph, statusBar, themes, presets,
-            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors)
+            if (image != null) root.optJSONObject("wallpaperSettings") else null, image, resourceColors, launcher)
     }
 }

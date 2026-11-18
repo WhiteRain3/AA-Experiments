@@ -111,6 +111,7 @@ instrumented or physical-device acceptance yet.
 - Map border width (Themes page, under More colours): a slider for Coolwalk__nav_app_border_width through the normal flag overrides, showing the current value with "Android Auto's own" to remove the override. It says when the flag is missing or not a whole number. Not confirmed on a car; the unit is not known.
 - Quick switches: turning a switch off never removes values you set by hand (without a record of earlier values it leaves them and says so), and only flags still at the switch's value are put back; a hand edit made while a switch was on is not overwritten.
 - One-tap styles keep your status bar setup (hidden parts, battery number, clock size and bold) and change only its colours and background; the wallpaper's darken and blur are stored only after the car's copy was written, and a refused wallpaper save leaves the editor's settings as they were.
+- The launcher's "icons only" setting is now part of look files and of Undo.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

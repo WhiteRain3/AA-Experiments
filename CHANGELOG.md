@@ -143,6 +143,7 @@ instrumented or physical-device acceptance yet.
 - Plainer messages: "Saved. Restart Android Auto to see it." (or "Saved. Restarting Android Auto.") after a flag change, and "Colours saved"; saving a look file says which file it was saved to; the look file's "?" says what the file does not carry (flag overrides, Quick switches, wallpapers over 12 MB).
 - Every page's top right is the three-dot menu (no decorative badge); a page's own explanation is "About this page" in that menu.
 - Colours page: "Map border" is now "Focus outlines" with "Map and card outline" (also colours the media card's outline), "Rail and launcher ring" (moved here from Text and backgrounds) and "Map outline width"; the "?" says which is which. Nothing stored changed.
+- Removing the old map border flag override no longer restarts Android Auto (even with "Restart after a change" on) and says what was done: "Removed the old map border flag override; it has no effect in this Android Auto version."
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

@@ -911,7 +911,11 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
-    fun setDynamicOverride(identifier: DiscoveredIdentifier, rawInput: String?) = viewModelScope.launch {
+    /**
+     * [quietMessage], when given, makes this a housekeeping change: no automatic restart is requested and that
+     * message is shown instead of "Saved…". It is only for removing an override that has no effect.
+     */
+    fun setDynamicOverride(identifier: DiscoveredIdentifier, rawInput: String?, quietMessage: String? = null) = viewModelScope.launch {
         mutable.value = mutable.value.copy(saveState = SaveState.SAVING, saveTargetKey = identifier.key, message = null)
         val result = writePreferencesAndPublish { withContext(Dispatchers.IO) {
             require(mutable.value.aa.runtimeTarget) { "Imported archives are read-only; refresh the installed Android Auto before editing." }
@@ -951,8 +955,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             result.isFailure -> mutable.value = mutable.value.copy(saveState = SaveState.FAILED,
                 message = "Override rejected: ${result.exceptionOrNull()?.message}")
             result.getOrThrow() == ProfileMutationCoordinator.Outcome.PUBLISHED -> {
-                val restarted = autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
-                mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = if (restarted)
+                val restarted = quietMessage == null && autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+                mutable.value = mutable.value.copy(saveState = SaveState.SAVED, message = quietMessage ?: if (restarted)
                     "Saved. Restarting Android Auto."
                 else "Saved. Restart Android Auto to see it.")
             }
@@ -1046,7 +1050,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
         val build = mutable.value.aa.buildFingerprintSha256 ?: return@launch
         val found = withContext(Dispatchers.IO) { database.identifiersByKeys(build, setOf(key))[key] } ?: return@launch
-        setDynamicOverride(found, null).join()
+        setDynamicOverride(found, null, quietMessage = "Removed the old map border flag override; it has no effect in this Android Auto version.").join()
         if (!mutable.value.dynamicOverrides.containsKey(key)) controlPreferences.edit().putBoolean("dead_border_flag_removed", true).apply()
     }
 

@@ -241,6 +241,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                     StylesCard(model, connected)
                     ThemeColorsCard(model, connected)
                     ExtraColorsCard(model, connected)
+                    MapBorderCard(model, state.dynamicOverrides, connected)
                 }
                 FeaturePage.WALLPAPER -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     CarWallpaperCard(model, connected)

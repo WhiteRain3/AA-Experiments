@@ -955,9 +955,9 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
-    /** Icon rows whose layout width the module set, so it can be handed back. */
-    private final java.util.Set<android.view.View> widenedRows =
-            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+    /** Icon rows whose layout width the module set, with the width they had, so it can be handed back. */
+    private final Map<android.view.View, Integer> widenedRows =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
     private final java.util.Set<android.view.View> fittedContainers =
             java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
 
@@ -1050,17 +1050,18 @@ public final class AndroidAutoModule extends XposedModule {
             boolean number = text != null && text.getVisibility() != android.view.View.GONE && config.batteryPercent;
             android.view.ViewGroup.LayoutParams params = row.getLayoutParams();
             if (params != null) {
-                boolean widened = widenedRows.contains(row);
+                Integer original = widenedRows.get(row);
+                boolean widened = original != null;
                 if (number && (row.getWidth() < needed || (widened && params.width != needed))) {
                     if (params.width != needed) {
-                        widenedRows.add(row);
+                        if (!widened) widenedRows.put(row, params.width);
                         params.width = needed;
                         row.setLayoutParams(params);
                         return; // fitted on the layout pass this causes
                     }
                 } else if (!number && widened) {
                     widenedRows.remove(row);
-                    params.width = android.view.ViewGroup.LayoutParams.WRAP_CONTENT;
+                    params.width = original;
                     row.setLayoutParams(params);
                     return;
                 }

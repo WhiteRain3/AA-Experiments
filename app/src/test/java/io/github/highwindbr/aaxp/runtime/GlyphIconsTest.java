@@ -260,18 +260,28 @@ public class GlyphIconsTest {
         org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 34, 40, 0, 20), 108));
         // A thin outline with a large figure close inside it: the gap is small, the rim is thin.
         org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 37, 40, 0, 33), 108));
+        // Thick outlines around a solid disc (the reviewer's second set, on 108 px).
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 28, 40, 0, 20), 108));
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 24), 108));
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 26, 40, 0, 22), 108));
+        // A disc with a ring cut all the way round but a SOLID island: nothing says plate.
+        org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 26), 108));
         // A thick rim, but the gap is wide: still an outline with a dot.
         org.junit.Assert.assertNull(GlyphIcons.figureInsidePlate(bands(108, 30, 40, 0, 8), 108));
     }
 
-    @Test public void aDiscWithARingCutAllTheWayRoundIsStillAPlate() {
-        // A disc of radius 40 with a thin ring (26 to 30) cut out: the middle is an island.
+    @Test public void aDiscWithARingCutRoundAnIslandThatHasItsOwnHoleIsAPlate() {
+        // A disc of radius 40 with a thin ring (26 to 30) cut out, and a square cut out of the
+        // island in the middle, as a play triangle would be.
         int size = 108;
-        int[] mask = GlyphIcons.figureInsidePlate(bands(size, 30, 40, 0, 26), size);
-        org.junit.Assert.assertNotNull(mask);
+        int[] alpha = bands(size, 30, 40, 0, 26);
         int c = size / 2;
-        org.junit.Assert.assertEquals(255, mask[c * size + c + 28]);   // the cut ring is the figure
-        org.junit.Assert.assertEquals(0, mask[c * size + c]);          // the island is plate
+        for (int y = c - 8; y <= c + 8; y++) for (int x = c - 8; x <= c + 8; x++) alpha[y * size + x] = 0;
+        int[] mask = GlyphIcons.figureInsidePlate(alpha, size);
+        org.junit.Assert.assertNotNull(mask);
+        org.junit.Assert.assertEquals(255, mask[c * size + c + 28]);   // the cut ring is figure
+        org.junit.Assert.assertEquals(255, mask[c * size + c]);        // so is the island's hole
+        org.junit.Assert.assertEquals(0, mask[c * size + c + 15]);     // the island is plate
         org.junit.Assert.assertEquals(0, mask[c * size + c + 35]);     // so is the rim
     }
 }

@@ -216,9 +216,10 @@ says the hook works; it does not say the car's screen, knob or sensors behave th
   is a filled disc with the figure cut out. `GlyphIcons.figureInsidePlate` now turns such a
   layer into its cut-out figure; a wrongly recognised icon would show only its holes, so a
   report of an icon that became unrecognisable points there. It refuses an outline around a
-  solid figure (more than one opaque piece), except a thick rim around small holes: in the
-  screenshot YT Music's ring is cut all the way round, leaving an island, and without that
-  exception it would stay reversed. Layers are judged once each (cache by ConstantState) on a
+  solid figure (more than one opaque piece), except a thick rim around small holes whose
+  island has a hole of its own: in the screenshot YT Music's ring is cut all the way round,
+  leaving an island with the play triangle cut out of it; without that exception it would stay
+  reversed. Layers are judged once each (cache by ConstantState) on a
   108 px render.
 - Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
   bit, the focus box shrinks to fit.

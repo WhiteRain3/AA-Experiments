@@ -132,19 +132,16 @@ Built and unit-tested, not yet confirmed on the device:
 - The reorganised app (Home, Look, Flags, Settings tabs; one page per feature), wr25.
 - Crash safe mode for the look hooks.
 - Status bar changes (hide or recolour clock, signal, battery; remove the plate).
-- Status bar plate colour and corner radius (`plate_color`, `plate_radius` in dp). Whether
-  `status_bar_card_view` (a CoolwalkCardView) has `setCardBackgroundColor(int)` and
-  `setRadius(float)` is not known; the log event `STATUS_BAR_PLATE` reports `card`,
-  `card_no_radius`, `drawable` or `radius_unavailable` and the view's class name. New status bar
-  settings go in `StatusBarTweaks.Builder`, not in another constructor.
-- Battery number coloured by level (`battery_level=high,low` plus optional
-  `battery_high_color`, `battery_mid_color`, `battery_low_color`, `battery_charge_color`;
-  `StatusBarTweaks.levelColor`). Set in the battery broadcast receiver, so it is the one status
-  bar change that updates while Android Auto runs. `StatusBarStyle.merge` now starts from
-  `Config.toBuilder()`; build status bar settings that way so new fields are never dropped.
-- Status bar icon size (`icon_size`): `icon_row` is scaled with scaleX/scaleY and its two
-  nearest parents get `clipChildren=false`. Unknown until seen: whether a larger row is cut off
-  by the plate (a card clips to its rounded outline) or touches the clock.
+- Status bar plate colour and corner radius (`plate_color`, `plate_radius` in dp). Read from the
+  18.0 code: `status_bar_card_view` is `CoolwalkCardView extends MaterialCardView extends
+  CardView`, and the card setters are renamed by obfuscation (`setCardBackgroundColor(int)` is
+  `es(int)`; there is no `setRadius` by that name), so reflection by name fails and the module
+  takes its `drawable` route: `setBackground(GradientDrawable)` with `clipToOutline`.
+  MaterialCardView allows a custom background after construction (it only logs "Setting a custom
+  background is not supported"). A radius without a colour cannot be applied, so the app only
+  offers roundness with a colour. Unknown until seen: whether the card's own foreground (stroke,
+  ripple) still shows the old shape. The same applies to "remove the plate", which ends up in
+  `setBackgroundColor(0)`. New status bar settings go in `StatusBarTweaks.Builder`.
 - Status bar clock size and boldness (`clock_size`, `clock_bold` in `statusbar.config`). Unknown
   until seen: whether Android Auto resets the text size or typeface later (for example on a
   day/night switch), and whether 140% is clipped by the 107 px rail.

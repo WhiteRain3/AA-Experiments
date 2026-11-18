@@ -124,12 +124,17 @@ private val STATUS_BAR_PARTS = listOf(
         switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
         if (!noPlate) {
             colorRow("Plate colour (lower the opacity in the picker for see-through)", plateColor) { plateColor = it }
-            switchRow("Set the plate's corner roundness", plateRadius != null) { plateRadius = if (it) 12 else null }
+            // Android Auto 18.0's plate only takes a corner radius together with a colour the module draws.
+            if (plateColor == null) {
+                plateRadius = null
+                Text("Pick a plate colour to also set how round its corners are.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            } else switchRow("Set the plate's corner roundness", plateRadius != null) { plateRadius = if (it) 12 else null }
             plateRadius?.let { radius ->
                 Text("Corners: $radius (0 is square)", style = MaterialTheme.typography.labelLarge)
                 androidx.compose.material3.Slider(radius.toFloat(), { plateRadius = (it / 2).toInt() * 2 },
                     valueRange = 0f..StatusBarTweaks.MAX_PLATE_RADIUS.toFloat())
-                Text("Roundness may not take effect: it depends on how Android Auto built the plate, which is only known once tried on the car.",
+                Text("Not tried on a car yet. Android Auto may still draw its own outline in the old shape on top.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }

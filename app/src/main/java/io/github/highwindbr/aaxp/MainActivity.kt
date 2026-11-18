@@ -241,7 +241,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         BackHandler { featurePageName = null }
         FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM,
             menu = if (page == FeaturePage.THEMES) PageMenu("colours", onReset = { model.resetColourPage { coloursRevision++ } },
-                resetNote = "The colour slots and the text and background colours go back to default. The map border width is not changed; it has its own reset arrow.",
+                resetNote = "The colour slots, the text and background colours and the map border width go back to default. You can undo from Home.",
                 extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } }))
                 else if (page == FeaturePage.WALLPAPER) PageMenu("wallpaper", onReset = { model.resetWallpaperPage(); wallpaperReset++ })
                 else if (page == FeaturePage.ICONS) PageMenu("app icons", onReset = { model.resetIconsPage(); iconsReset++ })

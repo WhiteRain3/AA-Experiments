@@ -16,19 +16,19 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.github.highwindbr.aaxp.core.DynamicOverrideCodec
-import io.github.highwindbr.aaxp.core.MapBorderFlag
+import io.github.highwindbr.aaxp.core.MapBorderSetting
 import io.github.highwindbr.aaxp.core.Themes
 import io.github.highwindbr.aaxp.core.TypedOverride
+import io.github.highwindbr.aaxp.runtime.MapBorder
 import io.github.highwindbr.aaxp.runtime.ResourceColors
 
 private const val STYLES_TIP = "A style sets the colours, the extra text and background colours, the icons, the status bar's " +
@@ -50,6 +50,8 @@ internal fun ColoursPage(
     var searching by remember { mutableStateOf(false) }
     var picking by remember { mutableStateOf<Triple<String, Int, (Int) -> Unit>?>(null) }
     var local by remember { mutableStateOf(0) }
+    // An old override of the dead border flag, saved by an earlier version, is removed once.
+    LaunchedEffect(Unit) { model.removeDeadMapBorderFlagOnce() }
     val roleClass = remember(connected, revision, local) { if (connected) model.themeRoleClass() else null }
     val roles = remember(connected, revision, local) { if (connected) model.themeColorsMap() else emptyMap() }
     val glyph = remember(connected, revision, local) { if (connected) model.glyphIconColors() else null }
@@ -129,27 +131,18 @@ internal fun ColoursPage(
         }
 
         // 4. Border around the map.
-        val status by produceState(MapBorderFlag.Status.UNKNOWN, connected) { value = model.mapBorderStatus() }
-        val width = MapBorderFlag.current(overrides.mapValues { DynamicOverrideCodec.serialize(it.value) })
-        SettingsSection("Map border", tip = "A border around the navigation window. The unit of the width is not known (it may not be dp). " +
-            "Not tried on a car yet.") {
+        var borderWidth by remember(connected, revision) { mutableStateOf(if (connected) model.mapBorderWidth() else null) }
+        SettingsSection("Map border", tip = "The outline around the map when the knob is on it. The width is in dp; Android Auto's own is 6. " +
+            "Not confirmed on a head unit or a car yet.") {
             ColourRow("Border colour", extraRow(ResourceColors.MAP_FOCUS),
                 { picking = Triple("Border colour", extraRow(ResourceColors.MAP_FOCUS) ?: 0xFFF2F0F0.toInt()) { setExtra(extra + (ResourceColors.MAP_FOCUS to it)) } },
                 { setExtra(extra - ResourceColors.MAP_FOCUS) })
             RowDivider()
-            SliderRow("Border width", width?.toString() ?: "Default", (width ?: 0).toFloat(),
-                MapBorderFlag.MIN.toFloat()..MapBorderFlag.MAX.toFloat(),
-                onChangeFinished = { model.setMapBorderWidth(it.toInt()) },
-                onReset = if (width != null) ({ model.setMapBorderWidth(null) }) else null,
-                enabled = connected && status == MapBorderFlag.Status.OK, steps = MapBorderFlag.MAX - 1)
-            val note = when (status) {
-                MapBorderFlag.Status.MISSING -> "Not in this Android Auto version"
-                MapBorderFlag.Status.NOT_INTEGER -> "Can't be changed in this version"
-                MapBorderFlag.Status.UNKNOWN -> "Checking…"
-                MapBorderFlag.Status.OK -> null
-            }
-            if (note != null) Text(note, Modifier.padding(bottom = 12.dp), style = MaterialTheme.typography.bodySmall,
-                color = if (status == MapBorderFlag.Status.UNKNOWN) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
+            SliderRow("Border width", MapBorderSetting.label(borderWidth), MapBorderSetting.sliderStart(borderWidth).toFloat(),
+                MapBorder.MIN.toFloat()..MapBorder.MAX.toFloat(),
+                onChangeFinished = { borderWidth = it.toInt(); model.setMapBorderWidth(it.toInt()) },
+                onReset = if (borderWidth != null) ({ borderWidth = null; model.setMapBorderWidth(null) }) else null,
+                enabled = connected, steps = MapBorder.MAX - MapBorder.MIN - 1)
         }
     }
 }

@@ -92,6 +92,13 @@ class LookUndoTest {
         assertEquals(listOf("per-app icons"), LookUndo.differences(a, b))
     }
 
+    @Test fun mapBorderTravelsWithTheCopy() {
+        val a = LookSnapshot("x", null, null, null, null, null, null, null, null, null, null, null, "8")
+        assertEquals("8", LookUndo.decode(LookUndo.encode(a))!!.mapBorder)
+        val b = LookSnapshot("x", null, null, null, null, null, null, null, null, null, null, null, null)
+        assertEquals(listOf("map border"), LookUndo.differences(a, b))
+    }
+
     @Test fun messages() {
         assertTrue(LookUndo.restoredMessage(listOf("colours"), "saving a theme").contains("colours"))
         assertTrue(LookUndo.restoredMessage(emptyList(), "saving a theme").startsWith("Nothing to undo"))

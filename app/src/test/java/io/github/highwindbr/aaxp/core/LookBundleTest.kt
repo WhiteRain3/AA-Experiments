@@ -54,6 +54,13 @@ class LookBundleTest {
         assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).perAppIcons)
     }
 
+    @Test fun carriesTheMapBorderWidth() {
+        assertEquals("8", LookBundles.decode(LookBundles.encode(LookBundle(mapBorder = "8"))).mapBorder)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(mapBorder = "wide"))) }.isFailure)
+        assertTrue(runCatching { LookBundles.decode(LookBundles.encode(LookBundle(mapBorder = "40"))) }.isFailure)
+        assertNull(LookBundles.decode(LookBundles.encode(LookBundle())).mapBorder)
+    }
+
     @Test fun emptyBundleIsValidAndHasNoParts() {
         val bundle = LookBundles.decode(LookBundles.encode(LookBundle()))
         assertNull(bundle.themeColors); assertNull(bundle.glyphColors); assertNull(bundle.statusBar)

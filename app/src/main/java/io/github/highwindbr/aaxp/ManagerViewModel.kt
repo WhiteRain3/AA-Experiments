@@ -1010,34 +1010,44 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
 
     // ---- Map border width ----
 
-    /** Whether the installed Android Auto has the border width flag and whether it is an integer. */
-    suspend fun mapBorderStatus(): io.github.highwindbr.aaxp.core.MapBorderFlag.Status = withContext(Dispatchers.IO) {
-        runCatching {
-            val build = mutable.value.aa.buildFingerprintSha256
-            if (build == null) io.github.highwindbr.aaxp.core.MapBorderFlag.status(null, null)
-            else {
-                val key = io.github.highwindbr.aaxp.core.MapBorderFlag.KEY
-                val found = database.identifiersByKeys(build, setOf(key))[key]
-                io.github.highwindbr.aaxp.core.MapBorderFlag.status(found != null, found?.inferredType)
-            }
-        }.getOrDefault(io.github.highwindbr.aaxp.core.MapBorderFlag.Status.UNKNOWN)
+    /** The stored map border width in dp; null when none is set (Android Auto's own). */
+    fun mapBorderWidth(): Int? = runCatching {
+        io.github.highwindbr.aaxp.core.MapBorderSetting.read(
+            ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, null))
+    }.getOrNull()
+
+    /** Sets the border width (null removes the setting) in the module's own setting; never through the flag overrides. */
+    fun setMapBorderWidth(width: Int?) = viewModelScope.launch {
+        val result = lookWrite { runCatching {
+            captureUndo("changing the map border")
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            val text = io.github.highwindbr.aaxp.core.MapBorderSetting.write(width)
+            if (text == null) editor.remove(io.github.highwindbr.aaxp.runtime.MapBorder.KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, text)
+            check(editor.commit()) { "Framework rejected the preference update" }
+        } }
+        result.onSuccess { changesWaiting = true }
+        mutable.value = mutable.value.copy(message = result.fold(
+            { if (width == null) "Saved. The map border is back to Android Auto's own." else "Saved. Restart Android Auto to see it." },
+            { "Map border not saved: ${it.message}" }))
     }
 
-    /** Sets the border width (or removes the override when [width] is null) through the normal flag override path. */
-    fun setMapBorderWidth(width: Int?) = viewModelScope.launch {
-        val key = io.github.highwindbr.aaxp.core.MapBorderFlag.KEY
-        val build = mutable.value.aa.buildFingerprintSha256
-        val found = if (build == null) null else withContext(Dispatchers.IO) { database.identifiersByKeys(build, setOf(key))[key] }
-        val status = io.github.highwindbr.aaxp.core.MapBorderFlag.status(if (build == null) null else found != null, found?.inferredType)
-        if (status != io.github.highwindbr.aaxp.core.MapBorderFlag.Status.OK) {
-            mutable.value = mutable.value.copy(message = when (status) {
-                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.MISSING -> "Map border not changed: this Android Auto version does not have $key."
-                io.github.highwindbr.aaxp.core.MapBorderFlag.Status.NOT_INTEGER -> "Map border not changed: $key is not a whole number in this Android Auto version."
-                else -> "Map border not changed: the installed Android Auto has not been read yet."
-            })
+    /**
+     * The old border width flag does nothing in Android Auto 18.0. If an override of it was saved
+     * by an earlier version of this app, removes it once through the normal override path.
+     */
+    fun removeDeadMapBorderFlagOnce() = viewModelScope.launch {
+        if (controlPreferences.getBoolean("dead_border_flag_removed", false)) return@launch
+        val key = io.github.highwindbr.aaxp.core.MapBorderSetting.DEAD_FLAG_KEY
+        if (!mutable.value.dynamicOverrides.containsKey(key)) {
+            // Nothing saved; only record that once the installed build is known, so a later load cannot miss one.
+            if (mutable.value.aa.buildFingerprintSha256 != null) controlPreferences.edit().putBoolean("dead_border_flag_removed", true).apply()
             return@launch
         }
-        setDynamicOverride(checkNotNull(found), width?.let { io.github.highwindbr.aaxp.core.MapBorderFlag.clamp(it).toString() }).join()
+        val build = mutable.value.aa.buildFingerprintSha256 ?: return@launch
+        val found = withContext(Dispatchers.IO) { database.identifiersByKeys(build, setOf(key))[key] } ?: return@launch
+        setDynamicOverride(found, null).join()
+        if (!mutable.value.dynamicOverrides.containsKey(key)) controlPreferences.edit().putBoolean("dead_border_flag_removed", true).apply()
     }
 
     // ---- Presets: named sets of normal overrides ----
@@ -1300,7 +1310,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null),
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null)))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, null)))
     }
 
     /**
@@ -1325,6 +1336,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, bundle.railLook)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, bundle.glyphSize)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, bundle.perAppIcons)
+            put(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, bundle.mapBorder)
             val parts = mutableListOf("colours, glyph icons and status bar")
             // The file's wallpaper is rendered from a temporary copy; the stored source and editor settings are only replaced after the commit.
             val importedSettings = if (bundle.wallpaperImage != null) CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings) else null
@@ -1631,7 +1643,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             wallpaperStamp, carWallpaperEnabled(), prefs?.getString(io.github.highwindbr.aaxp.runtime.LauncherTweaks.KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null),
             prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, null),
-            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null))
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, null),
+            prefs?.getString(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, null))
     }
 
     /** Copies the wallpaper image in use aside for undo if that has not been done. Blocking: call off Main. */
@@ -1687,6 +1700,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, kept.railLook)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, kept.glyphSize)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, kept.perAppIcons)
+            put(io.github.highwindbr.aaxp.runtime.MapBorder.KEY, kept.mapBorder)
             val imageKept = kept.wallpaperStamp != null && kept.wallpaperSettings != null && undoImage.isFile &&
                 controlPreferences.getString("undo_image_stamp", null) == kept.wallpaperStamp
             val action = io.github.highwindbr.aaxp.core.LookUndo.wallpaperAction(kept, imageKept)
@@ -1717,10 +1731,10 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.RESTORE -> kept
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.REMOVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, null, null, false, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons)
+                        kept.resourceColors, null, null, false, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons, kept.mapBorder)
                 io.github.highwindbr.aaxp.core.LookUndo.WallpaperAction.LEAVE ->
                     io.github.highwindbr.aaxp.core.LookSnapshot(kept.label, kept.themeColors, kept.glyphColors, kept.statusBar,
-                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons)
+                        kept.resourceColors, now.wallpaperSettings, now.wallpaperStamp, now.wallpaperOn, kept.launcherConfig, kept.railLook, kept.glyphSize, kept.perAppIcons, kept.mapBorder)
             }
             io.github.highwindbr.aaxp.core.LookUndo.restoredMessage(
                 io.github.highwindbr.aaxp.core.LookUndo.differences(now, effective), kept.label) to restarted
@@ -1733,8 +1747,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     }
 
     /**
-     * Puts the colour slots and the extra colours back to default, with one undo copy. The map border
-     * width is a flag override that Undo cannot bring back, so it is left alone; it has its own reset.
+     * Puts the colour slots, the text and background colours and the map border width back to default,
+     * with one undo copy.
      */
     fun resetColourPage(onDone: () -> Unit = {}) = viewModelScope.launch {
         val result = lookWrite { runCatching {
@@ -1742,6 +1756,7 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
             editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
             editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.MapBorder.KEY)
             check(editor.commit()) { "Framework rejected the preference update" }
             false // the changes-waiting banner offers the restart
         } }

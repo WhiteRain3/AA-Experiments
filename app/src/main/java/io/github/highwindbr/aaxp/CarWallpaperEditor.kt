@@ -146,15 +146,22 @@ internal object CarWallpaperStudio {
         return rendered to railSlice(rendered, saved.screen, saved.coverage, saved.railShiftX, saved.railShiftY)
     }
 
-    /** [source] softened by [blur] steps (0 = unchanged), at the same size. */
+    /**
+     * [source] blurred by [blur] steps (0 = unchanged), at the same size. The radius grows with the
+     * image, so a level looks the same on any size. Large radii are blurred at a reduced size and
+     * scaled back up, which is safe because the picture is already blurred by then.
+     */
     fun softened(source: Bitmap, blur: Int): Bitmap {
         if (blur <= 0) return source
-        val factor = 1 + blur * 2
-        val small = Bitmap.createScaledBitmap(source, (source.width / factor).coerceAtLeast(1),
-            (source.height / factor).coerceAtLeast(1), true)
-        // Two steps up smooths the blocks a single large upscale would leave.
-        val middle = Bitmap.createScaledBitmap(small, (source.width / 2).coerceAtLeast(1), (source.height / 2).coerceAtLeast(1), true)
-        return Bitmap.createScaledBitmap(middle, source.width, source.height, true)
+        val radius = blur * maxOf(source.width, source.height) / 200f
+        val scale = if (radius > 4f) 4f / radius else 1f
+        val w = (source.width * scale).toInt().coerceAtLeast(1)
+        val h = (source.height * scale).toInt().coerceAtLeast(1)
+        val work = if (scale < 1f) Bitmap.createScaledBitmap(source, w, h, true) else source
+        val pixels = IntArray(w * h).also { work.getPixels(it, 0, w, 0, 0, w, h) }
+        val blurred = io.github.highwindbr.aaxp.core.ImageBlur.blur(pixels, w, h, radius * scale)
+        val small = Bitmap.createBitmap(blurred, w, h, Bitmap.Config.ARGB_8888)
+        return if (scale < 1f) Bitmap.createScaledBitmap(small, source.width, source.height, true) else small
     }
 
     fun load(context: Context): Saved {
@@ -248,7 +255,9 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
     var blur by remember { mutableStateOf(initial.blur) }
     var railShiftX by remember { mutableStateOf(initial.railShiftX) }
     var railShiftY by remember { mutableStateOf(initial.railShiftY) }
-    val shown = remember(source, blur) { CarWallpaperStudio.softened(source, blur) }
+    // The blur is recomputed when the slider is released, not on every step.
+    var blurApplied by remember { mutableStateOf(initial.blur) }
+    val shown = remember(source, blurApplied) { CarWallpaperStudio.softened(source, blurApplied) }
 
     val screen = CarScreen(
         widthText.toIntOrNull()?.coerceIn(200, 8000) ?: 800,
@@ -344,7 +353,7 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
                 Text(if (dim == 0) "Darken: off" else "Darken: $dim%", style = MaterialTheme.typography.labelLarge)
                 Slider(dim.toFloat(), { dim = it.toInt() }, valueRange = 0f..80f)
                 Text(if (blur == 0) "Blur: off" else "Blur: $blur", style = MaterialTheme.typography.labelLarge)
-                Slider(blur.toFloat(), { blur = it.toInt() }, valueRange = 0f..10f, steps = 9)
+                Slider(blur.toFloat(), { blur = it.toInt() }, valueRange = 0f..10f, steps = 9, onValueChangeFinished = { blurApplied = blur })
 
                 Text("Cover", style = MaterialTheme.typography.labelLarge)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

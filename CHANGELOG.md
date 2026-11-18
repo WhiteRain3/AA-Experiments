@@ -171,6 +171,13 @@ instrumented or physical-device acceptance yet.
   resources, where the resource id names the package; the module uses that to tell apps apart.
   The Manager lists apps with a launcher icon (a `queries` entry; nothing leaves the phone).
   Untested on a car; not yet part of look files or Undo.
+- More colours had no effect on the owner's car (labels, clock, rail icons and launcher
+  background kept Android Auto's colours). Two causes found in the platform's code paths: a
+  background given as a colour is built straight from the resolved value and never passes the
+  hooked `getColor`/`getColorStateList` methods; and precompiled code can reach a colour without
+  entering a hooked method. The module now also replaces the colour where it is resolved: in
+  the table of a freshly filled `TypedArray`, and in a `TypedValue` from
+  `Theme.resolveAttribute` or `Resources.getValue`. Untested on a car.
 - versionName `1.0.0-wr31`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

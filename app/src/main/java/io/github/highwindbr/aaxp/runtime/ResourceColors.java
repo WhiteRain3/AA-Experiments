@@ -70,6 +70,45 @@ public final class ResourceColors {
         return text.length() == 0 ? null : text.toString();
     }
 
+    /** Layout of the platform's resolved attribute table: seven numbers per attribute. */
+    public static final int ENTRY_SIZE = 7;
+    private static final int ENTRY_TYPE = 0;
+    private static final int ENTRY_DATA = 1;
+    private static final int ENTRY_RESOURCE_ID = 3;
+    /** android.util.TypedValue: the four "colour written as a number" types. */
+    private static final int TYPE_FIRST_COLOR = 0x1c;
+    private static final int TYPE_LAST_COLOR = 0x1f;
+    private static final int TYPE_COLOR_ARGB8 = 0x1c;
+
+    /** True when a resolved value of this type is a plain colour (not a file, state list or reference). */
+    public static boolean isColorType(int type) {
+        return type >= TYPE_FIRST_COLOR && type <= TYPE_LAST_COLOR;
+    }
+
+    /**
+     * Rewrites a resolved attribute table in place: every plain colour that came from one of the
+     * resources in {@code byId} becomes the configured colour. This is where layouts get their
+     * colours from, whatever is read afterwards (a colour, a text colour, a background).
+     * Returns the positions (attribute indexes) that would change; nothing is written when
+     * {@code apply} is false. A table that does not have the expected layout is left alone.
+     */
+    public static int rewrite(int[] data, Map<Integer, Integer> byId, boolean apply) {
+        if (data == null || byId == null || byId.isEmpty() || data.length % ENTRY_SIZE != 0) return 0;
+        int changed = 0;
+        for (int at = 0; at + ENTRY_SIZE <= data.length; at += ENTRY_SIZE) {
+            int id = data[at + ENTRY_RESOURCE_ID];
+            if (id == 0 || !isColorType(data[at + ENTRY_TYPE])) continue;
+            Integer color = byId.get(id);
+            if (color == null) continue;
+            if (apply) {
+                data[at + ENTRY_TYPE] = TYPE_COLOR_ARGB8;
+                data[at + ENTRY_DATA] = color;
+            }
+            changed++;
+        }
+        return changed;
+    }
+
     /** Colour resource name to colour, for every resource of every configured group. */
     public static Map<String, Integer> byResourceName(Map<String, Integer> colors) {
         Map<String, Integer> result = new LinkedHashMap<>();

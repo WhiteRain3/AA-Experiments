@@ -65,6 +65,67 @@ public class ResourceColorsTest {
         }
     }
 
+    private static int[] table(int... typeDataId) {
+        int[] data = new int[typeDataId.length / 3 * ResourceColors.ENTRY_SIZE];
+        for (int i = 0; i < typeDataId.length / 3; i++) {
+            data[i * 7] = typeDataId[i * 3];
+            data[i * 7 + 1] = typeDataId[i * 3 + 1];
+            data[i * 7 + 2] = 99; // asset cookie, must survive
+            data[i * 7 + 3] = typeDataId[i * 3 + 2];
+        }
+        return data;
+    }
+
+    @Test public void rewritesOnlyPlainColoursFromConfiguredResources() {
+        Map<Integer, Integer> byId = new LinkedHashMap<>();
+        byId.put(0x7f060010, 0xFF00FF00);
+        int[] data = table(
+                0x1d, 0xFFF2F0F0, 0x7f060010,   // the configured colour: changed
+                0x1d, 0xFFF2F0F0, 0x7f060011,   // same value from another resource: kept
+                0x03, 0x00000123, 0x7f060010,   // a string (a colour file's path): kept
+                0x01, 0x7f060010, 0x7f060010,   // an unresolved reference: kept
+                0x1d, 0xFF111111, 0,            // written directly in the layout: kept
+                0x1c, 0x80F2F0F0, 0x7f060010);  // ARGB form: changed
+        assertEquals(2, ResourceColors.rewrite(data, byId, true));
+        assertEquals(0xFF00FF00, data[1]);
+        assertEquals(0x1c, data[0]);
+        assertEquals(99, data[2]);
+        assertEquals(0x7f060010, data[3]);
+        assertEquals(0xFFF2F0F0, data[7 + 1]);
+        assertEquals(0x00000123, data[14 + 1]);
+        assertEquals(0x7f060010, data[21 + 1]);
+        assertEquals(0xFF111111, data[28 + 1]);
+        assertEquals(0xFF00FF00, data[35 + 1]);
+    }
+
+    @Test public void rewriteCanCountWithoutWriting() {
+        Map<Integer, Integer> byId = new LinkedHashMap<>();
+        byId.put(5, 0xFF00FF00);
+        int[] data = table(0x1d, 0xFFF2F0F0, 5);
+        assertEquals(1, ResourceColors.rewrite(data, byId, false));
+        assertEquals(0xFFF2F0F0, data[1]);
+    }
+
+    @Test public void rewriteLeavesUnexpectedTablesAlone() {
+        Map<Integer, Integer> byId = new LinkedHashMap<>();
+        byId.put(5, 0xFF00FF00);
+        assertEquals(0, ResourceColors.rewrite(null, byId, true));
+        assertEquals(0, ResourceColors.rewrite(new int[0], byId, true));
+        int[] odd = {0x1d, 0xFFF2F0F0, 0, 5, 0, 0, 0, 0x1d}; // not a multiple of seven
+        assertEquals(0, ResourceColors.rewrite(odd, byId, true));
+        assertEquals(0xFFF2F0F0, odd[1]);
+        assertEquals(0, ResourceColors.rewrite(table(0x1d, 1, 5), new LinkedHashMap<>(), true));
+        assertEquals(0, ResourceColors.rewrite(table(0x1d, 1, 5), null, true));
+    }
+
+    @Test public void colourTypes() {
+        assertTrue(ResourceColors.isColorType(0x1c));
+        assertTrue(ResourceColors.isColorType(0x1f));
+        assertTrue(!ResourceColors.isColorType(0x1b));
+        assertTrue(!ResourceColors.isColorType(0x03));
+        assertTrue(!ResourceColors.isColorType(0x01));
+    }
+
     @Test public void everyGroupHasResources() {
         for (String group : ResourceColors.groups()) {
             Map<String, Integer> one = new LinkedHashMap<>();

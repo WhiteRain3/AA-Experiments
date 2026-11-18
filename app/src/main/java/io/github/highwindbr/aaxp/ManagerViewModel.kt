@@ -1712,6 +1712,24 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Nothing was undone: ${it.message}" }))
     }
 
+    /**
+     * Puts everything on the Colours page back to default: the colour slots, the extra colours and
+     * the map border width. It writes what the single resets write, with one undo copy for all.
+     */
+    fun resetColourPage() = viewModelScope.launch {
+        val result = withContext(Dispatchers.IO) { runCatching {
+            captureUndo("resetting the colours")
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            editor.remove(io.github.highwindbr.aaxp.runtime.ThemeColors.COLORS_KEY)
+            editor.remove(io.github.highwindbr.aaxp.runtime.ResourceColors.KEY)
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        result.onSuccess { changesWaiting = !it }
+        mutable.value = mutable.value.copy(message = result.fold({ "Colours are back to default." }, { "Colours not reset: ${it.message}" }))
+        if (mutable.value.dynamicOverrides.containsKey(io.github.highwindbr.aaxp.core.MapBorderFlag.KEY)) setMapBorderWidth(null).join()
+    }
+
     // ---- One-tap styles ----
 
     /**

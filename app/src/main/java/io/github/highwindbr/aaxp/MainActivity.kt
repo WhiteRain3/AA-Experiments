@@ -158,6 +158,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     var tab by rememberSaveable { mutableIntStateOf(0) }
     var experimentKey by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsPageName by rememberSaveable { mutableStateOf(SettingsPage.ROOT.name) }
+    var coloursRevision by remember { mutableStateOf(0) }
     val settingsPage = runCatching { SettingsPage.valueOf(settingsPageName) }.getOrDefault(SettingsPage.ROOT)
     val uiContext = LocalContext.current
     val managerPrefs = remember { uiContext.getSharedPreferences("manager_ui", 0) }
@@ -235,14 +236,11 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     val connected = state.framework.connected
     featurePage?.let { page ->
         BackHandler { featurePageName = null }
-        FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM) {
+        FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM,
+            menu = if (page == FeaturePage.THEMES) PageMenu("colours", onReset = { model.resetColourPage(); coloursRevision++ },
+                extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } })) else null) {
             when (page) {
-                FeaturePage.THEMES -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    StylesCard(model, connected)
-                    ThemeColorsCard(model, connected)
-                    ExtraColorsCard(model, connected)
-                    MapBorderCard(model, state.dynamicOverrides, connected)
-                }
+                FeaturePage.THEMES -> ColoursPage(model, state.dynamicOverrides, connected, coloursRevision) { coloursRevision++ }
                 FeaturePage.WALLPAPER -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     CarWallpaperCard(model, connected)
                     RailLookCard(model, connected)
@@ -480,35 +478,6 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             autoRestart = it; model.setAutoRestartAfterChange(it) }
         switchRow("Desktop Head Unit mode", "Only for testing on a PC: shows the head unit server button and starts that server after every restart from this app. Leave off for the car.", dhuMode) {
             dhuMode = it; model.setHeadUnitAfterRestart(it) }
-    } }
-}
-
-/** Themes and colours for the car screen, edited in the full-screen theme editor. */
-@Composable private fun ThemeColorsCard(model: ManagerViewModel, connected: Boolean) {
-    var roleClass by remember(connected) { mutableStateOf(if (connected) model.themeRoleClass() else null) }
-    var searching by remember { mutableStateOf(false) }
-    var editing by remember { mutableStateOf(false) }
-    var revision by remember { mutableStateOf(0) }
-    val colours = remember(connected, revision) { if (connected) model.themeColorsMap().size else 0 }
-    if (editing) ThemeEditor(model) { editing = false; revision++ }
-    Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Pick a ready-made theme, start from one colour, or set each colour yourself.",
-            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        if (roleClass == null) {
-            Text("First the app has to find the colour roles in your Android Auto version. This reads the installed app and takes a little while.",
-                style = MaterialTheme.typography.bodyMedium)
-            Button({ searching = true; model.locateThemeRoles { found -> roleClass = found; searching = false } },
-                Modifier.fillMaxWidth(), enabled = connected && !searching) { Text(if (searching) "Searching…" else "Find colour roles") }
-        } else {
-            Text(if (colours == 0) "No colours set: Android Auto uses its own." else "$colours colour(s) set.",
-                style = MaterialTheme.typography.bodyMedium)
-            Button({ editing = true }, Modifier.fillMaxWidth(), enabled = connected) { Text("Open theme editor") }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton({ model.setThemeColors("") { revision++ } }, Modifier.weight(1f), enabled = connected && colours > 0) { Text("Remove colours") }
-                OutlinedButton({ searching = true; model.locateThemeRoles { found -> roleClass = found; searching = false } },
-                    Modifier.weight(1f), enabled = connected && !searching) { Text(if (searching) "Searching…" else "Re-scan") }
-            }
-        }
     } }
 }
 

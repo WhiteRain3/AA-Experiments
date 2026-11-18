@@ -340,7 +340,9 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
         Surface(Modifier.fillMaxSize()) { Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Theme editor", Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Text("Theme editor", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                TipIcon("Theme editor", "Start from one colour or load one of your themes, then adjust the colour slots. Nothing reaches the car until you tap Apply to car.")
+                Spacer(Modifier.weight(1f))
                 OutlinedButton(::close) { Text("Cancel") }
                 Button({ model.applyCarTheme(roles.toMap(), glyphText); onClose() }) { Text("Apply to car") }
                 Box {
@@ -361,7 +363,7 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                 })
             }
             TabRow(tab, Modifier.padding(top = 8.dp)) {
-                listOf("Start", "Colours", "Keep and share").forEachIndexed { index, label ->
+                listOf("Start", "Colours", "Keep").forEachIndexed { index, label ->
                     Tab(tab == index, { tab = index }, text = { Text(label) })
                 }
             }
@@ -369,24 +371,6 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (tab) {
                     0 -> {
-                        Text("Themes", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                        (Themes.BUILT_IN + savedThemes).forEach { theme ->
-                            Card(Modifier.fillMaxWidth().clickable { load(theme) }) {
-                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text(theme.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                        if (!theme.builtIn) {
-                                            Text("Saved", Modifier.background(MaterialTheme.colorScheme.secondaryContainer, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 2.dp),
-                                                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSecondaryContainer)
-                                            TextButton({ model.deleteCarTheme(theme.name); savedThemes = model.carThemes() }) { Text("Delete") }
-                                        }
-                                    }
-                                    if (theme.description.isNotEmpty()) Text(theme.description, style = MaterialTheme.typography.bodySmall)
-                                    ThemeStrip(theme.roles)
-                                }
-                            }
-                        }
-                        HorizontalDivider()
                         Text("Start from one colour", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             ColorSwatch(seed, onClick = { picking = Triple("Base colour", seed) { seed = ColorMath.withAlpha(it, 255) } })
@@ -404,30 +388,53 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                             }.getOrNull()
                             if (picked != null) { seed = picked; roles.clear(); roles.putAll(Themes.generate(picked, seedDark)) }
                             else model.reportMessage("No base colour found: set a car wallpaper with some colour in it first.")
-                        }, Modifier.fillMaxWidth()) { Text("Use my car wallpaper's main colour") }
+                        }, Modifier.fillMaxWidth()) { Text("Use my wallpaper's colour") }
+
+                        Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("My themes", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            TipIcon("My themes", "Themes you kept. To start from a ready-made style, apply it on the Colours page and then open Edit colours.")
+                        }
+                        if (savedThemes.isEmpty()) Text("No saved themes yet", style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        savedThemes.forEach { theme ->
+                            Card(Modifier.fillMaxWidth().clickable { load(theme) }) {
+                                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(theme.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                                        TextButton({ load(theme) }) { Text("Load") }
+                                        TextButton({ model.deleteCarTheme(theme.name); savedThemes = model.carThemes() }) { Text("Delete") }
+                                    }
+                                    ThemeStrip(theme.roles)
+                                }
+                            }
+                        }
                     }
                     1 -> {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("${roles.size} colour slots set", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
-                            TextButton({ roles.clear() }) { Text("Clear all") }
+                            TextButton({ roles.clear() }) { Text("Default") }
                         }
                         OutlinedTextField(filter, { filter = it }, Modifier.fillMaxWidth(), label = { Text("Find a colour slot") }, singleLine = true)
                         val q = filter.trim()
                         fun matches(role: String) = q.isBlank() || role.contains(q, true) || Themes.hint(role).contains(q, true)
                         val confirmed = Themes.CONFIRMED_ROLES.filter(::matches)
                         if (confirmed.isNotEmpty()) {
-                            Text("These change the car screen", style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("These change the car screen", style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                TipIcon("These change the car screen", "These colour slots have been seen to change the car screen. Each one says what it paints.")
+                            }
                             confirmed.forEach { role ->
                                 RoleRow(role, roles[role], { picking = Triple(role, roles[role] ?: 0xFF808080.toInt()) { roles[role] = it } }, { roles.remove(role) })
                             }
                         }
                         val unseen = Themes.UNSEEN_ROLES.filter(::matches)
                         if (unseen.isNotEmpty()) {
-                            Text("Not seen in use yet", style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
-                            Text("These may do nothing, or change something that has not been spotted yet.",
-                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Not seen in use yet", style = MaterialTheme.typography.titleSmall,
+                                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                TipIcon("Not seen in use yet", "These may do nothing, or change something that has not been spotted yet.")
+                            }
                             unseen.forEach { role ->
                                 RoleRow(role, roles[role], { picking = Triple(role, roles[role] ?: 0xFF808080.toInt()) { roles[role] = it } }, { roles.remove(role) })
                             }
@@ -443,21 +450,25 @@ internal fun ThemeEditor(model: ManagerViewModel, onClose: () -> Unit) {
                                     savedThemes = model.carThemes()
                             }, enabled = Presets.cleanName(themeName) != null) { Text("Keep") }
                         }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton({ exporter.launch("aa-experiments-themes.json") }, Modifier.weight(1f), enabled = savedThemes.isNotEmpty()) { Text("Export mine") }
-                            OutlinedButton({ importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, Modifier.weight(1f)) { Text("Import") }
-                        }
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            OutlinedButton({
-                                val name = Presets.cleanName(themeName) ?: "Shared theme"
-                                clipboard.setText(androidx.compose.ui.text.AnnotatedString(
-                                    Themes.encode(listOf(CarTheme(name, "", roles.toMap(), glyphText)))))
-                                model.reportMessage("Theme copied as text.")
-                            }, Modifier.weight(1f), enabled = roles.isNotEmpty()) { Text("Copy as text") }
-                            OutlinedButton({
+                        SettingsSection("Share") {
+                            LinkRow("Export my themes", onClick = { if (savedThemes.isNotEmpty()) exporter.launch("aa-experiments-themes.json")
+                                else model.reportMessage("Keep a theme first.") })
+                            RowDivider()
+                            LinkRow("Import themes", onClick = { importer.launch(arrayOf("application/json", "text/*", "application/octet-stream")) })
+                            RowDivider()
+                            LinkRow("Copy as text", onClick = {
+                                if (roles.isEmpty()) model.reportMessage("There are no colours to copy yet.") else {
+                                    val name = Presets.cleanName(themeName) ?: "Shared theme"
+                                    clipboard.setText(androidx.compose.ui.text.AnnotatedString(
+                                        Themes.encode(listOf(CarTheme(name, "", roles.toMap(), glyphText)))))
+                                    model.reportMessage("Theme copied as text.")
+                                }
+                            })
+                            RowDivider()
+                            LinkRow("Paste a theme", onClick = {
                                 runCatching { Themes.decode(clipboard.getText()?.text.orEmpty()).first() }
                                     .fold({ load(it) }, { model.reportMessage("The clipboard does not hold a theme.") })
-                            }, Modifier.weight(1f)) { Text("Paste theme") }
+                            })
                         }
                     }
                 }

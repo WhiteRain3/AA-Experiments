@@ -207,7 +207,14 @@ Google's. A session that needs them asks the owner to upload `gearhead-code.zip`
   and work on top of it. Before pushing, fetch and merge again; never force-push.
 - A worker's task is one small change. It ends with: build and tests pass, a commit, a push,
   this file updated, and a short note of what was done and how the owner can test it.
-- Workers do not bump the version. The Release session ships.
+- Workers do not bump the version.
+- Releases are automatic (the owner's decision, 2026-11-18): once a change has been reviewed,
+  the review is clean, and the build and tests pass, whoever is running the chain publishes
+  the next `wrN` without asking, then tells the owner what is in it and how to test it. A
+  serious review finding holds the release until it is fixed.
+- Sessions cannot message each other. Hand-offs between them (plan to worker, worker to
+  reviewer, findings back to worker) are carried by the session that created them, or by the
+  owner. An instruction to "pass this to the reviewer" given to a worker goes nowhere.
 - If a task turns out to need a decision from the owner, stop and ask rather than guess.
 - Do not open pull requests unless the owner asks.
 

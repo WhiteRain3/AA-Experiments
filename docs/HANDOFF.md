@@ -59,6 +59,11 @@ app's "Check for updates" then offers it. So:
   fork section in `CHANGELOG.md`, push, then confirm
   `https://github.com/WhiteRain3/AA-Experiments/releases/latest` redirects to the new tag
   (about five minutes).
+- After pushing a version bump, push nothing else to the branch until the release is confirmed
+  published. This went wrong once (wr27): commits pushed behind the release commit each
+  started their own build with the same version; the builds for the older commits failed at
+  `gh release create` with HTTP 403, and the newest commit's build published, so unreviewed
+  work shipped under the release's number. Keep unreviewed work local until then.
 - Only the Release session bumps the version. Workers leave it alone, so two sessions never
   fight over it.
 

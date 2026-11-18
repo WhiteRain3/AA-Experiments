@@ -218,8 +218,8 @@ private fun iconChoiceText(choice: String): String = when (choice) {
     pending?.let { text ->
         androidx.compose.material3.AlertDialog(onDismissRequest = { pending = null },
             title = { Text("Load this look?") },
-            text = { Text("This replaces your colours, icon colours, status bar and wallpaper. Themes and presets in the file are added, presets are not applied. " +
-                "Save your current look first if you may want it back.") },
+            text = { Text("This replaces your colours, icons, status bar, launcher and rail settings, and the wallpaper if the file has one. " +
+                "Themes and presets in the file are added, presets are not applied. Save your current look first if you may want it back.") },
             confirmButton = { TextButton({ model.importLook(text); pending = null }) { Text("Load") } },
             dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
     }

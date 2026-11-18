@@ -125,6 +125,7 @@ instrumented or physical-device acceptance yet.
 - Loading a look file now takes its undo copy and writes behind the same lock as every other look write, and records the new wallpaper as in use only after the write succeeded; the auto-restart setting's wording mentions look files.
 - Redesign, piece 8: Quick switches, Presets, Restart, Updates, Look file and Screen layout capture are sections and rows with their explanations behind "?" tips (the privacy sentence about updates is kept word for word); the Restart page keeps behaviours only (the Restart button is on Home and in the banner); the Presets row is gone from Settings (Home's Flags card is the way in); the update notes open under "What's new".
 - Redesign, piece 9: the colour picker shows the colour you started from next to the new one ("Before" / "Now"), the colours you used most recently, and calls the field "Hex colour".
+- Loading a look file with a wallpaper renders it from a temporary copy and replaces the stored image and editor settings only after the write succeeded, so a failed load changes nothing; the confirmation now names everything a look file replaces.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

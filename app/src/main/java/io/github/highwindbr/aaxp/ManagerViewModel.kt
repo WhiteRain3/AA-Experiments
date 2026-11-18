@@ -1326,15 +1326,24 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.SIZE_KEY, bundle.glyphSize)
             put(io.github.highwindbr.aaxp.runtime.GlyphIcons.PER_APP_KEY, bundle.perAppIcons)
             val parts = mutableListOf("colours, glyph icons and status bar")
+            // The file's wallpaper is rendered from a temporary copy; the stored source and editor settings are only replaced after the commit.
+            val importedSettings = if (bundle.wallpaperImage != null) CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings) else null
+            val temporary = java.io.File(context.cacheDir, "look_import_wallpaper")
             bundle.wallpaperImage?.let { image ->
-                CarWallpaperStudio.sourceFile(context).writeBytes(image)
-                CarWallpaperStudio.save(context, CarWallpaperStudio.settingsFrom(bundle.wallpaperSettings))
-                val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderSaved(context)) { "The wallpaper in this file is not an image" }
+                temporary.writeBytes(image)
+                val (rendered, rail) = checkNotNull(CarWallpaperStudio.renderFrom(temporary, checkNotNull(importedSettings))) {
+                    "The wallpaper in this file is not an image"
+                }
                 writeCarWallpaper(editor, rendered, rail)
                 parts += "wallpaper"
             }
             check(editor.commit()) { "Framework rejected the preference update" }
-            if (bundle.wallpaperImage != null) markWallpaperApplied()
+            if (importedSettings != null) {
+                temporary.copyTo(CarWallpaperStudio.sourceFile(context), overwrite = true)
+                CarWallpaperStudio.save(context, importedSettings)
+                markWallpaperApplied()
+            }
+            temporary.delete()
             bundle.themesJson?.let { json ->
                 val imported = io.github.highwindbr.aaxp.core.Themes.decode(json)
                 val names = imported.map { it.name.lowercase() }.toSet()
@@ -1648,11 +1657,6 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
         }
         canUndo = stored
         undoLabel = if (stored) label else ""
-    }
-
-    /** Keeps an undo copy, then runs [block] (on Main). For changes made outside this class. */
-    fun undoThen(label: String, block: () -> Unit) {
-        viewModelScope.launch { withContext(Dispatchers.IO) { captureUndo(label) }; block() }
     }
 
     /** Remembers that the current wallpaper source file is the image the car uses. */

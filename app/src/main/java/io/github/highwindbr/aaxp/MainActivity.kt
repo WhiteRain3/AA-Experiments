@@ -236,6 +236,15 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
             ) feedbackHost.showSnackbar(current.take(220), withDismissAction = true)
         }
     }
+    // A style that was just applied: one snackbar with Undo, the same undo as the Undo tile on Home.
+    LaunchedEffect(model.undoOffer) {
+        model.undoOffer?.let { text ->
+            model.clearUndoOffer()
+            val result = feedbackHost.showSnackbar(text, actionLabel = "Undo", withDismissAction = true,
+                duration = androidx.compose.material3.SnackbarDuration.Long)
+            if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) model.undoLastChange()
+        }
+    }
     val connected = state.framework.connected
     featurePage?.let { page ->
         BackHandler { featurePageName = null }

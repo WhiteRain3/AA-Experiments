@@ -100,7 +100,11 @@ internal fun ColoursPage(
                     Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         CarScreenMock(look.roles, look.glyphColors, Modifier.fillMaxWidth(), showCaption = false)
                         Text(look.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        OutlinedButton({ model.applyLook(look); local++ }, Modifier.fillMaxWidth(), enabled = connected) { Text("Apply") }
+                        // "Applied" while the saved colours are exactly this style's; it turns back into Apply when something changes.
+                        val applied = roles == look.roles
+                        OutlinedButton({ model.applyLook(look) { local++ } }, Modifier.fillMaxWidth(), enabled = connected && !applied) {
+                            Text(if (applied) "Applied" else "Apply")
+                        }
                     }
                 }
             }

@@ -1805,7 +1805,13 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
      * bar changes and, when the look has them, the wallpaper's darken and blur. A part the look
      * does not have is switched off. An undo copy is kept first.
      */
-    fun applyLook(look: io.github.highwindbr.aaxp.core.CarTheme) = viewModelScope.launch {
+    /** Text for a snackbar with an Undo action; the screen shows it once and clears it. */
+    var undoOffer by androidx.compose.runtime.mutableStateOf<String?>(null)
+        private set
+
+    fun clearUndoOffer() { undoOffer = null }
+
+    fun applyLook(look: io.github.highwindbr.aaxp.core.CarTheme, onDone: () -> Unit = {}) = viewModelScope.launch {
         var wallpaperProblem: String? = null
         val restarted = lookWrite { runCatching {
             captureUndo("applying ${look.name}")
@@ -1842,10 +1848,12 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             false // the changes-waiting banner offers the restart
         } }
         restarted.onSuccess { changesWaiting = !it }
+        restarted.onSuccess { undoOffer = "${look.name} applied." }
         mutable.value = mutable.value.copy(message = restarted.fold(
-            { "${look.name} applied. " + (wallpaperProblem?.let { problem -> "The wallpaper darken and blur were not changed: $problem. " } ?: "") +
-                if (it) "Android Auto was asked to restart." else "Restart Android Auto to see it." },
+            // A success is announced by the snackbar with Undo; only a problem needs its own message.
+            { wallpaperProblem?.let { problem -> "${look.name} applied, but the wallpaper darken and blur were not changed: $problem." } },
             { "${look.name} not applied: ${it.message}" }))
+        onDone()
     }
 
     // ---- Car wallpaper ----

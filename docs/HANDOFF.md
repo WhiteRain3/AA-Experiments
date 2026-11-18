@@ -42,6 +42,10 @@ Build and run all unit tests, with a hard pass/fail. Never commit when this fail
 set -o pipefail; if ANDROID_HOME=/opt/android-sdk gradle --no-daemon --max-workers=1 -q :app:assembleDebug :app:testDebugUnitTest --console=plain > /tmp/build.log 2>&1; then echo BUILD_OK; else echo BUILD_FAILED; grep -E "^e: |error:|FAILED" /tmp/build.log | head -20; fi
 ```
 
+The first build in a fresh session downloads the libraries. One of them comes from
+`api.xposed.info`, which is on the environment's allowed hosts; if dependency resolution fails
+on the first try, run the command again before treating it as a code problem.
+
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
 At the time of writing there are 362 tests and none fail.
 

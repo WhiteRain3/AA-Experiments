@@ -78,8 +78,9 @@ internal object CarWallpaperStudio {
     }
 
     /** Decodes the kept copy at a size that is comfortable to edit and still sharp when stored. */
-    fun loadSource(context: Context): Bitmap? {
-        val file = sourceFile(context)
+    fun loadSource(context: Context): Bitmap? = loadFrom(sourceFile(context))
+
+    fun loadFrom(file: File): Bitmap? {
         if (!file.isFile) return null
         val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(file.path, bounds)
@@ -141,9 +142,11 @@ internal object CarWallpaperStudio {
     }
 
     /** The image Android Auto receives for the stored source and settings, and the rail's slice of it. */
-    fun renderSaved(context: Context): Pair<Bitmap, Bitmap?>? {
-        val source = loadSource(context) ?: return null
-        val saved = load(context)
+    fun renderSaved(context: Context): Pair<Bitmap, Bitmap?>? = renderFrom(sourceFile(context), load(context))
+
+    /** The image Android Auto would receive for the image in [file] and [saved] settings, without touching what is stored. */
+    fun renderFrom(file: File, saved: Saved): Pair<Bitmap, Bitmap?>? {
+        val source = loadFrom(file) ?: return null
         val color = WallpaperGeometry.parseColor(saved.separatorColor)
         val rendered = render(softened(source, saved.blurLevel), WallpaperGeometry.canvas(saved.screen, saved.coverage), saved.placement,
             if (color != null) WallpaperGeometry.separator(saved.screen, saved.coverage, saved.separatorThickness) else null,
@@ -246,7 +249,7 @@ internal object CarWallpaperStudio {
  * screen; the shaded strip is the rail.
  */
 @Composable
-internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (Bitmap, Bitmap?) -> Unit) {
+internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (Bitmap, Bitmap?, CarWallpaperStudio.Saved) -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
     val initial = remember { CarWallpaperStudio.load(context) }
     var widthText by remember { mutableStateOf(initial.screen.width.toString()) }
@@ -284,13 +287,13 @@ internal fun CarWallpaperEditor(source: Bitmap, onCancel: () -> Unit, onSave: (B
 
     val saveNow = {
         saving = true
-        CarWallpaperStudio.save(context, CarWallpaperStudio.Saved(screen, coverage, placement,
-            separatorThickness, separatorColorText, dim, blurApplied, railShiftX, railShiftY))
+        val settings = CarWallpaperStudio.Saved(screen, coverage, placement,
+            separatorThickness, separatorColorText, dim, blurApplied, railShiftX, railShiftY)
         // Save the picture that matches the saved setting, even if the preview is still catching up.
         val picture = if (blurredPicture.second == blurApplied) shown else CarWallpaperStudio.softened(source, blurApplied)
         val rendered = CarWallpaperStudio.render(picture, spec, placement,
             if (separatorColor != null) separator else null, separatorColor ?: 0, dim)
-        onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage, railShiftX, railShiftY))
+        onSave(rendered, CarWallpaperStudio.railSlice(rendered, screen, coverage, railShiftX, railShiftY), settings)
     }
     Dialog(onDismissRequest = onCancel,
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {

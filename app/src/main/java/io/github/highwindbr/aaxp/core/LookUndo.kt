@@ -14,7 +14,9 @@ class LookSnapshot(
     val statusBar: String?,
     val resourceColors: String?,
     val wallpaperSettings: JSONObject?,
-    val wallpaperStamp: String?
+    val wallpaperStamp: String?,
+    /** Whether a car wallpaper was in use; null in copies made before this was recorded. */
+    val wallpaperOn: Boolean? = null
 )
 
 object LookUndo {
@@ -24,6 +26,7 @@ object LookUndo {
         s.glyphColors?.let { put("glyphColors", it) }
         s.statusBar?.let { put("statusBar", it) }
         s.resourceColors?.let { put("resourceColors", it) }
+        s.wallpaperOn?.let { put("wallpaperOn", it) }
         if (s.wallpaperStamp != null && s.wallpaperSettings != null) {
             put("wallpaperSettings", s.wallpaperSettings)
             put("wallpaperStamp", s.wallpaperStamp)
@@ -36,8 +39,21 @@ object LookUndo {
         fun str(key: String) = j.optString(key).ifEmpty { null }
         val stamp = str("wallpaperStamp")
         LookSnapshot(j.optString("label", "a change"), str("themeColors"), str("glyphColors"), str("statusBar"),
-            str("resourceColors"), if (stamp != null) j.optJSONObject("wallpaperSettings") else null, stamp)
+            str("resourceColors"), if (stamp != null) j.optJSONObject("wallpaperSettings") else null, stamp,
+            if (j.has("wallpaperOn")) j.optBoolean("wallpaperOn") else null)
     }.getOrNull()
+
+    enum class WallpaperAction { REMOVE, RESTORE, LEAVE }
+
+    /**
+     * What undoing should do with the car wallpaper. It is removed only when the copy positively
+     * records that there was none; with no usable kept image it is left exactly as it is.
+     */
+    fun wallpaperAction(kept: LookSnapshot, imageKept: Boolean): WallpaperAction = when {
+        kept.wallpaperOn == false -> WallpaperAction.REMOVE
+        imageKept -> WallpaperAction.RESTORE
+        else -> WallpaperAction.LEAVE
+    }
 
     fun stamp(length: Long, lastModified: Long) = "$length-$lastModified"
 

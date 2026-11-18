@@ -263,7 +263,7 @@ private val EXTRA_COLOURS = listOf(
             title = { Text("Load this look?") },
             text = { Text("This replaces the colours, glyph icon colours and status bar changes in use now, and the car wallpaper if the file has one. " +
                 "Themes and flag presets from the file are added to yours; flag presets are not applied. Save your current look to a file first if you want to come back to it.") },
-            confirmButton = { TextButton({ model.undoThen("loading a look file") { model.importLook(text) { model.markWallpaperApplied() } }; pending = null }) { Text("Load") } },
+            confirmButton = { TextButton({ model.undoThen("loading a look file") { val before = model.wallpaperStampNow(); model.importLook(text) { model.markWallpaperAppliedIfChanged(before) } }; pending = null }) { Text("Load") } },
             dismissButton = { TextButton({ pending = null }) { Text("Cancel") } })
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

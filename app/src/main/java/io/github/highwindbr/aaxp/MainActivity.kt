@@ -557,19 +557,19 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     var editing by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     fun openEditor() {
         scope.launch {
-            val bitmap = withContext(Dispatchers.IO) { model.captureUndo("changing the wallpaper"); runCatching { CarWallpaperStudio.loadSource(context) }.getOrNull() }
+            val bitmap = withContext(Dispatchers.IO) { runCatching { CarWallpaperStudio.loadSource(context) }.getOrNull() }
             if (bitmap == null) model.reportMessage("That image could not be read.") else editing = bitmap
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) scope.launch {
-            val imported = withContext(Dispatchers.IO) { model.captureUndo("changing the wallpaper"); runCatching { CarWallpaperStudio.importSource(context, uri) }.isSuccess }
+            val imported = withContext(Dispatchers.IO) { model.keepWallpaperImageForUndo(); runCatching { CarWallpaperStudio.importSource(context, uri) }.isSuccess }
             if (imported) { hasSource = true; openEditor() } else model.reportMessage("That image could not be opened.")
         }
     }
     editing?.let { source ->
-        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered, rail ->
-            model.storeCarWallpaper(rendered, rail) { saved -> if (saved) enabled = true; editing = null }
+        CarWallpaperEditor(source, onCancel = { editing = null }) { rendered, rail, settings ->
+            model.storeCarWallpaper(rendered, rail, settings) { saved -> if (saved) enabled = true; editing = null }
         }
     }
     Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

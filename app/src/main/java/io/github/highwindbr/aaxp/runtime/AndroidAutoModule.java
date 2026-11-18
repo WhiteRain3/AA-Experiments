@@ -205,6 +205,7 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
                     overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY),
                     overrideSnapshot.get(GlyphIcons.SIZE_KEY), overrideSnapshot.get(GlyphIcons.PER_APP_KEY),
+                    overrideSnapshot.get(MapBorder.KEY),
                     overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
@@ -337,7 +338,8 @@ public final class AndroidAutoModule extends XposedModule {
         final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY))
                 || CarWallpaper.parseRailLook(overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY)).color != null;
         final LauncherTweaks.Config launcherAtStart = launcher();
-        if (atStart == null && !railAtStart && launcherAtStart == null) return;
+        final boolean mapBorderAtStart = MapBorder.parse(overrideSnapshot.get(MapBorder.KEY)) != null;
+        if (atStart == null && !railAtStart && launcherAtStart == null && !mapBorderAtStart) return;
         try {
             Method inflate = android.view.LayoutInflater.class.getDeclaredMethod(
                     "inflate", int.class, android.view.ViewGroup.class, boolean.class);
@@ -359,6 +361,12 @@ public final class AndroidAutoModule extends XposedModule {
                     }
                 } catch (Throwable t) {
                     eventOnce(Log.WARN, "STATUS_BAR_FAILED", "inflate", t.getClass().getSimpleName());
+                }
+                try {
+                    Integer border = MapBorder.parse(overrideSnapshot.get(MapBorder.KEY));
+                    if (border != null && result instanceof android.view.View view) applyMapBorder(view, (Integer) chain.getArg(0), border);
+                } catch (Throwable t) {
+                    eventOnce(Log.WARN, "MAP_BORDER_FAILED", "inflate", t.getClass().getSimpleName());
                 }
                 try {
                     LauncherTweaks.Config config = launcher();
@@ -391,7 +399,8 @@ public final class AndroidAutoModule extends XposedModule {
                 }
             }
             event(Log.INFO, "STATUS_BAR_HOOKS", null, "hide", String.valueOf(atStart == null ? 0 : atStart.hide.size()),
-                    "rail", String.valueOf(railAtStart), "launcher", String.valueOf(launcherAtStart != null));
+                    "rail", String.valueOf(railAtStart), "launcher", String.valueOf(launcherAtStart != null),
+                    "mapBorder", String.valueOf(mapBorderAtStart));
         } catch (Throwable t) {
             event(Log.WARN, "STATUS_BAR_HOOK_FAILED", null, "error", t.getClass().getSimpleName());
         }
@@ -811,6 +820,76 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private final Map<Integer, Boolean> mapBorderLayouts = new ConcurrentHashMap<>();
+    private volatile int mapBorderFrameId;
+
+    /**
+     * Thickness of the focus border around the map. The border is the foreground of the view
+     * with id focus_frame; Android Auto's own is replaced by the same thing (a rectangle outline
+     * for the hovered and the focused state, with the theme's colour and corner radius) drawn at
+     * the configured width. When the theme's colour cannot be read, nothing is changed.
+     */
+    private void applyMapBorder(android.view.View root, Integer layout, int widthDp) {
+        Boolean match = mapBorderLayouts.get(layout);
+        if (match != null && !match) return;
+        int id = mapBorderFrameId;
+        if (id == 0) {
+            id = root.getResources().getIdentifier(MapBorder.FRAME, "id", AA_PACKAGE);
+            if (id == 0) {
+                id = -1;
+                eventOnce(Log.WARN, "MAP_BORDER_NO_ID", MapBorder.FRAME, "first");
+            }
+            mapBorderFrameId = id;
+        }
+        if (id == -1) return;
+        android.view.View frame = root.findViewById(id);
+        if (match == null) mapBorderLayouts.put(layout, frame != null);
+        if (frame == null || frame.getForeground() == null) return;
+        android.content.Context context = frame.getContext();
+        android.content.res.Resources resources = context.getResources();
+        int colorAttr = resources.getIdentifier(MapBorder.COLOR_ATTR, "attr", AA_PACKAGE);
+        int radiusAttr = resources.getIdentifier(MapBorder.RADIUS_ATTR, "attr", AA_PACKAGE);
+        if (colorAttr == 0) {
+            eventOnce(Log.WARN, "MAP_BORDER_NO_COLOR", "attr", "first");
+            return;
+        }
+        android.content.res.ColorStateList color;
+        float radius = 0f;
+        // Both attributes in one read; the array must list them in ascending id order.
+        boolean colorFirst = radiusAttr == 0 || colorAttr < radiusAttr;
+        int[] attrs = radiusAttr == 0 ? new int[] {colorAttr}
+                : colorFirst ? new int[] {colorAttr, radiusAttr} : new int[] {radiusAttr, colorAttr};
+        android.content.res.TypedArray values = context.obtainStyledAttributes(attrs);
+        try {
+            color = values.getColorStateList(colorFirst ? 0 : 1);
+            if (radiusAttr != 0) radius = values.getDimension(colorFirst ? 1 : 0, 0f);
+        } finally {
+            values.recycle();
+        }
+        if (color == null) {
+            eventOnce(Log.WARN, "MAP_BORDER_NO_COLOR", "theme", "first");
+            return;
+        }
+        float density = resources.getDisplayMetrics().density;
+        android.graphics.drawable.StateListDrawable states = new android.graphics.drawable.StateListDrawable();
+        states.addState(new int[] {android.R.attr.state_window_focused, android.R.attr.state_hovered},
+                mapBorderShape(MapBorder.pixels(MapBorder.hovered(widthDp), density), color, radius));
+        states.addState(new int[] {android.R.attr.state_focused, android.R.attr.state_window_focused},
+                mapBorderShape(MapBorder.pixels(widthDp, density), color, radius));
+        frame.setForeground(new android.graphics.drawable.InsetDrawable(states, 0));
+        eventOnce(Log.INFO, "MAP_BORDER_APPLIED", "width", String.valueOf(widthDp), "px",
+                String.valueOf(MapBorder.pixels(widthDp, density)));
+    }
+
+    private static android.graphics.drawable.Drawable mapBorderShape(int widthPx, android.content.res.ColorStateList color, float radius) {
+        android.graphics.drawable.GradientDrawable shape = new android.graphics.drawable.GradientDrawable();
+        shape.setShape(android.graphics.drawable.GradientDrawable.RECTANGLE);
+        shape.setColor(0);
+        shape.setStroke(widthPx, color);
+        shape.setCornerRadius(radius);
+        return shape;
+    }
+
     private volatile String launcherRaw;
     private volatile LauncherTweaks.Config launcherParsed;
     private final Map<Integer, Boolean> launcherLayouts = new ConcurrentHashMap<>();
@@ -868,27 +947,38 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private final java.util.Set<android.view.View> fittedContainers =
+            java.util.Collections.synchronizedSet(java.util.Collections.newSetFromMap(new java.util.WeakHashMap<>()));
+
     /**
-     * Size of the signal and battery icons. Only how they are drawn is scaled, around the centre
-     * of the row that holds them; their layout size stays as it is, because a changed size inside
-     * the status bar's ConstraintLayout has gone wrong before. The row's parents are told not to
-     * cut off what a larger row draws beyond its own edges.
+     * Size of the signal and battery icons, and room for the battery number. Only how the row
+     * that holds them is drawn is scaled; the icons' layout sizes stay as they are, because a
+     * changed size inside the status bar's ConstraintLayout has gone wrong before. Seen on a
+     * head unit: at 140% the row was cut off by the plate, and with both icons shown the battery
+     * number was squeezed out of view. So after every layout pass the row is fitted: the plate
+     * is asked to become as wide as the scaled row needs (up to the rail's width), the row is
+     * given its full width when the number is in it, and it is drawn at the wanted scale or, when
+     * even the rail is too narrow, as large as fits, centred.
      */
     private void applyIconSize(android.view.View root, StatusBarTweaks.Config config) {
-        if (config.iconSize == StatusBarTweaks.DEFAULT_ICON_SIZE) return;
+        if (config.iconSize == StatusBarTweaks.DEFAULT_ICON_SIZE && !config.batteryPercent) return;
         try {
             float scale = StatusBarTweaks.iconScale(config.iconSize);
-            android.view.View row = findByName(root, StatusBarTweaks.ICON_ROW);
+            final android.view.View row = findByName(root, StatusBarTweaks.ICON_ROW);
             String route;
-            if (row != null) {
-                row.setScaleX(scale);
-                row.setScaleY(scale);
-                android.view.ViewParent parent = row.getParent();
+            if (row != null && row.getParent() instanceof android.view.ViewGroup container) {
+                android.view.ViewParent parent = container;
                 for (int level = 0; level < 2 && parent instanceof android.view.ViewGroup group; level++) {
                     group.setClipChildren(false);
                     group.setClipToPadding(false);
                     parent = group.getParent();
                 }
+                final android.view.View plate = findByName(root, StatusBarTweaks.PLATE);
+                if (fittedContainers.add(container)) {
+                    container.addOnLayoutChangeListener((view, l, t, r, b, ol, ot, or, ob) -> fitIconRow(row, plate));
+                }
+                row.setScaleX(scale);
+                row.setScaleY(scale);
                 route = "row";
             } else {
                 int scaled = 0;
@@ -904,6 +994,62 @@ public final class AndroidAutoModule extends XposedModule {
             eventOnce(Log.INFO, "STATUS_ICON_SIZE", "status_bar", route + "@" + config.iconSize);
         } catch (Throwable t) {
             eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "status_bar", t.getClass().getSimpleName());
+        }
+    }
+
+    /** One fitting pass for the icon row; see {@link #applyIconSize}. Runs after each layout of its container. */
+    private void fitIconRow(android.view.View rowView, android.view.View plate) {
+        try {
+            StatusBarTweaks.Config config = statusBar();
+            if (config == null || !(rowView instanceof android.view.ViewGroup row)
+                    || !(row.getParent() instanceof android.view.View container)) return;
+            android.view.View text = row.findViewWithTag(BATTERY_PERCENT_TAG);
+            int needed = row.getPaddingLeft() + row.getPaddingRight();
+            for (int i = 0; i < row.getChildCount(); i++) {
+                android.view.View child = row.getChildAt(i);
+                if (child.getVisibility() == android.view.View.GONE) continue;
+                if (child == text && text instanceof android.widget.TextView number) {
+                    needed += (int) Math.ceil(number.getPaint().measureText(StatusBarTweaks.WIDEST_PERCENT))
+                            + number.getPaddingLeft() + number.getPaddingRight();
+                } else {
+                    needed += child.getMeasuredWidth();
+                }
+                if (child.getLayoutParams() instanceof android.view.ViewGroup.MarginLayoutParams margins) {
+                    needed += margins.leftMargin + margins.rightMargin;
+                }
+            }
+            // The widest the container can be: the rail's width less what surrounds the container.
+            int maxContainer = container.getWidth();
+            if (plate != null && plate.getParent() instanceof android.view.View wrapper
+                    && wrapper.getWidth() > 0 && plate.getWidth() >= container.getWidth()) {
+                int around = plate.getWidth() - container.getWidth();
+                maxContainer = wrapper.getWidth() - wrapper.getPaddingLeft() - wrapper.getPaddingRight() - around;
+                StatusBarTweaks.RowFit wanted = StatusBarTweaks.fitRow(needed, StatusBarTweaks.iconScale(config.iconSize), maxContainer);
+                int plateWidth = wanted.containerWidth + around;
+                // Only ever asked to grow: a plate that is already wider (a large clock) stays.
+                if (plate.getMinimumWidth() != plateWidth) plate.setMinimumWidth(plateWidth);
+            }
+            // With the number in it the row needs its full width, or the number is squeezed.
+            if (text != null && row.getWidth() < needed) {
+                android.view.ViewGroup.LayoutParams params = row.getLayoutParams();
+                if (params != null && params.width != needed) {
+                    params.width = needed;
+                    row.setLayoutParams(params);
+                }
+                return; // fitted on the layout pass this causes
+            }
+            int width = row.getWidth();
+            if (width <= 0 || container.getWidth() <= 0) return;
+            StatusBarTweaks.RowFit fit = StatusBarTweaks.fitRow(width, StatusBarTweaks.iconScale(config.iconSize), container.getWidth());
+            row.setPivotX(0f);
+            row.setPivotY(row.getHeight() / 2f);
+            row.setScaleX(fit.scale);
+            row.setScaleY(fit.scale);
+            row.setTranslationX(StatusBarTweaks.centredLeft(container.getWidth(), width, fit.scale) - row.getLeft());
+            eventOnce(Log.INFO, "STATUS_ICON_ROW_FIT", "status_bar", width + "in" + container.getWidth(),
+                    "scale", String.valueOf(fit.scale));
+        } catch (Throwable t) {
+            eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "fit", t.getClass().getSimpleName());
         }
     }
 
@@ -1009,6 +1155,12 @@ public final class AndroidAutoModule extends XposedModule {
             for (String name : StatusBarTweaks.TINTABLE_ICONS) {
                 if (findByName(root, name) instanceof android.widget.ImageView icon) {
                     icon.setImageTintList(android.content.res.ColorStateList.valueOf(config.iconColor));
+                    // Android Auto's battery icon is a drawable of its own that ignores a tint
+                    // but honours a colour filter; the ImageView re-applies the filter whenever
+                    // the drawable is replaced.
+                    if (StatusBarTweaks.FILTERED_ICONS.contains(name)) {
+                        icon.setColorFilter(config.iconColor, android.graphics.PorterDuff.Mode.SRC_IN);
+                    }
                 }
             }
         }

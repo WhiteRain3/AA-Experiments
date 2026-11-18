@@ -19,6 +19,8 @@ public final class StatusBarTweaks {
             "clock", "signal_icon", "battery_level", "dnd_icon", "notification_count_wrapper");
     public static final List<String> TINTABLE_ICONS = Arrays.asList(
             "cell_signal", "cell_info_overlay", "battery_level", "dnd_icon");
+    /** Icons that take their colour from a colour filter because their drawable ignores a tint. */
+    public static final List<String> FILTERED_ICONS = Arrays.asList("battery_level");
     public static final String CLOCK = "clock";
     public static final String PLATE = "status_bar_card_view";
     /** The row holding the signal and battery icons, where the battery number is added. */
@@ -51,6 +53,39 @@ public final class StatusBarTweaks {
      */
     public static float sizeInsideScaledRow(float wanted, int iconPercent) {
         return wanted / iconScale(iconPercent);
+    }
+
+    /** The widest battery number, used to reserve room so the row does not jump between levels. */
+    public static final String WIDEST_PERCENT = "100%";
+    /** The icon row is never drawn smaller than this, however little room there is. */
+    public static final float MIN_ROW_SCALE = 0.5f;
+
+    /** How the icon row is drawn: at which scale, and how wide its container has to be for that. */
+    public static final class RowFit {
+        public final float scale;
+        public final int containerWidth;
+
+        RowFit(float scale, int containerWidth) {
+            this.scale = scale;
+            this.containerWidth = containerWidth;
+        }
+    }
+
+    /**
+     * Fits the icon row into the rail. {@code needed} is the row's full width at 100% (icons plus
+     * the battery number), {@code wanted} the scale asked for, {@code maxContainer} the widest
+     * the row's container can become inside the rail. The row is drawn at the wanted scale when
+     * that fits, otherwise as large as fits, so nothing is cut off or pushed out of view.
+     */
+    public static RowFit fitRow(int needed, float wanted, int maxContainer) {
+        if (needed <= 0 || maxContainer <= 0) return new RowFit(wanted, 0);
+        float scale = Math.max(MIN_ROW_SCALE, Math.min(wanted, (float) maxContainer / needed));
+        return new RowFit(scale, Math.min(maxContainer, (int) Math.ceil(needed * scale)));
+    }
+
+    /** Where the row's left edge goes so that the scaled row is centred in its container. */
+    public static float centredLeft(int containerWidth, int rowWidth, float scale) {
+        return (containerWidth - rowWidth * scale) / 2f;
     }
 
     /** Largest corner radius offered for the plate, in dp. */

@@ -259,6 +259,48 @@ public class StatusBarTweaksTest {
         assertEquals(-1, StatusBarTweaks.percent(50, 0));
     }
 
+    @Test public void rowFitsAtTheWantedScaleWhenThereIsRoom() {
+        // Two icons, 69 px wide, in a rail whose container can be 97 px: 140% (96.6 px) just fits.
+        StatusBarTweaks.RowFit fit = StatusBarTweaks.fitRow(69, 1.4f, 97);
+        assertEquals(1.4f, fit.scale, 0.0001f);
+        assertEquals(97, fit.containerWidth);
+        // At 100% the container only needs the row's own width.
+        fit = StatusBarTweaks.fitRow(69, 1.0f, 97);
+        assertEquals(1.0f, fit.scale, 0.0001f);
+        assertEquals(69, fit.containerWidth);
+    }
+
+    @Test public void rowIsShrunkWhenIconsAndNumberDoNotFit() {
+        // Two icons plus the number need 133 px; only 97 are there.
+        StatusBarTweaks.RowFit fit = StatusBarTweaks.fitRow(133, 1.0f, 97);
+        assertEquals(97f / 133f, fit.scale, 0.0001f);
+        assertEquals(97, fit.containerWidth);
+        assertTrue(133 * fit.scale <= 97.001f);
+        // A larger wanted size cannot make it overflow either.
+        assertEquals(97f / 133f, StatusBarTweaks.fitRow(133, 1.4f, 97).scale, 0.0001f);
+        // A smaller wanted size is kept.
+        assertEquals(0.7f, StatusBarTweaks.fitRow(133, 0.7f, 97).scale, 0.0001f);
+    }
+
+    @Test public void rowFitEdges() {
+        // Never below the floor, and unusable measurements change nothing.
+        assertEquals(StatusBarTweaks.MIN_ROW_SCALE, StatusBarTweaks.fitRow(1000, 1.0f, 97).scale, 0.0001f);
+        assertEquals(1.2f, StatusBarTweaks.fitRow(0, 1.2f, 97).scale, 0.0001f);
+        assertEquals(0, StatusBarTweaks.fitRow(0, 1.2f, 97).containerWidth);
+        assertEquals(1.2f, StatusBarTweaks.fitRow(69, 1.2f, 0).scale, 0.0001f);
+    }
+
+    @Test public void scaledRowIsCentred() {
+        assertEquals(0f, StatusBarTweaks.centredLeft(97, 133, 97f / 133f), 0.001f);
+        assertEquals(8f, StatusBarTweaks.centredLeft(85, 69, 1.0f), 0.001f);
+        assertEquals(-5.8f, StatusBarTweaks.centredLeft(85, 69, 1.4f), 0.001f);
+    }
+
+    @Test public void filteredIconsAreAmongTheTintableOnes() {
+        assertTrue(StatusBarTweaks.TINTABLE_ICONS.containsAll(StatusBarTweaks.FILTERED_ICONS));
+        assertTrue(StatusBarTweaks.FILTERED_ICONS.contains("battery_level"));
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

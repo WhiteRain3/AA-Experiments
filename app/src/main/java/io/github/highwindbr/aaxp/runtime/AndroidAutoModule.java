@@ -527,6 +527,36 @@ public final class AndroidAutoModule extends XposedModule {
         }
     }
 
+    private final java.util.Set<Method> hookedVisibilitySetters =
+            java.util.Collections.synchronizedSet(new java.util.HashSet<>());
+
+    /**
+     * Some view classes (ImageView among them) override setVisibility. The platform's
+     * precompiled code can call View.setVisibility from inside such an override without going
+     * through the hook on View, so a hidden view of that class could be shown again unseen.
+     * Hook every override between the view's class and View, once each.
+     */
+    private void hookOwnVisibilitySetters(Class<?> type) {
+        for (Class<?> current = type; current != null && current != android.view.View.class; current = current.getSuperclass()) {
+            try {
+                Method own = current.getDeclaredMethod("setVisibility", int.class);
+                if (!hookedVisibilitySetters.add(own)) continue;
+                hook(own).setExceptionMode(XposedInterface.ExceptionMode.PROTECTIVE).intercept(chain -> {
+                    if (anyHiddenViews && !Integer.valueOf(android.view.View.GONE).equals(chain.getArg(0))
+                            && hiddenViews.contains(chain.getThisObject())) {
+                        return chain.proceed(new Object[] {android.view.View.GONE});
+                    }
+                    return chain.proceed();
+                });
+                event(Log.INFO, "STATUS_BAR_VISIBILITY_HOOK", current.getName());
+            } catch (NoSuchMethodException notOverridden) {
+                // This class does not override it; nothing to hook.
+            } catch (Throwable t) {
+                event(Log.WARN, "STATUS_BAR_VISIBILITY_HOOK_FAILED", current.getName(), "error", t.getClass().getSimpleName());
+            }
+        }
+    }
+
     private static final String BATTERY_PERCENT_TAG = "aax_battery_percent";
 
     /**
@@ -596,6 +626,7 @@ public final class AndroidAutoModule extends XposedModule {
             if (target == null) continue;
             hiddenViews.add(target);
             anyHiddenViews = true;
+            hookOwnVisibilitySetters(target.getClass());
             target.setVisibility(android.view.View.GONE);
             // Android Auto can show a view again without going through setVisibility; a view
             // with no size and no opacity stays out of sight either way.

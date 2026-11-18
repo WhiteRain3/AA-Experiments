@@ -67,7 +67,9 @@ instrumented or physical-device acceptance yet.
   publishes a release when the version name changes on the fork's branch.
 - Status bar: battery level as a percentage next to the status icons; hidden parts are now also
   given no size and no opacity, and a second way Android Auto can re-show a view is covered,
-  because hiding the battery icon did not work on the owner's car.
+  because hiding the battery icon did not work on the owner's car. The likely cause: ImageView
+  overrides setVisibility and precompiled platform code reaches View.setVisibility from inside
+  it without passing the hook, so each such override is now hooked as well.
 - Review fixes: the resource colour override now only applies to Android Auto's own resources,
   not to other apps' resources it reads; look files carry the extra colours.
 - More colours: Android Auto colours app labels, the clock, the rail's own icons, the launcher

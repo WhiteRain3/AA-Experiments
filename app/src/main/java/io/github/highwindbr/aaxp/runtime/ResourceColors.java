@@ -19,6 +19,11 @@ public final class ResourceColors {
     public static final String TEXT = "text";
     public static final String LAUNCHER_BACKGROUND = "launcher_bg";
     public static final String MAP_FOCUS = "map_focus";
+    /**
+     * The launcher's ring around the item the knob is on ({@code ?attr/palette_p_85}). The ring
+     * may instead be computed from the Primary role at runtime, in which case this has no effect.
+     */
+    public static final String FOCUS_RING = "focus_ring";
 
     /** Group id to the colour resources it covers. */
     private static final Map<String, List<String>> GROUPS = new LinkedHashMap<>();
@@ -26,6 +31,7 @@ public final class ResourceColors {
         GROUPS.put(TEXT, Arrays.asList("baseline_palette_n_95", "dynamic_palette_n_95"));
         GROUPS.put(LAUNCHER_BACKGROUND, Arrays.asList("baseline_palette_n_15", "dynamic_palette_n_15"));
         GROUPS.put(MAP_FOCUS, Arrays.asList("neutral_palette_p_40"));
+        GROUPS.put(FOCUS_RING, Arrays.asList("baseline_palette_p_85", "dynamic_palette_p_85"));
     }
 
     private ResourceColors() { }

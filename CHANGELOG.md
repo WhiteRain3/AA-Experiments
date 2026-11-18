@@ -123,6 +123,9 @@ instrumented or physical-device acceptance yet.
   Unit in step with the phone. It reopens DHU whenever Android Auto's main process changes, and
   starts the head unit server over adb with root. `scripts/dhu-rotary.ini` is a non-touch 800x480
   profile.
+- More colours: a row for the knob's focus ring in the launcher (colour resources
+  `baseline_palette_p_85` and `dynamic_palette_p_85`). Untested on a car, and it may have no
+  effect if Android Auto computes the ring from the Primary role instead.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

@@ -49,7 +49,7 @@ also answered 404 at random for files that exist (seen 2026-11-18 for
 `kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 496 tests and none fail.
+At the time of writing there are 498 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -215,7 +215,11 @@ says the hook works; it does not say the car's screen, knob or sensors behave th
   as read from the screenshot, not from the apps themselves: their themed (monochrome) layer
   is a filled disc with the figure cut out. `GlyphIcons.figureInsidePlate` now turns such a
   layer into its cut-out figure; a wrongly recognised icon would show only its holes, so a
-  report of an icon that became unrecognisable points there.
+  report of an icon that became unrecognisable points there. It refuses an outline around a
+  solid figure (more than one opaque piece), except a thick rim around small holes: in the
+  screenshot YT Music's ring is cut all the way round, leaving an island, and without that
+  exception it would stay reversed. Layers are judged once each (cache by ConstantState) on a
+  108 px render.
 - Launcher "icons only" works: names gone, rows close up, four rows fit instead of three and a
   bit, the focus box shrinks to fit.
 - Day and night: the head unit's `day` / `night` command changed no colour the module had set

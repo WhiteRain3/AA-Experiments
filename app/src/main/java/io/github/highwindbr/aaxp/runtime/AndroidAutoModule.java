@@ -1401,8 +1401,14 @@ public final class AndroidAutoModule extends XposedModule {
                     ? monochrome.getConstantState().newDrawable().mutate() : monochrome.mutate();
             glyph.setTint(colors[0]);
             // A themed layer drawn as a plate with the figure cut out would come out reversed.
-            android.graphics.drawable.Drawable figure = figureFromPlate(glyph, colors[0]);
-            if (figure != null) glyph = figure;
+            // Whether a layer is such a plate is remembered per layer, so only the few that are
+            // get rendered again.
+            Object layerKey = monochrome.getConstantState();
+            if (layerKey == null || !Boolean.FALSE.equals(PLATE_LAYERS.get(layerKey))) {
+                android.graphics.drawable.Drawable figure = figureFromPlate(glyph, colors[0]);
+                if (layerKey != null) PLATE_LAYERS.put(layerKey, figure != null);
+                if (figure != null) glyph = figure;
+            }
         } else {
             // No themed layer: derive a glyph from the icon's own foreground.
             glyph = generatedGlyph(adaptive.getForeground(), colors[0]);
@@ -1442,11 +1448,19 @@ public final class AndroidAutoModule extends XposedModule {
                 new android.graphics.drawable.InsetDrawable(glyph, GlyphIcons.insetFraction(GlyphIcons.LEGACY_FIGURE, size)));
     }
 
+    /** Themed layers already judged: true for a plate with a cut-out figure, false for anything else. */
+    private static final Map<Object, Boolean> PLATE_LAYERS =
+            java.util.Collections.synchronizedMap(new java.util.WeakHashMap<>());
+    /** Half the size of a generated glyph: enough to judge and draw a cut-out figure. */
+    private static final int PLATE_CHECK_SIZE = 108;
+
     /** The cut-out figure of a plate-shaped themed layer as a drawable in {@code color}, or null. Never throws. */
     private static android.graphics.drawable.Drawable figureFromPlate(android.graphics.drawable.Drawable layer, int color) {
+        android.graphics.Bitmap rendered = null;
+        boolean used = false;
         try {
-            int size = GENERATED_GLYPH_SIZE;
-            android.graphics.Bitmap rendered = android.graphics.Bitmap.createBitmap(
+            int size = PLATE_CHECK_SIZE;
+            rendered = android.graphics.Bitmap.createBitmap(
                     size, size, android.graphics.Bitmap.Config.ARGB_8888);
             android.graphics.Rect previous = layer.copyBounds();
             layer.setBounds(0, 0, size, size);
@@ -1461,9 +1475,12 @@ public final class AndroidAutoModule extends XposedModule {
             int opacity = color >>> 24;
             for (int i = 0; i < mask.length; i++) pixels[i] = ((mask[i] * opacity / 255) << 24) | rgb;
             rendered.setPixels(pixels, 0, size, 0, 0, size, size);
+            used = true;
             return new android.graphics.drawable.BitmapDrawable(android.content.res.Resources.getSystem(), rendered);
         } catch (Throwable t) {
             return null;
+        } finally {
+            if (rendered != null && !used) rendered.recycle();
         }
     }
 

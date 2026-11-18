@@ -122,23 +122,23 @@ internal fun ColoursPage(
                 { picking = Triple("Launcher background", extraRow(ResourceColors.LAUNCHER_BACKGROUND) ?: 0xFF252626.toInt()) { setExtra(extra + (ResourceColors.LAUNCHER_BACKGROUND to it)) } },
                 { setExtra(extra - ResourceColors.LAUNCHER_BACKGROUND) },
                 tip = "The colour behind the app grid. Not tried on a car yet.")
-            RowDivider()
-            ColourRow("Knob focus ring", extraRow(ResourceColors.FOCUS_RING),
-                { picking = Triple("Knob focus ring", extraRow(ResourceColors.FOCUS_RING) ?: 0xFFF2F0F0.toInt()) { setExtra(extra + (ResourceColors.FOCUS_RING to it)) } },
-                { setExtra(extra - ResourceColors.FOCUS_RING) },
-                tip = "The ring around the item the knob is on in the launcher. This is a guess: Android Auto may work its colour out from the " +
-                    "theme's Primary colour instead, and then this does nothing. If so, change Primary in the theme. Not tried on a car yet.")
         }
 
-        // 4. Border around the map.
+        // 4. The outlines the knob draws.
         var borderWidth by remember(connected, revision) { mutableStateOf(if (connected) model.mapBorderWidth() else null) }
-        SettingsSection("Map border", tip = "The outline around the map when the knob is on it. The width is in dp; Android Auto's own is 6. " +
-            "Not confirmed on a head unit or a car yet.") {
-            ColourRow("Border colour", extraRow(ResourceColors.MAP_FOCUS),
-                { picking = Triple("Border colour", extraRow(ResourceColors.MAP_FOCUS) ?: 0xFFF2F0F0.toInt()) { setExtra(extra + (ResourceColors.MAP_FOCUS to it)) } },
+        SettingsSection("Focus outlines", tip = "The outlines drawn around what the knob is on. \"Map and card outline\" is the outline around the map and the " +
+            "dashboard cards (it also colours the media card's outline). \"Rail and launcher ring\" is the ring on the rail and in the launcher; on a " +
+            "head unit it did not come from the theme's Primary colour. The map outline's width is in dp; Android Auto's own is 6. " +
+            "Not confirmed on a car yet, and the width not on a head unit either.") {
+            ColourRow("Map and card outline", extraRow(ResourceColors.MAP_FOCUS),
+                { picking = Triple("Map and card outline", extraRow(ResourceColors.MAP_FOCUS) ?: 0xFFF2F0F0.toInt()) { setExtra(extra + (ResourceColors.MAP_FOCUS to it)) } },
                 { setExtra(extra - ResourceColors.MAP_FOCUS) })
             RowDivider()
-            SliderRow("Border width", MapBorderSetting.label(borderWidth), MapBorderSetting.sliderStart(borderWidth).toFloat(),
+            ColourRow("Rail and launcher ring", extraRow(ResourceColors.FOCUS_RING),
+                { picking = Triple("Rail and launcher ring", extraRow(ResourceColors.FOCUS_RING) ?: 0xFFF2F0F0.toInt()) { setExtra(extra + (ResourceColors.FOCUS_RING to it)) } },
+                { setExtra(extra - ResourceColors.FOCUS_RING) })
+            RowDivider()
+            SliderRow("Map outline width", MapBorderSetting.label(borderWidth), MapBorderSetting.sliderStart(borderWidth).toFloat(),
                 MapBorder.MIN.toFloat()..MapBorder.MAX.toFloat(),
                 onChangeFinished = { borderWidth = it.toInt(); model.setMapBorderWidth(it.toInt()) },
                 onReset = if (borderWidth != null) ({ borderWidth = null; model.setMapBorderWidth(null) }) else null,

@@ -142,6 +142,7 @@ instrumented or physical-device acceptance yet.
 - The App icons preview draws the sample icons on the background colour as set, with a checkerboard behind a see-through background.
 - Plainer messages: "Saved. Restart Android Auto to see it." (or "Saved. Restarting Android Auto.") after a flag change, and "Colours saved"; saving a look file says which file it was saved to; the look file's "?" says what the file does not carry (flag overrides, Quick switches, wallpapers over 12 MB).
 - Every page's top right is the three-dot menu (no decorative badge); a page's own explanation is "About this page" in that menu.
+- Colours page: "Map border" is now "Focus outlines" with "Map and card outline" (also colours the media card's outline), "Rail and launcher ring" (moved here from Text and backgrounds) and "Map outline width"; the "?" says which is which. Nothing stored changed.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

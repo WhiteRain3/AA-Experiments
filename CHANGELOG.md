@@ -170,7 +170,7 @@ instrumented or physical-device acceptance yet.
   resources, where the resource id names the package; the module uses that to tell apps apart.
   The Manager lists apps with a launcher icon (a `queries` entry; nothing leaves the phone).
   Untested on a car; not yet part of look files or Undo.
-- versionName `1.0.0-wr30`, versionCode unchanged.
+- versionName `1.0.0-wr31`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate
 

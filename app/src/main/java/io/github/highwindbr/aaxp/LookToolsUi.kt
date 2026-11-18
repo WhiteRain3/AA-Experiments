@@ -116,7 +116,8 @@ private val STATUS_BAR_PARTS = listOf(
 private val EXTRA_COLOURS = listOf(
     io.github.highwindbr.aaxp.runtime.ResourceColors.TEXT to "Labels, clock and rail icons",
     io.github.highwindbr.aaxp.runtime.ResourceColors.LAUNCHER_BACKGROUND to "Launcher background",
-    io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to "Focus border around the map")
+    io.github.highwindbr.aaxp.runtime.ResourceColors.MAP_FOCUS to "Focus border around the map",
+    io.github.highwindbr.aaxp.runtime.ResourceColors.FOCUS_RING to "Knob's focus ring in the launcher (may do nothing)")
 
 /** Colours that the palette roles do not reach, because Android Auto reads them from fixed resources. */
 @Composable internal fun ExtraColorsCard(model: ManagerViewModel, connected: Boolean) {
@@ -139,7 +140,7 @@ private val EXTRA_COLOURS = listOf(
                 if (colors[group] != null) TextButton({ colors = colors - group }) { Text("Android Auto's own") }
             }
         }
-        Text("The launcher's focus ring is not here: it appears to follow the theme's Primary colour as a lighter tint.",
+        Text("The focus ring is a guess: Android Auto may work its colour out from the theme's Primary colour instead, and then this setting does nothing. If so, change Primary in the theme.",
             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Button({ model.setResourceColors(colors) }, Modifier.fillMaxWidth(), enabled = connected) { Text("Save") }
     } }

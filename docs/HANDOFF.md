@@ -44,10 +44,12 @@ set -o pipefail; if ANDROID_HOME=/opt/android-sdk gradle --no-daemon --max-worke
 
 The first build in a fresh session downloads the libraries. One of them comes from
 `api.xposed.info`, which is on the environment's allowed hosts; if dependency resolution fails
-on the first try, run the command again before treating it as a code problem.
+on the first try, run the command again before treating it as a code problem. Maven Central has
+also answered 404 at random for files that exist (seen 2026-11-18 for
+`kotlin-compose-compiler-plugin-embeddable-2.2.10`); the same cure applies, sometimes twice.
 
 It takes about three minutes. Test results are in `app/build/test-results/testDebugUnitTest/`.
-At the time of writing there are 372 tests and none fail.
+At the time of writing there are 387 tests and none fail.
 
 Release: `.github/workflows/fork-release.yml` runs on every push to `claude/companion-features`.
 If the `versionName` in `app/build.gradle` has no GitHub release yet, it tests, builds, signs
@@ -168,7 +170,9 @@ colours" card on the Themes page sets them. Built and unit-tested, not confirmed
 
 The launcher's focus ring is `?attr/palette_p_85` in the theme. On the car it was a light pink
 while the role finder had `Primary` set to pure red, so it appears to be a light tint derived
-from `Primary`; this is an inference from one screenshot. The media card's background and play
+from `Primary`; this is an inference from one screenshot. "More colours" has a focus ring row
+(group `focus_ring`: `baseline_palette_p_85`, `dynamic_palette_p_85`) to settle it: if the ring
+does not change on the car, it is computed from `Primary` and the row should be removed. The media card's background and play
 button are not themed by either mechanism (probably taken from the album art).
 
 ### View ids seen in the layout capture (Android Auto 18.0)

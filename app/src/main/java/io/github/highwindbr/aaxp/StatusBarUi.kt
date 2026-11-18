@@ -66,7 +66,10 @@ internal fun CollapsibleSection(title: String, summary: String, tip: String? = n
     }
 }
 
-/** A mock bar that follows the settings: clock, signal and battery on the background. */
+/**
+ * A mock bar that follows the settings: the clock, signal and battery in the colours and sizes set, on the background as set.
+ * The sample number appears only while the percentage is on, and nothing is red unless a red colour was chosen.
+ */
 @Composable
 private fun StatusBarMock(
     hidden: Set<String>, clockColor: Int?, iconColor: Int?, noPlate: Boolean, plateColor: Int?, plateRadius: Int?,
@@ -88,7 +91,6 @@ private fun StatusBarMock(
                 if (batteryPercent) Text("74%", color = Color(batteryColor ?: clockColor ?: 0xFFF2F0F0.toInt()), fontSize = 11.sp)
                 Box(Modifier.size(iconDp * 1.6f, iconDp).background(icons, RoundedCornerShape(3.dp)))
             }
-            if (StatusBarView.isShown(hidden, "dnd_icon")) Box(Modifier.size(iconDp).background(icons, CircleShape))
         }
     }
 }

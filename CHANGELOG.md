@@ -146,6 +146,13 @@ instrumented or physical-device acceptance yet.
   sixth for glyphs made from non-adaptive icons is now computed from the size; themed layers
   are inset or enlarged the same way. 100% draws exactly what was drawn before. Untested on a
   car; not yet part of look files or Undo.
+- Status bar plate: colour (with opacity) and corner roundness, besides removing it. Colour
+  works on any view; roundness is applied through the card's own radius setter when it has one,
+  or by a drawn rounded background when a colour is set too. The module log event
+  `STATUS_BAR_PLATE` says which route was taken. Untested on a car.
+- Status bar: one size slider (70 to 140%) for the signal and battery icons. Only the drawing
+  of the icon row is scaled, around its centre; layout sizes are untouched. The battery
+  percentage keeps its own size. Untested on a car.
 - versionName `1.0.0-wr28`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

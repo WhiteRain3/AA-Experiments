@@ -64,6 +64,9 @@ private val STATUS_BAR_PARTS = listOf(
     var batterySize by remember(stored) { mutableStateOf(stored?.batterySize ?: StatusBarTweaks.DEFAULT_BATTERY_SIZE) }
     var clockSize by remember(stored) { mutableStateOf(stored?.clockSize ?: StatusBarTweaks.DEFAULT_CLOCK_SIZE) }
     var clockBold by remember(stored) { mutableStateOf(stored?.clockBold ?: false) }
+    var plateColor by remember(stored) { mutableStateOf(stored?.plateColor) }
+    var plateRadius by remember(stored) { mutableStateOf(stored?.plateRadius) }
+    var iconSize by remember(stored) { mutableStateOf(stored?.iconSize ?: StatusBarTweaks.DEFAULT_ICON_SIZE) }
     var picking by remember { mutableStateOf<Pair<String, (Int) -> Unit>?>(null) }
     picking?.let { (title, apply) ->
         ColorPickerDialog(title, 0xFFFFFFFF.toInt(), onDismiss = { picking = null }) { apply(it); picking = null }
@@ -97,24 +100,46 @@ private val STATUS_BAR_PARTS = listOf(
                 valueRange = StatusBarTweaks.MIN_BATTERY_SIZE.toFloat()..StatusBarTweaks.MAX_BATTERY_SIZE.toFloat())
             colorRow("Percentage colour", batteryColor) { batteryColor = it }
         }
+        Text("Background plate", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         switchRow("Remove the background behind the status bar", noPlate) { noPlate = it }
+        if (!noPlate) {
+            colorRow("Plate colour (lower the opacity in the picker for see-through)", plateColor) { plateColor = it }
+            switchRow("Set the plate's corner roundness", plateRadius != null) { plateRadius = if (it) 12 else null }
+            plateRadius?.let { radius ->
+                Text("Corners: $radius (0 is square)", style = MaterialTheme.typography.labelLarge)
+                androidx.compose.material3.Slider(radius.toFloat(), { plateRadius = (it / 2).toInt() * 2 },
+                    valueRange = 0f..StatusBarTweaks.MAX_PLATE_RADIUS.toFloat())
+                Text("Roundness may not take effect: it depends on how Android Auto built the plate, which is only known once tried on the car.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
         Text("Clock", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
         Text("Clock size: $clockSize%", style = MaterialTheme.typography.labelLarge)
         androidx.compose.material3.Slider(clockSize.toFloat(), { clockSize = (it / 5).toInt() * 5 },
             valueRange = StatusBarTweaks.MIN_CLOCK_SIZE.toFloat()..StatusBarTweaks.MAX_CLOCK_SIZE.toFloat())
         switchRow("Bold clock", clockBold) { clockBold = it }
         colorRow("Clock colour", clockColor) { clockColor = it }
+        Text("Signal and battery icons", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+        Text("Icon size: $iconSize%", style = MaterialTheme.typography.labelLarge)
+        androidx.compose.material3.Slider(iconSize.toFloat(), { iconSize = (it / 5).toInt() * 5 },
+            valueRange = StatusBarTweaks.MIN_ICON_SIZE.toFloat()..StatusBarTweaks.MAX_ICON_SIZE.toFloat())
         colorRow("Icon colour", iconColor) { iconColor = it }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button({
                 // Keep the order stable so the stored text does not change needlessly.
                 val hide = LinkedHashSet(StatusBarTweaks.HIDEABLE.filter { it in hidden })
-                model.setStatusBarConfig(StatusBarTweaks.encode(StatusBarTweaks.Config(hide, clockColor, iconColor, noPlate, batteryPercent, batteryColor, batterySize, clockSize, clockBold)))
+                val builder = StatusBarTweaks.Builder()
+                builder.hide = hide; builder.clockColor = clockColor; builder.iconColor = iconColor; builder.noPlate = noPlate
+                builder.batteryPercent = batteryPercent; builder.batteryColor = batteryColor; builder.batterySize = batterySize
+                builder.clockSize = clockSize; builder.clockBold = clockBold
+                builder.plateColor = plateColor; builder.plateRadius = plateRadius; builder.iconSize = iconSize
+                model.setStatusBarConfig(StatusBarTweaks.encode(builder.build()))
             }, Modifier.weight(1f), enabled = connected) { Text("Save") }
             OutlinedButton({
                 hidden = emptySet(); clockColor = null; iconColor = null; noPlate = false; batteryPercent = false
                 batteryColor = null; batterySize = StatusBarTweaks.DEFAULT_BATTERY_SIZE
                 clockSize = StatusBarTweaks.DEFAULT_CLOCK_SIZE; clockBold = false
+                plateColor = null; plateRadius = null; iconSize = StatusBarTweaks.DEFAULT_ICON_SIZE
                 model.setStatusBarConfig(null)
             }, Modifier.weight(1f), enabled = connected && stored != null) { Text("Turn off") }
         }

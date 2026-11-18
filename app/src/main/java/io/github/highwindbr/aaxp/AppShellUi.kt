@@ -371,7 +371,7 @@ internal class PageMenu(
 /** The frame around a feature's page: back arrow, title, and the app's messages at the bottom. */
 @Composable internal fun FeaturePageScaffold(
     page: FeaturePage, messages: SnackbarHostState, model: ManagerViewModel, connected: Boolean, onBack: () -> Unit, scrolls: Boolean = true,
-    menu: PageMenu? = null, content: @Composable () -> Unit
+    menu: PageMenu? = null, tip: String? = null, content: @Composable () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     var confirmReset by remember { mutableStateOf(false) }
@@ -386,7 +386,10 @@ internal class PageMenu(
                 IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back") }
                 Spacer(Modifier.width(4.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(page.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(page.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        if (tip != null) TipIcon(page.title, tip)
+                    }
                     Text(page.subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 if (menu != null) Box {

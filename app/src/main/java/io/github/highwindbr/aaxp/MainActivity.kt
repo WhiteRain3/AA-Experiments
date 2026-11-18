@@ -159,6 +159,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
     var experimentKey by rememberSaveable { mutableStateOf<String?>(null) }
     var settingsPageName by rememberSaveable { mutableStateOf(SettingsPage.ROOT.name) }
     var coloursRevision by remember { mutableStateOf(0) }
+    var statusBarReset by remember { mutableStateOf(0) }
     val settingsPage = runCatching { SettingsPage.valueOf(settingsPageName) }.getOrDefault(SettingsPage.ROOT)
     val uiContext = LocalContext.current
     val managerPrefs = remember { uiContext.getSharedPreferences("manager_ui", 0) }
@@ -239,7 +240,10 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
         FeaturePageScaffold(page, feedbackHost, model, connected, { featurePageName = null }, scrolls = page != FeaturePage.SYSTEM,
             menu = if (page == FeaturePage.THEMES) PageMenu("colours", onReset = { model.resetColourPage(); coloursRevision++ },
                 resetNote = "The colour slots and the text and background colours go back to default. The map border width is not changed; it has its own reset arrow.",
-                extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } })) else null) {
+                extra = listOf("Scan again" to { model.locateThemeRoles { coloursRevision++ } }))
+                else if (page == FeaturePage.STATUS_BAR) PageMenu("status bar", onReset = { model.setStatusBarConfig(null); statusBarReset++ })
+                else null,
+            tip = if (page == FeaturePage.STATUS_BAR) STATUS_BAR_PAGE_TIP else null) {
             when (page) {
                 FeaturePage.THEMES -> ColoursPage(model, state.dynamicOverrides, connected, coloursRevision) { coloursRevision++ }
                 FeaturePage.WALLPAPER -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -250,7 +254,7 @@ private enum class ExperimentFilter { ALL, MODIFIED, SUSPENDED, ADDED, REMOVED, 
                     GlyphIconsCard(model, connected)
                     PerAppIconsCard(model, connected)
                 }
-                FeaturePage.STATUS_BAR -> StatusBarCard(model, connected)
+                FeaturePage.STATUS_BAR -> StatusBarPage(model, connected, statusBarReset)
                 FeaturePage.LAUNCHER -> LauncherCard(model, connected)
                 FeaturePage.LOOK_FILE -> LookFileCard(model, connected)
                 FeaturePage.PRESETS -> PresetsCard(model, state.dynamicOverrides, connected)

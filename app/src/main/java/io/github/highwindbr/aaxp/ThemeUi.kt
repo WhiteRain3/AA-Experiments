@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -125,7 +126,10 @@ internal fun ColorPickerDialog(
     }
     fun syncHex() { hex = ColorMath.toHex(ColorMath.hsvToColor(hue, saturation, value, alpha)) }
 
+    // imePadding with a dialog that does not fit system windows keeps "Use colour" above the keyboard; the body scrolls.
     AlertDialog(onDismissRequest = onDismiss, title = { Text(title) },
+        modifier = Modifier.imePadding(),
+        properties = DialogProperties(decorFitsSystemWindows = false),
         text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             // Saturation (left to right) and brightness (bottom to top) for the chosen hue.
             Canvas(Modifier.fillMaxWidth().aspectRatio(1.5f).clip(RoundedCornerShape(10.dp))
@@ -172,7 +176,7 @@ internal fun ColorPickerDialog(
                     ColorSwatch(color, Modifier.size(48.dp)); Text("Now", style = MaterialTheme.typography.labelSmall)
                 }
                 OutlinedTextField(hex, { typed ->
-                    hex = typed.take(9)
+                    hex = typed.uppercase().filter { it in '0'..'9' || it in 'A'..'F' }.take(9)
                     ColorMath.parseHex(hex)?.let { parsed ->
                         val hsv = ColorMath.colorToHsv(parsed)
                         hue = hsv[0]; saturation = hsv[1]; value = hsv[2]
@@ -181,6 +185,10 @@ internal fun ColorPickerDialog(
                 }, Modifier.weight(1f), label = { Text("Hex colour") },
                     supportingText = { Text(if (allowAlpha) "RRGGBB or AARRGGBB" else "RRGGBB") },
                     singleLine = true, isError = ColorMath.parseHex(hex) == null,
+                    // Capital letters, no suggestions, and a plain ASCII keyboard.
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Characters,
+                        autoCorrectEnabled = false, keyboardType = androidx.compose.ui.text.input.KeyboardType.Ascii),
                     textStyle = MaterialTheme.typography.bodyLarge.copy(fontFamily = FontFamily.Monospace))
             }
             if (recent.isNotEmpty()) {

@@ -489,9 +489,14 @@ internal class PageMenu(
                     }
                 } else IconBadge(page.icon, 40)
             }
-            if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                item { ChangesWaitingBanner(model, connected); content() }
-            } else Box(Modifier.fillMaxSize()) { content() }
+            // The restart banner floats at the bottom instead of sitting above the content, so it appearing never moves what is on screen.
+            Box(Modifier.fillMaxSize()) {
+                if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
+                    contentPadding = PaddingValues(top = 8.dp, bottom = if (model.changesWaiting) 88.dp else 8.dp)) {
+                    item { content() }
+                } else Box(Modifier.fillMaxSize()) { content() }
+                Box(Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 8.dp)) { ChangesWaitingBanner(model, connected) }
+            }
         }
     }
 }

@@ -137,6 +137,7 @@ instrumented or physical-device acceptance yet.
 - Section headings on every page have the same height (with or without a "?"), 24dp above and 8dp below.
 - The folded sections on the Status bar page are equal card rows with a one-line summary of what is set ("140%, bold, #00FFFF", "Default", "Hidden").
 - The Status bar preview no longer draws a do-not-disturb dot; it shows only the clock, signal and battery as set, with the sample percentage only while the percentage is on.
+- Colour picker: the hex field uses capital letters, no suggestions and a plain keyboard, and "Use colour" stays above the keyboard. The "Changes saved. Restart Android Auto" banner floats at the bottom of a page, so it appearing no longer shifts the page.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

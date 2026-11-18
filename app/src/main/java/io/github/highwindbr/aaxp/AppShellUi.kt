@@ -460,6 +460,30 @@ internal class PageMenu(
     val resetNote: String? = null
 )
 
+/** The scroll state of the page being shown, so a page can keep its scroll position exact across a dialog. */
+internal val LocalPageListState = androidx.compose.runtime.staticCompositionLocalOf<androidx.compose.foundation.lazy.LazyListState?> { null }
+
+/**
+ * Remembers where the page is scrolled when [open] turns true and puts it back, exactly, once it turns false: for about
+ * a second after that, any move that the user did not make is undone. It keeps a dialog (a colour picker) from shifting the page.
+ */
+@Composable internal fun KeepScrollAcross(open: Boolean) {
+    val list = LocalPageListState.current ?: return
+    var saved by remember { mutableStateOf<Pair<Int, Int>?>(null) }
+    LaunchedEffect(open) {
+        if (open) saved = list.firstVisibleItemIndex to list.firstVisibleItemScrollOffset
+        else saved?.let { (index, offset) ->
+            val until = System.nanoTime() + 1_000_000_000L
+            while (System.nanoTime() < until) {
+                androidx.compose.runtime.withFrameNanos { }
+                if (list.isScrollInProgress) break // the user took over
+                if (list.firstVisibleItemIndex != index || list.firstVisibleItemScrollOffset != offset) list.scrollToItem(index, offset)
+            }
+            saved = null
+        }
+    }
+}
+
 /** The frame around a feature's page: back arrow, title, and the app's messages at the bottom. */
 @Composable internal fun FeaturePageScaffold(
     page: FeaturePage, messages: SnackbarHostState, model: ManagerViewModel, connected: Boolean, onBack: () -> Unit, scrolls: Boolean = true,
@@ -498,11 +522,13 @@ internal class PageMenu(
                 } else Spacer(Modifier.size(48.dp))
             }
             // The restart banner floats at the bottom instead of sitting above the content, so it appearing never moves what is on screen.
+            // The room under the content for the banner is always there, so the banner appearing changes no layout at all.
+            val listState = androidx.compose.foundation.lazy.rememberLazyListState()
             Box(Modifier.fillMaxSize()) {
-                if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp),
-                    contentPadding = PaddingValues(top = 8.dp, bottom = if (model.changesWaiting) 88.dp else 8.dp)) {
-                    item { content() }
-                } else Box(Modifier.fillMaxSize().padding(bottom = if (model.changesWaiting) 88.dp else 0.dp)) { content() }
+                if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), state = listState,
+                    contentPadding = PaddingValues(top = 8.dp, bottom = 88.dp)) {
+                    item { androidx.compose.runtime.CompositionLocalProvider(LocalPageListState provides listState) { content() } }
+                } else Box(Modifier.fillMaxSize().padding(bottom = 88.dp)) { content() }
                 Box(Modifier.align(Alignment.BottomCenter).padding(horizontal = 16.dp, vertical = 8.dp)) { ChangesWaitingBanner(model, connected) }
             }
         }

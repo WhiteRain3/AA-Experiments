@@ -52,13 +52,16 @@ internal fun ColoursPage(
     var local by remember { mutableStateOf(0) }
     // An old override of the dead border flag, saved by an earlier version, is removed once.
     LaunchedEffect(Unit) { model.removeDeadMapBorderFlagOnce() }
-    val roleClass = remember(connected, revision, local) { if (connected) model.themeRoleClass() else null }
-    val roles = remember(connected, revision, local) { if (connected) model.themeColorsMap() else emptyMap() }
-    val glyph = remember(connected, revision, local) { if (connected) model.glyphIconColors() else null }
-    var extra by remember(connected, revision) { mutableStateOf(if (connected) model.resourceColors() else emptyMap()) }
+    // Everything shown here is read again after any look write finished (lookRevision), including Undo from the snackbar or Home.
+    val written = model.lookRevision
+    val roleClass = remember(connected, revision, local, written) { if (connected) model.themeRoleClass() else null }
+    val roles = remember(connected, revision, local, written) { if (connected) model.themeColorsMap() else emptyMap() }
+    val glyph = remember(connected, revision, local, written) { if (connected) model.glyphIconColors() else null }
+    var extra by remember(connected, revision, written) { mutableStateOf(if (connected) model.resourceColors() else emptyMap()) }
     fun setExtra(next: Map<String, Int>) { extra = next; model.setResourceColors(next) }
     fun extraRow(group: String) = extra[group]
 
+    KeepScrollAcross(open = picking != null)
     if (editing) ThemeEditor(model) { editing = false; local++ }
     picking?.let { (title, start, apply) ->
         ColorPickerDialog(title, start, onDismiss = { picking = null }) { picked -> apply(picked); picking = null }
@@ -125,7 +128,7 @@ internal fun ColoursPage(
         }
 
         // 4. The outlines the knob draws.
-        var borderWidth by remember(connected, revision) { mutableStateOf(if (connected) model.mapBorderWidth() else null) }
+        var borderWidth by remember(connected, revision, written) { mutableStateOf(if (connected) model.mapBorderWidth() else null) }
         SettingsSection("Focus outlines", tip = "The outlines drawn around what the knob is on. \"Map and card outline\" is the outline around the map and the " +
             "dashboard cards (it also colours the media card's outline). \"Rail and launcher ring\" is the ring on the rail and in the launcher; on a " +
             "head unit it did not come from the theme's Primary colour. The map outline's width is in dp; Android Auto's own is 6. " +

@@ -44,6 +44,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -144,6 +145,7 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { SafeModeBanner(model, connected) }
+        item { ChangesWaitingBanner(model, connected) }
         item {
             val colors = MaterialTheme.colorScheme
             Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp))
@@ -210,9 +212,31 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
     }
 }
 
+/** Shown on feature pages and Home while a saved look change is waiting for Android Auto to restart. */
+@Composable internal fun ChangesWaitingBanner(model: ManagerViewModel, connected: Boolean) {
+    if (!model.changesWaiting) return
+    Surface(Modifier.fillMaxWidth().padding(bottom = 10.dp), shape = RoundedCornerShape(16.dp),
+        color = MaterialTheme.colorScheme.tertiaryContainer) {
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("Changes saved. Restart Android Auto to see them.", Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onTertiaryContainer)
+            TextButton({ model.requestAndroidAutoControl(restart = true, headUnit = model.headUnitAfterRestart()) }, enabled = connected) { Text("Restart") }
+        }
+    }
+}
+
+/** A collapsed "How this works" section for the long caveats that most people do not need each time. */
+@Composable internal fun HowThisWorks(text: String) {
+    var open by remember { mutableStateOf(false) }
+    Column {
+        TextButton({ open = !open }) { Text(if (open) "How this works ▲" else "How this works ▼") }
+        if (open) Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 /** The frame around a feature's page: back arrow, title, and the app's messages at the bottom. */
 @Composable internal fun FeaturePageScaffold(
-    page: FeaturePage, messages: SnackbarHostState, onBack: () -> Unit, scrolls: Boolean = true,
+    page: FeaturePage, messages: SnackbarHostState, model: ManagerViewModel, connected: Boolean, onBack: () -> Unit, scrolls: Boolean = true,
     content: @Composable () -> Unit
 ) {
     Scaffold(snackbarHost = { SnackbarHost(messages) }) { padding ->
@@ -227,7 +251,7 @@ private class LookState(model: ManagerViewModel, connected: Boolean) {
                 IconBadge(page.icon, 40)
             }
             if (scrolls) LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(vertical = 8.dp)) {
-                item { content() }
+                item { ChangesWaitingBanner(model, connected); content() }
             } else Box(Modifier.fillMaxSize()) { content() }
         }
     }

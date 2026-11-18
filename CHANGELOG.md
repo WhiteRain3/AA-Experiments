@@ -92,6 +92,7 @@ instrumented or physical-device acceptance yet.
 - Theme editor: seed colour taken from the car wallpaper's main colour; copy a theme as text
   and paste one from the clipboard.
 - Theme editor: a live drawing of the car's dashboard, pinned at the top, recolours as colour slots change (the seven confirmed slots; unset slots approximate); the editor is split into Start, Colours and Keep and share.
+- Look pages: one short intro line each; a single "Changes saved. Restart Android Auto to see them" banner with a Restart button replaces the repeated restart notes; long caveats sit behind "How this works". Status bar switches are headed "Hide" with short labels.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

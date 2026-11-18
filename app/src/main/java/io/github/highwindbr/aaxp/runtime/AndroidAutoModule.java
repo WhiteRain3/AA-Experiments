@@ -783,7 +783,11 @@ public final class AndroidAutoModule extends XposedModule {
                 eventOnce(Log.WARN, "BATTERY_PERCENT_NO_ROW", "status_bar", "first");
                 return;
             }
-            if (row.findViewWithTag(BATTERY_PERCENT_TAG) != null) return;
+            if (root.findViewWithTag(BATTERY_PERCENT_TAG) != null) return;
+            // Beside an icon the number gets a line of its own, as a child of the plate, which is
+            // a FrameLayout: adding to it does not disturb the status bar's own layout.
+            android.view.View plateView = findByName(root, StatusBarTweaks.PLATE);
+            final boolean stacked = StatusBarTweaks.stacksNumber(config) && plateView instanceof android.widget.FrameLayout;
             final android.widget.TextView text = new android.widget.TextView(row.getContext());
             text.setTag(BATTERY_PERCENT_TAG);
             text.setSingleLine(true);
@@ -797,8 +801,9 @@ public final class AndroidAutoModule extends XposedModule {
             } else {
                 size = 32f;
             }
-            // The number sits in the icon row, which is drawn at the icon size's scale.
-            size = StatusBarTweaks.sizeInsideScaledRow(size * config.batterySize / 100f, config.iconSize);
+            size = size * config.batterySize / 100f;
+            // In the icon row the number is drawn at the icon size's scale; on its own line it is not.
+            if (!stacked) size = StatusBarTweaks.sizeInsideScaledRow(size, config.iconSize);
             if (config.clockColor != null) color = config.clockColor;
             if (config.batteryColor != null) color = config.batteryColor;
             text.setTextColor(color);
@@ -838,9 +843,17 @@ public final class AndroidAutoModule extends XposedModule {
                     } catch (Throwable ignored) { }
                 }
             });
-            row.addView(text, new android.view.ViewGroup.LayoutParams(
-                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
-            eventOnce(Log.INFO, "BATTERY_PERCENT_ADDED", "status_bar", "first");
+            if (stacked) {
+                ((android.widget.FrameLayout) plateView).addView(text, new android.widget.FrameLayout.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+                        android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL));
+                final android.view.View rowView = row;
+                text.addOnLayoutChangeListener((view, l, t, r, b, ol, ot, or, ob) -> fitIconRow(rowView, plateView));
+            } else {
+                row.addView(text, new android.view.ViewGroup.LayoutParams(
+                        android.view.ViewGroup.LayoutParams.WRAP_CONTENT, android.view.ViewGroup.LayoutParams.WRAP_CONTENT));
+            }
+            eventOnce(Log.INFO, "BATTERY_PERCENT_ADDED", "status_bar", stacked ? "own_line" : "in_row");
         } catch (Throwable t) {
             eventOnce(Log.WARN, "BATTERY_PERCENT_FAILED", "add", t.getClass().getSimpleName());
         }
@@ -1121,13 +1134,34 @@ public final class AndroidAutoModule extends XposedModule {
             int width = row.getWidth();
             if (width <= 0 || container.getWidth() <= 0) return;
             StatusBarTweaks.RowFit fit = StatusBarTweaks.fitRow(width, StatusBarTweaks.iconScale(config.iconSize), container.getWidth());
+            float scale = fit.scale;
+            // The number on its own line: icons, number and clock are placed in the plate.
+            android.view.View own = plate == null ? null : plate.findViewWithTag(BATTERY_PERCENT_TAG);
+            if (own != null && own.getParent() == plate && container.getParent() == plate && plate.getHeight() > 0) {
+                android.view.View clock = findByName(plate, StatusBarTweaks.CLOCK);
+                boolean clockShown = clock != null && clock.getVisibility() == android.view.View.VISIBLE;
+                StatusBarTweaks.Stack stack = StatusBarTweaks.stack(plate.getHeight(), row.getHeight(), own.getHeight(),
+                        clockShown ? clock.getHeight() : 0, scale);
+                scale = stack.iconScale;
+                row.setPivotY(0f);
+                row.setTranslationY(stack.iconTop - (container.getTop() + row.getTop()));
+                own.setPivotX(own.getWidth() / 2f);
+                own.setPivotY(0f);
+                own.setScaleX(stack.numberScale);
+                own.setScaleY(stack.numberScale);
+                own.setTranslationY(stack.numberTop - own.getTop());
+                if (clockShown) clock.setTranslationY(stack.clockTop - (container.getTop() + clock.getTop()));
+                eventOnce(Log.INFO, "STATUS_BAR_STACKED", "status_bar", plate.getHeight() + "h",
+                        "icons", String.valueOf(stack.iconScale), "number", String.valueOf(stack.numberScale));
+            } else {
+                row.setPivotY(row.getHeight() / 2f);
+            }
             row.setPivotX(0f);
-            row.setPivotY(row.getHeight() / 2f);
-            row.setScaleX(fit.scale);
-            row.setScaleY(fit.scale);
-            row.setTranslationX(StatusBarTweaks.centredLeft(container.getWidth(), width, fit.scale) - row.getLeft());
+            row.setScaleX(scale);
+            row.setScaleY(scale);
+            row.setTranslationX(StatusBarTweaks.centredLeft(container.getWidth(), width, scale) - row.getLeft());
             eventOnce(Log.INFO, "STATUS_ICON_ROW_FIT", "status_bar", width + "in" + container.getWidth(),
-                    "scale", String.valueOf(fit.scale));
+                    "scale", String.valueOf(scale));
         } catch (Throwable t) {
             eventOnce(Log.WARN, "STATUS_ICON_SIZE_FAILED", "fit", t.getClass().getSimpleName());
         }

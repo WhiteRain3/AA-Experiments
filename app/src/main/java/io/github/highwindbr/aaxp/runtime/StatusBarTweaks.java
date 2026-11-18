@@ -104,6 +104,59 @@ public final class StatusBarTweaks {
         return new RowFit(scale, Math.min(maxContainer, (int) Math.ceil(needed * scale)));
     }
 
+    /**
+     * Whether the battery number gets a line of its own. Beside a signal or battery icon there
+     * is no room for it in the rail (the plate is about 85 px wide; two icons and a number at
+     * the clock's size need well over 100), so it goes between the icons and the clock. With
+     * both icons hidden it stays where the icons were.
+     */
+    public static boolean stacksNumber(Config config) {
+        if (config == null || !config.batteryPercent) return false;
+        for (String icon : SIZED_ICONS) if (!config.hide.contains(icon)) return true;
+        return false;
+    }
+
+    /** Lines of a stacked status bar are never drawn smaller than this share of their size. */
+    public static final float MIN_STACK_SCALE = 0.6f;
+
+    /** Three lines in the plate, top to bottom: icons, battery number, clock. */
+    public static final class Stack {
+        /** Scale of the icon row and of the number. The clock is never scaled. */
+        public final float iconScale, numberScale;
+        /** Top edge of each line, measured from the top of the plate. */
+        public final float iconTop, numberTop, clockTop;
+
+        Stack(float iconScale, float numberScale, float iconTop, float numberTop, float clockTop) {
+            this.iconScale = iconScale;
+            this.numberScale = numberScale;
+            this.iconTop = iconTop;
+            this.numberTop = numberTop;
+            this.clockTop = clockTop;
+        }
+    }
+
+    /**
+     * Lays the three lines out in a plate of {@code plateHeight}. The icon row is wanted at
+     * {@code iconScale}. When the lines are taller than the plate together, the icons and the
+     * number are drawn smaller by the same share (never below {@link #MIN_STACK_SCALE}); the
+     * clock keeps its size. What is left over is spread evenly above, between and below.
+     */
+    public static Stack stack(int plateHeight, int rowHeight, int numberHeight, int clockHeight, float iconScale) {
+        float icons = Math.max(0, rowHeight) * iconScale, number = Math.max(0, numberHeight);
+        float clock = Math.max(0, clockHeight);
+        float shrink = 1f;
+        if (icons + number > 0f && icons + number + clock > plateHeight) {
+            shrink = Math.max(MIN_STACK_SCALE, Math.min(1f, (plateHeight - clock) / (icons + number)));
+        }
+        icons *= shrink;
+        number *= shrink;
+        float gap = Math.max(0f, plateHeight - icons - number - clock) / 4f;
+        float numberTop = gap + icons + gap;
+        // When even the smallest size does not fit, the clock still ends at the plate's bottom.
+        float clockTop = Math.min(numberTop + number + gap, Math.max(0f, plateHeight - clock));
+        return new Stack(iconScale * shrink, shrink, gap, numberTop, clockTop);
+    }
+
     /** Where the row's left edge goes so that the scaled row is centred in its container. */
     public static float centredLeft(int containerWidth, int rowWidth, float scale) {
         return (containerWidth - rowWidth * scale) / 2f;

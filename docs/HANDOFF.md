@@ -159,7 +159,15 @@ Built and unit-tested, not yet confirmed on the device:
   translation. The space around the container is read from the layout parameters (in 18.0 the
   container is `match_parent` in the plate with a 4dp margin), never measured, so the plate
   cannot creep wider. The row's explicit width is handed back (`wrap_content`) when the number
-  is no longer in it. Not yet seen on a head unit or car.
+  is no longer in it. Seen on a head unit (wr37): nothing is cut any more, but the rail really
+  is too narrow: the wrapper around the plate is itself only about 85 px wide, so the plate
+  cannot grow, and icons plus number on one row came out at 52 to 63%. So, when the number is
+  shown beside an icon (`StatusBarTweaks.stacksNumber`), the number is added to the plate (a
+  FrameLayout) instead of the row and `StatusBarTweaks.stack` places three lines in the plate's
+  height (110 px; the container only uses 88 of it) with translationY: icons, number, clock.
+  Icons and number shrink together only if the lines are taller than the plate; the clock is
+  never scaled. Log: `STATUS_BAR_STACKED` with the plate height and both scales. Icons alone
+  can be at most about 110% before the row is wider than the plate. Not yet seen anywhere.
 - Battery icon colour: `battery_level` shows a custom drawable (class `onr` in 18.0) with its own
   paints; it ignores `setImageTintList` but implements `setColorFilter`, so the module also sets
   a colour filter on that ImageView. The drawable paints itself red at low level (15% and

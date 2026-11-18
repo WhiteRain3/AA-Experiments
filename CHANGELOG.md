@@ -237,7 +237,13 @@ instrumented or physical-device acceptance yet.
 - Status bar (module side): "keep the red warning at low battery". With `battery_low_red=on`
   next to an icon colour, the battery icon drops the icon colour at 15% and below while not
   charging, so Android Auto's own red shows, and takes it back above that or on the charger.
-  Follows the battery live. The app has no switch for it yet. Untested on a head unit or car.
+  Follows the battery live. Untested on a head unit or car.
+- Status bar: beside a signal or battery icon the battery number now gets a line of its own,
+  between the icons and the clock, inside the same plate. On a head unit the single row had to
+  be drawn at about half size to fit the rail, which made the number unreadable and the icon
+  size slider look as if it did nothing. Icons and number are only drawn smaller when the three
+  lines are taller than the plate, by the same share, and never below 60%; the clock keeps its
+  size. With both icons hidden the number stays where it was. Untested on a head unit or car.
 - versionName `1.0.0-wr37`, versionCode unchanged.
 
 ## 1.0.0 — stable candidate

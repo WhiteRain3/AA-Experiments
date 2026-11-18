@@ -334,6 +334,51 @@ public class StatusBarTweaksTest {
         assertNull(StatusBarTweaks.parse("icons=FFFFFF00;battery_low_red=off"));
     }
 
+    @Test public void numberGetsItsOwnLineOnlyBesideAnIcon() {
+        assertTrue(StatusBarTweaks.stacksNumber(StatusBarTweaks.parse("battery=percent")));
+        assertTrue(StatusBarTweaks.stacksNumber(StatusBarTweaks.parse("hide=signal_icon;battery=percent")));
+        assertTrue(StatusBarTweaks.stacksNumber(StatusBarTweaks.parse("hide=battery_level;battery=percent")));
+        assertFalse(StatusBarTweaks.stacksNumber(StatusBarTweaks.parse("hide=signal_icon,battery_level;battery=percent")));
+        assertFalse(StatusBarTweaks.stacksNumber(StatusBarTweaks.parse("clock=FFFFFFFF")));
+        assertFalse(StatusBarTweaks.stacksNumber(null));
+    }
+
+    @Test public void threeLinesThatFitKeepTheirSizeAndShareTheSpace() {
+        // Plate 110 px; icons 30, number 26, clock 34: 20 px left over, 5 px per gap.
+        StatusBarTweaks.Stack stack = StatusBarTweaks.stack(110, 30, 26, 34, 1.0f);
+        assertEquals(1.0f, stack.iconScale, 0.0001f);
+        assertEquals(1.0f, stack.numberScale, 0.0001f);
+        assertEquals(5f, stack.iconTop, 0.001f);
+        assertEquals(40f, stack.numberTop, 0.001f);
+        assertEquals(71f, stack.clockTop, 0.001f);
+    }
+
+    @Test public void threeLinesThatDoNotFitShrinkIconsAndNumberButNotTheClock() {
+        // The owner's bar: plate 110, icon row 40, number 38, clock 40: 118 wanted.
+        StatusBarTweaks.Stack stack = StatusBarTweaks.stack(110, 40, 38, 40, 1.0f);
+        assertEquals(70f / 78f, stack.numberScale, 0.0001f);
+        assertEquals(stack.numberScale, stack.iconScale, 0.0001f);
+        assertEquals(0f, stack.iconTop, 0.001f);
+        assertEquals(70f, stack.clockTop, 0.01f);
+        // Icons at 140% still come out bigger than at 100%, and the number stays readable.
+        StatusBarTweaks.Stack big = StatusBarTweaks.stack(110, 40, 38, 40, 1.4f);
+        assertTrue(big.iconScale > stack.iconScale);
+        assertTrue(big.numberScale >= 0.7f);
+        assertEquals(70f, big.clockTop, 0.01f);
+    }
+
+    @Test public void stackEdges() {
+        // Never below the floor; the clock still ends at the plate's bottom.
+        StatusBarTweaks.Stack tight = StatusBarTweaks.stack(60, 40, 38, 40, 1.4f);
+        assertEquals(StatusBarTweaks.MIN_STACK_SCALE, tight.numberScale, 0.0001f);
+        assertEquals(20f, tight.clockTop, 0.001f);
+        // A hidden clock just leaves two lines.
+        StatusBarTweaks.Stack two = StatusBarTweaks.stack(110, 40, 30, 0, 1.0f);
+        assertEquals(1.0f, two.iconScale, 0.0001f);
+        assertEquals(10f, two.iconTop, 0.001f);
+        assertEquals(60f, two.numberTop, 0.001f);
+    }
+
     @Test public void singleParts() {
         assertTrue(StatusBarTweaks.parse("plate=off").noPlate);
         assertEquals(Integer.valueOf(0xFF00FF00), StatusBarTweaks.parse("icons=FF00FF00").iconColor);

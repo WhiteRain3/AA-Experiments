@@ -1333,6 +1333,27 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
             { "Extra colours not saved: ${it.message}" }))
     }
 
+    // ---- Rail strip: background colour and wallpaper strength ----
+
+    fun railLook(): String? = runCatching {
+        ServiceBridge.dynamicPreferencesOrNull()?.getString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, null)
+    }.getOrNull()
+
+    fun setRailLook(look: String?) = viewModelScope.launch {
+        val restarted = withContext(Dispatchers.IO) { runCatching {
+            val editor = checkNotNull(ServiceBridge.dynamicPreferencesOrNull()) { "Xposed service is not connected" }.edit()
+            if (look == null) editor.remove(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY)
+            else editor.putString(io.github.highwindbr.aaxp.runtime.CarWallpaper.RAIL_LOOK_KEY, look)
+            check(editor.commit()) { "Framework rejected the preference update" }
+            autoRestartAfterChange() && sendControlRequests(restart = true, headUnit = headUnitAfterRestart())
+        } }
+        mutable.value = mutable.value.copy(message = restarted.fold(
+            { changesWaiting = !it
+              (if (look == null) "Rail strip back to the default." else "Rail strip saved.") +
+                if (it) " Android Auto was asked to restart." else " Restart Android Auto to see it." },
+            { "Rail strip not saved: ${it.message}" }))
+    }
+
     // ---- Launcher (the grid of app icons) ----
 
     fun launcherConfig(): String? = runCatching {

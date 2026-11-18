@@ -203,7 +203,8 @@ public final class AndroidAutoModule extends XposedModule {
                     overrideSnapshot.get(ThemeColors.COLORS_KEY), overrideSnapshot.get(GlyphIcons.KEY),
                     overrideSnapshot.get(CarWallpaper.VERSION_KEY), overrideSnapshot.get(StatusBarTweaks.KEY),
                     overrideSnapshot.get(CarWallpaper.RAIL_KEY), overrideSnapshot.get(ResourceColors.KEY),
-                    overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(SafeMode.EPOCH_KEY));
+                    overrideSnapshot.get(LauncherTweaks.KEY), overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY),
+                    overrideSnapshot.get(SafeMode.EPOCH_KEY));
             if (signature == null) return true;
             java.io.File file = new java.io.File(app.dataDir, "aax_safe_" + SafeMode.fileToken(moduleProcessName) + ".txt");
             String stored = null;
@@ -332,7 +333,8 @@ public final class AndroidAutoModule extends XposedModule {
      */
     private void installStatusBarHooks() {
         final StatusBarTweaks.Config atStart = statusBar();
-        final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY));
+        final boolean railAtStart = CarWallpaper.isEnabled(overrideSnapshot.get(CarWallpaper.RAIL_KEY))
+                || CarWallpaper.parseRailLook(overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY)).color != null;
         final LauncherTweaks.Config launcherAtStart = launcher();
         if (atStart == null && !railAtStart && launcherAtStart == null) return;
         try {
@@ -493,11 +495,15 @@ public final class AndroidAutoModule extends XposedModule {
     /**
      * The rail is its own window and Android Auto never paints the wallpaper there. When a rail
      * slice is stored, an image view showing it is added behind the rail's (transparent) content,
-     * matched to how the launcher shows the wallpaper: 80% opaque over dark grey.
+     * by default matched to how the launcher shows the wallpaper: 80% opaque over dark grey. The
+     * strip's colour and the slice's strength can be set; a colour alone paints the strip.
      */
     private void applyRailWallpaper(android.view.View root, Integer layout) {
         String version = overrideSnapshot.get(CarWallpaper.RAIL_KEY);
-        if (!CarWallpaper.isEnabled(version)) return;
+        CarWallpaper.RailLook look = CarWallpaper.parseRailLook(overrideSnapshot.get(CarWallpaper.RAIL_LOOK_KEY));
+        boolean slice = CarWallpaper.isEnabled(version);
+        // Without a wallpaper slice only a chosen colour is painted; with neither, nothing is touched.
+        if (!slice && look.color == null) return;
         try {
             Boolean match = railLayouts.get(layout);
             android.view.View container = null;
@@ -506,17 +512,21 @@ public final class AndroidAutoModule extends XposedModule {
                 if (match == null) railLayouts.put(layout, container != null);
             }
             if (!(container instanceof android.widget.FrameLayout frame)) return;
+            frame.setBackgroundColor(look.colorOrDefault());
+            if (!slice) {
+                eventOnce(Log.INFO, "RAIL_COLOR_APPLIED", "rail", String.format("%08X", look.colorOrDefault()));
+                return;
+            }
             android.widget.ImageView image = frame.findViewWithTag(RAIL_WALLPAPER_TAG);
             if (image == null) {
                 image = new android.widget.ImageView(frame.getContext());
                 image.setTag(RAIL_WALLPAPER_TAG);
                 image.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);
-                image.setAlpha(0.8f);
                 image.setBackgroundColor(0);
-                frame.setBackgroundColor(0xFF252626);
                 frame.addView(image, 0, new android.widget.FrameLayout.LayoutParams(
                         android.view.ViewGroup.LayoutParams.MATCH_PARENT, android.view.ViewGroup.LayoutParams.MATCH_PARENT));
             }
+            image.setAlpha(look.alpha());
             android.graphics.Bitmap bitmap = railWallpaperBitmap;
             if (bitmap == null || !version.equals(railWallpaperVersion)) {
                 try (ParcelFileDescriptor descriptor = openRemoteFile(CarWallpaper.RAIL_FILE_NAME)) {

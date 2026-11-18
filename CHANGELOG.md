@@ -146,6 +146,8 @@ instrumented or physical-device acceptance yet.
 - Removing the old map border flag override no longer restarts Android Auto (even with "Restart after a change" on) and says what was done: "Removed the old map border flag override; it has no effect in this Android Auto version."
 - Fixed: the "<style> applied. Undo" snackbar disappeared at once (so Undo could not be tapped); it now stays up for a few seconds with Undo. The floating "Changes saved" banner no longer covers the bottom of the System status page.
 - Status bar > Icons: a "Keep the red battery warning when low" switch (shown while an icon colour is set) keeps Android Auto's own red battery icon at 15% and below when not charging.
+- Colours page: the scroll position is kept exactly across a colour pick (the room for the banner under the content is now always there, and the position is restored if anything moves it). The "Applied" mark on a style follows the saved colours after any change, including Undo from the snackbar or from Home, because pages now read what is saved again after every look write.
+- Loading a look checks that the wallpaper editor's settings were stored as the file has them, and says so if not; a new test round-trips the editor's settings (Darken, Blur and the rest) through a look file.
 - Quick settings tile "Restart Android Auto".
 - The head unit server button is shown only in Desktop Head Unit mode.
 - Car wallpaper: the Manager stores a downscaled JPEG in a module-readable remote file. Inside

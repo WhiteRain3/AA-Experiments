@@ -1359,6 +1359,8 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
                 if (importedSettings != null) runCatching {
                     temporary.copyTo(CarWallpaperStudio.sourceFile(context), overwrite = true)
                     CarWallpaperStudio.save(context, importedSettings)
+                    // Read back what was stored: the editor must now show exactly the file's values.
+                    check(CarWallpaperStudio.load(context) == importedSettings) { "the stored values differ from the file's" }
                     markWallpaperApplied()
                 }.onFailure { problem ->
                     parts[parts.indexOf("wallpaper")] = "wallpaper (but the wallpaper editor could not be updated: ${problem.message})"
@@ -1611,7 +1613,18 @@ class ManagerViewModel(application: Application) : AndroidViewModel(application)
     private val lookWriteLock = kotlinx.coroutines.sync.Mutex()
 
     /** Runs a look write on the IO dispatcher, one at a time and in the order they were asked for, so an older write never lands last. */
-    private suspend fun <T> lookWrite(block: () -> T): T = lookWriteLock.withLock { withContext(Dispatchers.IO) { block() } }
+    private suspend fun <T> lookWrite(block: () -> T): T = try {
+        lookWriteLock.withLock { withContext(Dispatchers.IO) { block() } }
+    } finally {
+        lookRevision++
+    }
+
+    /**
+     * Goes up each time a look write finishes (or is undone), so a page that shows what is saved can
+     * read it again, whoever made the change: the page itself, the Undo snackbar or the Undo tile on Home.
+     */
+    var lookRevision by androidx.compose.runtime.mutableStateOf(0)
+        private set
 
     // ---- Undo for the look ----
 

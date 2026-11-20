@@ -1,0 +1,62 @@
+<!doctype html><html><head><meta charset="utf-8"><title>New design language</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{width:1680px;background:#0b0d12;font-family:system-ui,"Liberation Sans","DejaVu Sans",sans-serif;color:#eef1f7;padding:30px 40px 40px}
+h1{font-size:32px;font-weight:800}
+.idea{font-size:16px;line-height:1.5;color:#c4cbdc;max-width:1500px;margin:8px 0 20px}
+.h2{font-size:12px;letter-spacing:.1em;color:#8b93a7;margin:6px 2px 8px;text-transform:uppercase}
+.row{display:flex;gap:24px;margin-bottom:6px;align-items:flex-start}
+.cell{width:512px;flex:none}
+.frame{position:relative;border-radius:14px;overflow:hidden;border:1px solid #2a3144}
+.cap{font-size:14px;margin:8px 2px 14px;color:#9aa3b8}.cap span{color:#e3e8f5;font-weight:700;margin-right:6px}
+.strip{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.step{width:300px;flex:none}
+.step .frame{border-radius:10px}
+.step .cap{font-size:13px;margin:6px 2px 0}
+.arrow{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:#6ee7a8;font-weight:800;width:72px;flex:none;text-align:center}
+.arrow svg{width:30px;height:30px}
+.arrow b{font-size:13px;letter-spacing:.06em}
+.style{width:512px;background:#10131b;border:1px solid #232a3b;border-radius:14px;padding:16px 18px;font-size:14px;line-height:1.5;color:#c4cbdc}
+.style h3{font-size:12px;letter-spacing:.1em;color:#8b93a7;margin:10px 0 4px;text-transform:uppercase}.style h3:first-child{margin-top:0}
+.sw{display:inline-block;width:26px;height:26px;border-radius:7px;margin-right:6px;vertical-align:middle;border:1px solid #ffffff22}
+.screen{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0;overflow:hidden;background:#0e121b;--acc:#6ee7a8}
+.screen svg.map{position:absolute;left:0;top:0}
+.unused{position:absolute;left:1200px;top:0;width:80px;height:720px;background:repeating-linear-gradient(45deg,#06070a,#06070a 10px,#0b0d12 10px,#0b0d12 20px);border-left:2px solid #2a3144}
+.ring{outline:7px solid var(--acc);outline-offset:5px;box-shadow:0 0 0 5px #06080d,0 0 0 21px rgba(6,8,13,.6)}
+.t{text-shadow:0 2px 6px rgba(0,0,0,.85),0 0 2px rgba(0,0,0,.9)}
+.mono{font-family:ui-monospace,"DejaVu Sans Mono",Menlo,monospace}
+.eq{display:flex;gap:4px;align-items:flex-end}.eq i{width:6px;background:var(--acc);border-radius:3px;display:block}
+.prog{height:8px;border-radius:4px;background:rgba(255,255,255,.18);position:relative;overflow:hidden}.prog i{position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:var(--acc)}
+</style></head><body>
+<!--SPRITE-->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+<symbol id="turn" viewBox="0 0 24 24"><path d="M6 21V11a4 4 0 0 1 4-4h8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/><path d="m15 3 4 4-4 4" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="music" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7" cy="18" r="2.6" fill="currentColor"/><circle cx="17" cy="16" r="2.6" fill="currentColor"/></symbol>
+<symbol id="nav" viewBox="0 0 24 24"><path d="M12 3 19 20l-7-4-7 4z" fill="currentColor"/></symbol>
+<symbol id="phone" viewBox="0 0 24 24"><path d="M6.5 4h3l1.5 4-2 1.3a11 11 0 0 0 5.7 5.7L16 13l4 1.5v3A2.5 2.5 0 0 1 17.5 20 13.5 13.5 0 0 1 4 6.5 2.5 2.5 0 0 1 6.5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.4" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.4" fill="currentColor"/></symbol>
+<symbol id="prev" viewBox="0 0 24 24"><path d="M6 5v14M19 5v14L9 12z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="next" viewBox="0 0 24 24"><path d="M18 5v14M5 5v14l10-7z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="list" viewBox="0 0 24 24"><path d="M4 7h12M4 12h12M4 17h8M18 15v5l4-2.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6h-6v6H4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="work" viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 8V6h6v2M3 13h18" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="pin" viewBox="0 0 24 24"><path d="M12 21s6-6 6-11a6 6 0 0 0-12 0c0 5 6 11 6 11z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.2" fill="currentColor"/></symbol>
+<symbol id="radio" viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4v16M15 8v8M19 6v12M22 12h-1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+<symbol id="mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="chat" viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 10h18M8 3v4M16 3v4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+<symbol id="gauge" viewBox="0 0 24 24"><path d="M4 17a8 8 0 1 1 16 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="m12 17 4-5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+<symbol id="gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" fill="none" stroke="currentColor" stroke-width="3" stroke-dasharray="3.2 2.7"/><circle cx="12" cy="12" r="3" fill="currentColor"/></symbol>
+<symbol id="folder" viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="camera" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="13.5" r="3.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="m9 7 1-2h4l1 2" fill="none" stroke="currentColor" stroke-width="2"/></symbol>
+<symbol id="x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></symbol>
+<symbol id="check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+<h1 id="title"></h1>
+<div class="idea" id="idea"></div>
+<div id="body"></div>
+<script>/*LIB*/</script>
+<script>build('__LANG__');</script>
+</body></html>

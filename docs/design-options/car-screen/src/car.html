@@ -44,8 +44,11 @@ h1{font-size:28px;font-weight:800}
 .xl .t{font-size:42px;font-weight:800}.xl .a{font-size:30px;color:#aab3c8;margin-top:4px}
 .stat{display:flex;align-items:center;gap:18px;height:100%;padding:0 22px;font-size:34px;font-weight:800;white-space:nowrap}
 .stat svg{width:34px;height:34px}.stat .bt{color:#6ee7a8;display:flex;align-items:center;gap:8px}
-.focus{outline:7px solid #6ee7a8;outline-offset:5px;box-shadow:0 0 0 16px rgba(110,231,168,.22),0 12px 34px rgba(0,0,0,.5)}
-.btn.focus{box-shadow:0 0 0 14px rgba(110,231,168,.22)}
+.focus{outline:7px solid #6ee7a8;outline-offset:5px;box-shadow:0 0 0 5px #06080d,0 0 0 21px rgba(6,8,13,.6),0 12px 34px rgba(0,0,0,.5)}
+.btn.focus{box-shadow:0 0 0 5px #06080d,0 0 0 21px rgba(6,8,13,.6)}
+.glass *{text-shadow:0 1px 3px rgba(0,0,0,.65)}
+.pb{position:absolute;border:2px solid rgba(255,255,255,.24);display:grid;place-items:center;color:#e8edf8;box-shadow:0 8px 22px rgba(0,0,0,.6)}
+.pb svg{width:36px;height:36px}.pb.on{color:#6ee7a8;border-color:#6ee7a8}
 .free{position:absolute;border:4px dashed #6ee7a8;background:rgba(110,231,168,.07);border-radius:10px}
 .free span{position:absolute;right:12px;bottom:8px;font:700 24px system-ui;color:#6ee7a8;background:rgba(9,11,17,.8);padding:3px 12px;border-radius:12px}
 .cross{position:absolute;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;border:4px solid #fff;background:rgba(110,231,168,.35)}
@@ -75,6 +78,13 @@ h1{font-size:28px;font-weight:800}
 .legend{display:flex;gap:18px;font-size:13px;color:#9aa3b8;margin-top:10px;flex-wrap:wrap}
 .legend span{display:flex;align-items:center;gap:6px}.legend i{display:inline-block;width:14px;height:14px;border-radius:4px}
 .col2{display:flex;flex-direction:column}
+.sheet{width:1600px;background:#10131b;border:1px solid #232a3b;border-radius:18px;overflow:hidden}
+.or{display:grid;grid-template-columns:300px repeat(6,1fr);border-bottom:1px solid #232a3b;align-items:center;min-height:84px}
+.or.head{padding:16px 0 14px;align-items:start;border-bottom:2px solid #2d364a}
+.th{text-align:center;display:flex;flex-direction:column;align-items:center;gap:8px}.th .nm{font-size:14px;font-weight:800;color:#e3e8f5}
+.lb{display:flex;gap:12px;padding:0 20px;align-items:center}.lb b{width:30px;height:30px;border-radius:50%;background:#6ee7a8;color:#06251a;display:grid;place-items:center;font-size:15px;flex:none}
+.lb span{font-size:16px;font-weight:800;display:block}.lb small{font-size:12px;color:#8b93a7;display:block;margin-top:2px}
+.vc{display:flex;justify-content:center;padding:10px 4px}.vc small{font-size:12.5px;color:#c4cbdc;text-align:center}
 </style></head><body>
 <!--SPRITE-->
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">

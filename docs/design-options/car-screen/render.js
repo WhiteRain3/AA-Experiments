@@ -23,5 +23,14 @@ const names = { a: 'layout-a-left-rail', b: 'layout-b-bottom-dock', c: 'layout-c
     await page.screenshot({ path: path.join(__dirname, 'customisation-system.png'), fullPage: true });
     await page.close();
   }
+  const extra = [['buildMusic(1)', 'music-variant-1-artwork-box.png', 1330], ['buildMusic(2)', 'music-variant-2-large-artwork.png', 1330], ['buildMusicPlacement()', 'music-card-with-presets.png', 1680]];
+  for (const [call, out, width] of extra) {
+    const html = fs.readFileSync(path.join(__dirname, 'src/car.html'), 'utf8').replace('build(LAYOUT)', call).replace('<!--SPRITE-->', () => sprite).replace('/*LIB*/', () => lib).replace('__LAYOUT__', 'a').replace('width:1680px;background:#0b0d12', `width:${width}px;background:#0b0d12`);
+    const page = await browser.newPage({ viewport: { width, height: 1000 }, deviceScaleFactor: 1.5 });
+    page.on('pageerror', e => console.error(out, e.message));
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.screenshot({ path: path.join(__dirname, out), fullPage: true });
+    await page.close();
+  }
   await browser.close();
 })();

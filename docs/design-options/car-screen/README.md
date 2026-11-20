@@ -64,6 +64,32 @@ Eight options, the same in settings for every layout, set in the "Edit the pictu
 
 Rules: a dock only sits at the bottom, a ribbon only at the top, cards never sit in the free area, and cards keep a dark base even at the most see-through setting so text stays readable over any map colour. The default amounts (14% on A to C, 40% on D to F) and the 15-second hide in E are proposals; they depend on what the owner finds readable in the car.
 
+## Music card over the map: artwork box with a separate button pill
+
+The owner's idea: the artwork is its own box, sized sensibly, and below it a separate hovering menu of buttons. Two variants, each drawn playing, paused and with no artwork, with the knob on the artwork and on a button (the bottom row is on a light map to check that text and the focus ring stay readable).
+
+### Variant 1: framed artwork box, three buttons
+
+![Variant 1](music-variant-1-artwork-box.png)
+
+- **Idea:** a 216 px rounded artwork box in a small frame with title, artist and progress directly under it; a separate pill under the frame holds previous, play or pause, next.
+- **Knob:** the whole card is one stop; press to go inside, then turn goes artwork, previous, play/pause, next; press on the artwork opens the full player; Back leaves.
+- **Trade-off:** narrow (232 px) and always on a solid frame so it reads on any map, but tall (434 px with the pill) so it fits at a side or corner.
+
+### Variant 2: large artwork with the title on it, four buttons
+
+![Variant 2](music-variant-2-large-artwork.png)
+
+- **Idea:** a 320 px artwork with title, artist and progress on a dark fade at its bottom; a separate pill under it with previous, play or pause, next and the queue.
+- **Knob:** same model, with the queue as a fourth inside stop.
+- **Trade-off:** the most attractive, but 90 px wider and the title sits on the artwork, so the dark fade is part of the design.
+
+### How they sit with presets D, E and F
+
+![Music card with presets](music-card-with-presets.png)
+
+D: bottom-left beside the rail. E: bottom-right above the right end of the pills. F: bottom-left, away from the pill column. The dashed box shows how the free area for the map shrinks. Artwork size (small, medium, large) would be a setting in "Edit the picture"; these pictures show medium. States: playing has an equalizer badge and a pause button; paused dims the artwork, shows a pause badge and a play button; no artwork shows a quiet music tile (live radio shows no progress bar).
+
 ## Notes and open questions
 
 - Whether the rail sits left or right matters because of the unused strip: C puts it against that strip, A and B keep everything inside the visible 1200 px. This is unconfirmed on the car.

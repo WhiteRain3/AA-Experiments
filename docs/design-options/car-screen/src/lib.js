@@ -297,3 +297,76 @@ function buildSheet() {
   document.getElementById('row1').innerHTML = `<div class="sheet"><div class="or head"><div class="lb"></div>${thumbs}</div>${body}</div>`;
   document.getElementById('row2').innerHTML = `<div style="font-size:14px;color:#9aa3b8;line-height:1.5;max-width:1500px">Presets A, B and C stop the map at the bar's edge (option 2 off) and keep their cards nearly opaque, as in the first round of pictures. D, E and F put the map under everything and float the bar over it. Changing one option on its own, for example turning option 2 on in preset A, gives a layout between the presets; the phone shows the result at once. These values are a proposal to review: the rail's right-hand side placement, the 15-second hide and the 40% default depend on what the owner finds readable in the car.</div>`;
 }
+
+/* =====================================================================
+   Music card: artwork as its own box, a separate pill of buttons under it
+   ===================================================================== */
+// v = 1: framed artwork box with the title under it, 3 buttons. v = 2: larger artwork with the title on it, 4 buttons.
+function musicCard(x, y, v, st, fo) {
+  const Wd = v === 1 ? 232 : 320, ART = v === 1 ? 216 : 320;
+  const none = st === 'none', paused = st === 'paused';
+  const artBg = none ? 'radial-gradient(circle at 50% 45%,rgba(255,255,255,.10) 0 34%,transparent 35%),radial-gradient(circle at 50% 45%,rgba(255,255,255,.06) 0 52%,transparent 53%),linear-gradient(160deg,#1b2233,#2c3750)' : 'linear-gradient(135deg,#4cc9f0,#8f5bff 60%,#ff5a8a)';
+  const note = `<div style="position:absolute;inset:0;display:grid;place-items:center;color:${none ? 'rgba(255,255,255,.45)' : '#fff'}${paused ? ';opacity:.55' : ''}"><svg style="width:${ART * .4}px;height:${ART * .4}px"><use href="#music"/></svg></div>`;
+  const badge = none ? '' : paused ? `<div class="pz"><svg><use href="#pause"/></svg></div>` : `<div class="eq"><i style="height:14px"></i><i style="height:24px"></i><i style="height:18px"></i></div>`;
+  const title = none ? 'Evening Mix' : 'Night Drive', artist = none ? 'Live radio' : 'Blue Harbor';
+  const prog = none ? '' : `<div class="prog" style="height:8px;margin-top:10px"><i></i></div>`;
+  const dim = paused ? 'filter:brightness(.6)' : '';
+  const artbox = v === 1
+    ? `<div class="${fo === 'art' ? 'focus' : ''}" style="position:relative;width:216px;height:216px;border-radius:20px;overflow:hidden;background:${artBg}"><div style="position:absolute;inset:0;${dim}">${note}</div>${badge}</div>`
+    : `<div class="glass ${fo === 'art' ? 'focus' : ''}" style="position:relative;width:320px;height:320px;overflow:hidden;background:${artBg}"><div style="position:absolute;inset:0;${dim}">${note}</div>${badge}<div style="position:absolute;left:0;right:0;bottom:0;padding:44px 22px 20px;background:linear-gradient(180deg,rgba(6,8,13,0),rgba(6,8,13,.9) 55%)"><div style="font-size:34px;font-weight:800;text-shadow:0 1px 4px #000">${title}</div><div style="font-size:25px;color:#c4cbdc;margin-top:2px">${artist}</div>${prog}</div></div>`;
+  const cap = v === 1 ? `<div style="padding:26px 6px 0"><div style="font-size:30px;font-weight:800;white-space:nowrap">${title}</div><div style="font-size:24px;color:#aab3c8;margin-top:2px">${artist}</div>${prog}</div>` : '';
+  const top = v === 1 ? `<div class="glass" style="position:relative;width:232px;height:334px;padding:8px;overflow:visible;background:rgba(12,15,22,${ALPHA})">${artbox}${cap}</div>` : artbox;
+  const pbtn = (id, big, focus) => `<div class="mbtn ${big ? 'play' : ''} ${focus ? 'focus' : ''}" style="width:${big ? 76 : 68}px;height:${big ? 76 : 68}px"><svg style="width:${big ? 40 : 34}px;height:${big ? 40 : 34}px"><use href="#${id}"/></svg></div>`;
+  const btns = [pbtn('prev'), pbtn(paused || none ? 'play' : 'pause', true, fo === 'btn'), pbtn('next'), ...(v === 2 ? [pbtn('list')] : [])].join('');
+  const row = `<div class="glass" style="position:relative;margin-top:12px;width:${Wd}px;height:88px;border-radius:44px;display:flex;align-items:center;justify-content:center;gap:${v === 1 ? 6 : 8}px;overflow:visible;background:rgba(12,15,22,${Math.min(.92, ALPHA + .12)})">${btns}</div>`;
+  return `<div class="pc" style="left:${x}px;top:${y}px;width:${Wd}px">${top}${row}</div>`;
+}
+function buildMusic(v) {
+  ALPHA = .72;
+  document.getElementById('title').textContent = v === 1 ? 'Music card, variant 1: framed artwork box, buttons in a pill under it' : 'Music card, variant 2: large artwork with the title on it, buttons in a pill under it';
+  document.getElementById('lines').innerHTML = (v === 1 ? [
+    ['IDEA', 'The artwork is its own rounded box (216 px) in a small frame, with the title, artist and progress directly under it. The buttons are a separate pill hovering under the frame: previous, play or pause, next. Without artwork the box shows a quiet music tile.'],
+    ['KNOB', 'Outside the card it is ONE stop. Press to go inside: turn moves artwork, previous, play/pause, next. Press on the artwork opens the full player; press on a button acts. Back leaves the card. So the screen keeps few stops.'],
+    ['TRADE-OFF', 'Narrow (232 px) so the map keeps most of the width, and text is always on a solid frame so it reads on any map. It is tall (434 px with the pill), so it only fits comfortably at a side or corner.']
+  ] : [
+    ['IDEA', 'The artwork is large (320 px) and carries the title, artist and progress on a dark fade at its bottom. The separate pill under it has four buttons: previous, play or pause, next, and the queue.'],
+    ['KNOB', 'Same model: one stop outside, and inside it turn goes artwork, previous, play/pause, next, queue. Press on the artwork opens the full player.'],
+    ['TRADE-OFF', 'The most attractive and the clearest artwork, but it is 320 px wide and covers more of the map; the title sits on the artwork, so a light cover needs the dark fade to stay readable, which is why it is part of the design.']
+  ]).map(l => `<div><b>${l[0]}</b>${l[1]}</div>`).join('');
+  const cols = [['playing', 'Playing', 'equalizer badge, pause button'], ['paused', 'Paused', 'dim artwork, pause badge, play button'], ['none', 'No artwork', 'quiet tile, live radio']];
+  const mk = (fo, light) => cols.map(c => {
+    const dx = 520, dy = 160;
+    return `<div><div class="mc"><div style="position:absolute;left:${-dx}px;top:${-dy}px">${mapSVG(dx + 200, dy + 260, light)}</div>${musicCard(v === 1 ? 84 : 40, 22, v, c[0], fo)}</div><div class="mcap"><span>${c[1]}</span>${c[2]}</div></div>`;
+  }).join('');
+  const row = html => html;
+  document.getElementById('row1').innerHTML = mk('art', false);
+  document.getElementById('row2').innerHTML = mk('btn', true);
+  document.getElementById('row1').style.cssText = document.getElementById('row2').style.cssText = 'gap:20px;margin-bottom:0';
+  const r1 = document.createElement('div'); r1.style.cssText = 'font-size:13px;color:#8b93a7;margin:-6px 2px 10px;letter-spacing:.08em';
+  r1.textContent = 'TOP ROW: KNOB ON THE ARTWORK (DARK MAP)     ·     BOTTOM ROW: KNOB ON A BUTTON (LIGHT MAP, TO CHECK READABILITY)';
+  document.getElementById('row1').before(r1);
+}
+function buildMusicPlacement() {
+  document.getElementById('title').textContent = 'Music card with presets D, E and F';
+  document.getElementById('lines').innerHTML = [
+    ['WHERE IT SITS', 'D: bottom-left beside the rail. E: bottom-right, above the right end of the pills. F: bottom-left, away from the pill column on the right. It always sits at a side so the route can stay in the middle.'],
+    ['FREE AREA', 'The route centre moves into what is left (dashed box). Variant 1 is narrower, so it leaves the map about 90 px more width than variant 2.'],
+    ['SIZE OPTION', 'Artwork size can be small, medium or large in settings (the option "Size" in Edit the picture); these pictures show the medium size. The card can also hide to a small pill after a while.']
+  ].map(l => `<div><b>${l[0]}</b>${l[1]}</div>`).join('');
+  const ids = ['d', 'e', 'f'], nm = { d: 'D · see-through rail', e: 'E · pills along the bottom', f: 'F · pill column on the right' };
+  const place = (id, v) => {
+    const L = LAYOUTS[id]; ALPHA = L.alpha; const Wd = v === 1 ? 232 : 320, Ht = v === 1 ? 434 : 416;
+    let x, y, free;
+    if (id === 'd') { x = 118; y = 720 - 24 - Ht; free = [x + Wd + 24, 24, 1190 - (x + Wd + 24), 676]; }
+    if (id === 'e') { x = 1190 - Wd; y = 720 - 24 - Ht; free = [0, 0, x - 20, 620]; }
+    if (id === 'f') { x = 24; y = 696 - Ht; free = [x + Wd + 20, 130, 1090 - (x + Wd + 20), 590]; }
+    const cx = free[0] + free[2] / 2, cy = free[1] + free[3] * .64;
+    const h = mapSVG(cx, cy) + L.parts(0, false) + musicCard(x, y, v, 'playing', null) + `<div class="unused"><i>unused strip, about 80 px</i></div><div class="free" style="${pos(free)}"><span>free area for the map</span></div><div class="cross" style="left:${cx}px;top:${cy}px"></div>`;
+    return `<div class="cell"><div class="frame"><div class="screen" style="transform:scale(.4)">${h}</div></div><div class="cap"><span>${nm[id]}</span></div></div>`;
+  };
+  document.getElementById('row1').innerHTML = ids.map(i => place(i, 1)).join('');
+  document.getElementById('row2').innerHTML = ids.map(i => place(i, 2)).join('');
+  const t = (txt) => { const d = document.createElement('div'); d.style.cssText = 'font-size:13px;color:#8b93a7;margin:6px 2px 8px;letter-spacing:.08em'; d.textContent = txt; return d; };
+  document.getElementById('row1').before(t('VARIANT 1 · FRAMED ARTWORK BOX'));
+  document.getElementById('row2').before(t('VARIANT 2 · LARGE ARTWORK WITH THE TITLE ON IT'));
+}

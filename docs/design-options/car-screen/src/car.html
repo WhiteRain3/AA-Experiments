@@ -78,6 +78,16 @@ h1{font-size:28px;font-weight:800}
 .legend{display:flex;gap:18px;font-size:13px;color:#9aa3b8;margin-top:10px;flex-wrap:wrap}
 .legend span{display:flex;align-items:center;gap:6px}.legend i{display:inline-block;width:14px;height:14px;border-radius:4px}
 .col2{display:flex;flex-direction:column}
+.mc{position:relative;width:400px;height:520px;border-radius:16px;overflow:hidden;border:1px solid #2a3144;flex:none}
+.mc svg.map{position:absolute}
+.mcap{width:400px;font-size:14px;color:#9aa3b8;margin:8px 2px 16px;display:flex;gap:8px;align-items:center}.mcap span{color:#e3e8f5;font-weight:700}
+.pc{position:absolute}
+.eq{position:absolute;right:12px;top:12px;background:rgba(6,8,13,.7);border-radius:12px;padding:8px 10px;display:flex;gap:4px;align-items:flex-end;height:36px;z-index:2}
+.eq i{width:6px;background:#6ee7a8;border-radius:3px;display:block}
+.pz{position:absolute;right:12px;top:12px;background:rgba(6,8,13,.7);border-radius:12px;padding:6px 8px;color:#fff;z-index:2}.pz svg{width:24px;height:24px}
+.mbtn{border-radius:50%;background:#1a2030;border:2px solid #2d364a;display:grid;place-items:center;color:#e8edf8;flex:none}
+.mbtn.play{background:#6ee7a8;color:#06251a;border-color:#6ee7a8}
+
 .sheet{width:1600px;background:#10131b;border:1px solid #232a3b;border-radius:18px;overflow:hidden}
 .or{display:grid;grid-template-columns:300px repeat(6,1fr);border-bottom:1px solid #232a3b;align-items:center;min-height:84px}
 .or.head{padding:16px 0 14px;align-items:start;border-bottom:2px solid #2d364a}
@@ -95,6 +105,8 @@ h1{font-size:28px;font-weight:800}
 <symbol id="play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="currentColor"/></symbol>
 <symbol id="prev" viewBox="0 0 24 24"><path d="M6 5v14M19 5v14L9 12z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
 <symbol id="next" viewBox="0 0 24 24"><path d="M18 5v14M5 5v14l10-7z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+<symbol id="pause" viewBox="0 0 24 24"><rect x="6" y="5" width="4.2" height="14" rx="1.4" fill="currentColor"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.4" fill="currentColor"/></symbol>
+<symbol id="list" viewBox="0 0 24 24"><path d="M4 7h12M4 12h12M4 17h8M18 15v5l4-2.5z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
 <symbol id="sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2" fill="currentColor"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3M5.3 5.3l2.1 2.1M16.6 16.6l2.1 2.1M18.7 5.3l-2.1 2.1M7.4 16.6l-2.1 2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
 <symbol id="tapx" viewBox="0 0 24 24"><path d="M9 11V5.5a1.6 1.6 0 0 1 3.2 0V11l4.3.9a2.2 2.2 0 0 1 1.7 2.6l-.7 4A3 3 0 0 1 14.6 21h-3.1a3 3 0 0 1-2.4-1.2L6 15.5a1.5 1.5 0 0 1 2.4-1.8L9 14.4" fill="rgba(255,255,255,.15)" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></symbol>
 </svg>

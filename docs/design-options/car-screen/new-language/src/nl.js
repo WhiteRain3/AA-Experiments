@@ -275,6 +275,7 @@ const LANGS = {
 const knobIcon = t => ({
   push: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#6ee7a8" stroke-width="2"/><circle cx="12" cy="12" r="4" fill="#6ee7a8"/></svg>',
   turn: '<svg viewBox="0 0 24 24"><path d="M5 12a7 7 0 0 1 12-5M19 3.5V8h-4.5M19 12a7 7 0 0 1-12 5M5 20.5V16h4.5" fill="none" stroke="#6ee7a8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  hold: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="#6ee7a8" stroke-width="2" stroke-dasharray="3 2.2"/><circle cx="12" cy="12" r="4" fill="#6ee7a8"/></svg>',
   pad: '<svg viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4" stroke="#6ee7a8" stroke-width="2" stroke-linecap="round"/><path d="m16 8 5 4-5 4z" fill="#6ee7a8"/></svg>'
 }[t]);
 const frameOf = (html, scale, acc, extra = '') => `<div class="frame" ${extra} style="width:${W * scale}px;height:${H * scale}px"><div class="screen" style="transform:scale(${scale});--acc:${acc}">${html}</div></div>`;
@@ -298,6 +299,7 @@ function build(id, mode) {
   const sc = 512 / W;
   const cell = (s, i) => `<div class="cell">${frameOf(s[1](), sc, L.acc)}<div class="cap"><span>${i + 1}</span>${s[0]}</div></div>`;
   const row1 = L.shots.slice(0, 3).map(cell).join('');
-  const row2 = L.shots.slice(3).map((s, i) => cell(s, i + 3)).join('') + stylePanel(L);
-  document.getElementById('body').innerHTML = `<div class="row">${row1}</div><div class="row">${row2}</div><div class="h2" style="margin-top:14px">How the knob does two everyday jobs (screens are 300 px wide; arrows show the knob action between them)</div>${strip(L.stripNext, L.acc)}${strip(L.stripNav, L.acc)}`;
+  const row2 = L.shots.slice(3).map((s, i) => cell(s, i + 3)).join('') + (L.row3 ? '' : stylePanel(L));
+  const row3 = L.row3 ? `<div class="row">${L.row3().join('')}</div>` : '';
+  document.getElementById('body').innerHTML = `<div class="row">${row1}</div><div class="row">${row2}</div>${row3}<div class="h2" style="margin-top:14px">How the knob does two everyday jobs (screens are 300 px wide; arrows show the knob action between them)</div>${strip(L.stripNext, L.acc)}${strip(L.stripNav, L.acc)}`;
 }

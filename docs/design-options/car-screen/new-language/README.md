@@ -58,6 +58,10 @@ Home screen at full size: [3-race-home.png](3-race-home.png)
 - **Safety:** the speed is a plain number: no needle, rev bar, redline, best, score, lap or sector time. The limit comes from OpenStreetMap and is always labelled "hint"; when you are more than 9 km/h over, its plate fades to calm amber (600 ms, no sound, no flashing) and fades back when you slow down. With no limit known the plate shows a dash.
 - **Trade-off:** the most energetic look of the set and the clearest map, since all four plates are pinned to the corners. Slanted italic type is a little harder to read than upright type in glare, so sizes are kept large; the world list covers the left third of the map while it is open, and the look may feel too sporty for some drivers (the night variant calms it down).
 
+## ORBIT control hints
+
+Six options for showing what each pad direction does, drawn around ORBIT's speed circle: see [4-hints.md](4-hints.md).
+
 ## Notes
 
 - Which to pick can be mixed: Orbit's dial with Verbs' predicted order, or Deck's colours on Orbit's shapes. Say which parts to keep.
